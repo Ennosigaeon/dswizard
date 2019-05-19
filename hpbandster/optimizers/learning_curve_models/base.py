@@ -1,8 +1,8 @@
-class LCModel():
+class LCModel:
     """
         base class for simple learning curve models
     """
-    
+
     def fit(self, times, losses, configs=None):
         """
             function to train the model on the observed data
@@ -20,7 +20,6 @@ class LCModel():
                 information is available.
         """
         raise NotImplementedError()
-
 
     def predict_unseen(self, times, config):
         """
@@ -40,7 +39,6 @@ class LCModel():
             mean and variance prediction at input times for the given config
         """
         raise NotImplementedError()
-
 
     def extend_partial(self, times, obs_times, obs_losses, config=None):
         """
@@ -66,5 +64,3 @@ class LCModel():
                 
                 
         """
-
-    

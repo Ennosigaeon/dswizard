@@ -20,7 +20,7 @@ class LCNetWrapper(LCModel):
                            n_iters=30000,
                            get_net=get_lc_net,
                            precondition=True)
-    
+
     def fit(self, times, losses, configs=None):
         """
             function to train the model on the observed data
@@ -117,4 +117,3 @@ class LCNetWrapper(LCModel):
                 
         """
         return self.predict_unseen(times, config)
-

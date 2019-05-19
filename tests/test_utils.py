@@ -1,10 +1,8 @@
-import unittest
 import logging
+import unittest
 
 logging.basicConfig(level=logging.WARNING)
 
-import ConfigSpace as CS
-from hpbandster.core.worker import Worker
 import hpbandster.core.nameserver as hpn
 import hpbandster.utils as utils
 
@@ -31,6 +29,7 @@ class TestUtils(unittest.TestCase):
         ns_host, ns_port = ns.start()
         self.assertEqual(ns.host, '127.0.0.1')
         ns.shutdown()
+
 
 if __name__ == '__main__':
     unittest.main()

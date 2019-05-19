@@ -4,7 +4,7 @@ python:
 os:
   - linux
 before_install:
-  # nothing to be done here
+# nothing to be done here
 install:
   - pip install --upgrade pip
   - pip install cython
@@ -12,7 +12,7 @@ install:
   - python setup.py install
 
 script:
-  - nosetests -sv --with-coverage --cover-package=hpbandster 
+  - nosetests -sv --with-coverage --cover-package=hpbandster
 
 after_success:
   - codecov

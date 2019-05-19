@@ -1,9 +1,7 @@
-import os
+import logging
+import tempfile
 import time
 import unittest
-import tempfile
-
-import logging
 
 logging.basicConfig(level=logging.WARNING)
 
@@ -29,7 +27,7 @@ class TestWorker(Worker):
 
     def compute(self, *args, **kwargs):
         time.sleep(self.sleep_duration)
-        return ({'loss': 0, 'info': {}})
+        return {'loss': 0, 'info': {}}
 
 
 class TestWorkers(unittest.TestCase):

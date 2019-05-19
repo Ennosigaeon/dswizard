@@ -1,13 +1,11 @@
+import os.path
+import tempfile
 import unittest
-from hpbandster.core.result import Run, extract_HBS_learning_curves, \
-    json_result_logger, logged_results_to_HBS_result
-from hpbandster.core.base_iteration import Datum
 
 import ConfigSpace as CS
 
-import tempfile
-import sys
-import os.path
+from hpbandster.core.result import Run, extract_HBS_learning_curves, \
+    json_result_logger
 
 
 class TestResult(unittest.TestCase):
@@ -22,6 +20,7 @@ class TestResult(unittest.TestCase):
         self.assertListEqual(run_obj.info['loss'], [3, 1])
         self.assertDictEqual(run_obj.time_stamps, {'submitted': 0, 'started': 10})
 
+
 class TestExtraction(unittest.TestCase):
     def test_extract_HBS_learning_curves(self):
         run_1 = Run('1', 10, 1, {}, {}, None)
@@ -33,9 +32,9 @@ class TestExtraction(unittest.TestCase):
         self.assertListEqual(extract_HBS_learning_curves([run_1, run_2, run_3, run_4]),
                              [[(1, 7), (6, 3), (10, 1)]])
 
+
 class TestJsonResultLogger(unittest.TestCase):
     def test_write_new_config(self):
-
         cs = CS.ConfigurationSpace()
         cs.add_hyperparameter(CS.CategoricalHyperparameter('test', [1]))
 
@@ -53,6 +52,7 @@ class TestJsonResultLogger(unittest.TestCase):
                 data = fh.read()
                 data = data.rstrip()
                 self.assertEqual(data, r'["1", {"test": 1}, {"test": "test"}]')
+
 
 """
 class TestResultObject(unittest.TestCase):

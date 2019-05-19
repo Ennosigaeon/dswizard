@@ -5,10 +5,11 @@ Worker for Examples 1-4
 This class implements a very simple worker used in the firt examples.
 """
 
-import numpy
 import time
 
 import ConfigSpace as CS
+import numpy
+
 from hpbandster.core.worker import Worker
 
 
@@ -37,17 +38,16 @@ class MyWorker(Worker):
                 'info' (dict)
         """
 
-        res = numpy.clip(config['x'] + numpy.random.randn()/budget, config['x']/2, 1.5*config['x'])
+        res = numpy.clip(config['x'] + numpy.random.randn() / budget, config['x'] / 2, 1.5 * config['x'])
         time.sleep(self.sleep_interval)
 
-        return({
-                    'loss': float(res),  # this is the a mandatory field to run hyperband
-                    'info': res  # can be used for any user-defined information - also mandatory
-                })
-    
+        return {
+            'loss': float(res),  # this is the a mandatory field to run hyperband
+            'info': res  # can be used for any user-defined information - also mandatory
+        }
+
     @staticmethod
     def get_configspace():
         config_space = CS.ConfigurationSpace()
         config_space.add_hyperparameter(CS.UniformFloatHyperparameter('x', lower=0, upper=1))
-        return(config_space)
-
+        return config_space

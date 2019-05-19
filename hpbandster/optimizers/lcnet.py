@@ -1,16 +1,10 @@
-import os
-import time
-import math
-import copy
-import logging
-
 import numpy as np
 
-import ConfigSpace as CS
-
 from hpbandster.core.master import Master
-from hpbandster.optimizers.iterations import SuccessiveHalving
 from hpbandster.optimizers.config_generators.lcnet import LCNetWrapper as CG_LCNet
+from hpbandster.optimizers.iterations import SuccessiveHalving
+
+
 # from hpbandster.optimizers.config_generators import RandomSampling
 
 
@@ -114,8 +108,8 @@ class LCNet(Master):
         # number of 'SH rungs'
         s = self.max_SH_iter - 1 - (iteration % self.max_SH_iter)
         # number of configurations in that bracket
-        n0 = int(np.floor((self.max_SH_iter) / (s + 1)) * self.eta ** s)
+        n0 = int(np.floor(self.max_SH_iter / (s + 1)) * self.eta ** s)
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
 
-        return (SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
-                                  config_sampler=self.config_generator.get_config, **iteration_kwargs))
+        return SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
+                                 config_sampler=self.config_generator.get_config, **iteration_kwargs)

@@ -26,7 +26,7 @@ comment:
   require_changes: no
 
 ignore:
-    - "hpbandster/examples/.*"
-    - "hpbandster/workers/hpolibbenchmark.py"
-    - "hpbandster/visualization.py"
-    - "hpbandster/optimizers/lerning_curve_models/base.py"
+  - "hpbandster/examples/.*"
+  - "hpbandster/workers/hpolibbenchmark.py"
+  - "hpbandster/visualization.py"
+  - "hpbandster/optimizers/lerning_curve_models/base.py"
