@@ -184,8 +184,7 @@ class Test1dConntinuous(Base1dTest, unittest.TestCase):
     var_types = 'c'
 
     def add_hyperparameters(self):
-        HPs = []
-        HPs.append(CS.UniformFloatHyperparameter('cont1', lower=0, upper=1))
+        HPs = [CS.UniformFloatHyperparameter('cont1', lower=0, upper=1)]
         self.configspace.add_hyperparameters(HPs)
 
 
@@ -193,8 +192,7 @@ class Test1dCategorical(Base1dTest, unittest.TestCase):
     var_types = 'u'
 
     def add_hyperparameters(self):
-        HPs = []
-        HPs.append(CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz']))
+        HPs = [CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz'])]
         self.configspace.add_hyperparameters(HPs)
 
 
@@ -202,8 +200,7 @@ class Test1dOrdinal(Base1dTest, unittest.TestCase):
     var_types = 'o'
 
     def add_hyperparameters(self):
-        HPs = []
-        HPs.append(CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot']))
+        HPs = [CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot'])]
         self.configspace.add_hyperparameters(HPs)
 
 
@@ -222,10 +219,9 @@ class Test3dConntinuous(BaseNdTest, unittest.TestCase):
     var_types = 'ccc'
 
     def add_hyperparameters(self):
-        HPs = []
-        HPs.append(CS.UniformFloatHyperparameter('cont1', lower=0, upper=1))
-        HPs.append(CS.UniformFloatHyperparameter('cont2', lower=0, upper=1))
-        HPs.append(CS.UniformFloatHyperparameter('cont3', lower=0, upper=1))
+        HPs = [CS.UniformFloatHyperparameter('cont1', lower=0, upper=1),
+               CS.UniformFloatHyperparameter('cont2', lower=0, upper=1),
+               CS.UniformFloatHyperparameter('cont3', lower=0, upper=1)]
         self.configspace.add_hyperparameters(HPs)
 
 
@@ -233,10 +229,9 @@ class Test3dMixed1(BaseNdTest, unittest.TestCase):
     var_types = 'uco'
 
     def add_hyperparameters(self):
-        HPs = []
-        HPs.append(CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz']))
-        HPs.append(CS.UniformFloatHyperparameter('cont1', lower=0, upper=1))
-        HPs.append(CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot']))
+        HPs = [CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz']),
+               CS.UniformFloatHyperparameter('cont1', lower=0, upper=1),
+               CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot'])]
         self.configspace.add_hyperparameters(HPs)
 
 
@@ -244,11 +239,10 @@ class Test3dMixed2(BaseNdTest, unittest.TestCase):
     var_types = 'ucoo'
 
     def add_hyperparameters(self):
-        HPs = []
-        HPs.append(CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz']))
-        HPs.append(CS.UniformFloatHyperparameter('cont1', lower=0, upper=1))
-        HPs.append(CS.UniformIntegerHyperparameter('int1', lower=-2, upper=2))
-        HPs.append(CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot']))
+        HPs = [CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz']),
+               CS.UniformFloatHyperparameter('cont1', lower=0, upper=1),
+               CS.UniformIntegerHyperparameter('int1', lower=-2, upper=2),
+               CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot'])]
         self.configspace.add_hyperparameters(HPs)
 
     def sm_transform_data(self, data):

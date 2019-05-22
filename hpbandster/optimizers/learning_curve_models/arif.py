@@ -28,6 +28,9 @@ class ARIF(lcm_base):
         """
         self.order = order
         self.diff_order = diff_order
+        self.X = None
+        self.y = None
+        self.rfr = None
 
     def apply_differencing(self, series, order=None):
 
@@ -46,7 +49,7 @@ class ARIF(lcm_base):
             order = self.diff_order
 
         # compute the differenced values of the initial part:
-        starting_points = [self.apply_differencing(initial_part, order=order)[-1] for order in range(self.diff_order)]
+        starting_points = [self.apply_differencing(initial_part, order=order)[-1] for order in range(order)]
 
         actual_predictions = differenced_rest
         import pdb

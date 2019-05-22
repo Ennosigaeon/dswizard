@@ -173,7 +173,6 @@ class Dispatcher(object):
 
     def discover_workers(self):
         self.discover_cond.acquire()
-        sleep_interval = 1
 
         while True:
             self.logger.debug('DISPATCHER: Starting worker discovery')
@@ -304,7 +303,7 @@ class Dispatcher(object):
             job.result = result['result']
             job.exception = result['exception']
 
-            self.logger.debug('DISPATCHER: job {} on {} finished' .format(job.id, job.worker_name))
+            self.logger.debug('DISPATCHER: job {} on {} finished'.format(job.id, job.worker_name))
             self.logger.debug(str(job))
 
             # delete job

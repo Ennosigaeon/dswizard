@@ -101,8 +101,7 @@ class Test1dCategorical(unittest.TestCase):
     def setUp(self):
         self.configspace = CS.ConfigurationSpace(43)
 
-        HPs = []
-        HPs.append(CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz']))
+        HPs = [CS.CategoricalHyperparameter('cat1', choices=['foo', 'bar', 'baz'])]
         self.configspace.add_hyperparameters(HPs)
 
         x_train_confs = [self.configspace.sample_configuration() for i in range(self.n_train)]
@@ -158,8 +157,7 @@ class Test1dInteger(unittest.TestCase):
     def setUp(self):
         self.configspace = CS.ConfigurationSpace(43)
 
-        HPs = []
-        HPs.append(CS.UniformIntegerHyperparameter('int1', lower=-2, upper=2))
+        HPs = [CS.UniformIntegerHyperparameter('int1', lower=-2, upper=2)]
         self.configspace.add_hyperparameters(HPs)
 
         x_train_confs = [self.configspace.sample_configuration() for i in range(self.n_train)]
@@ -219,8 +217,7 @@ class Test1dOrdinal(unittest.TestCase):
     def setUp(self):
         self.configspace = CS.ConfigurationSpace(43)
 
-        HPs = []
-        HPs.append(CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot']))
+        HPs = [CS.OrdinalHyperparameter('ord1', ['cold', 'mild', 'warm', 'hot'])]
         self.configspace.add_hyperparameters(HPs)
 
         x_train_confs = [self.configspace.sample_configuration() for i in range(self.n_train)]

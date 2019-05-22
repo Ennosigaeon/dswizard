@@ -154,7 +154,7 @@ class PyTorchWorker(Worker):
 				correct += pred.eq(y.view_as(pred)).sum().item()
 		#import pdb; pdb.set_trace()	
 		accuracy = correct/len(data_loader.sampler)
-		return(accuracy)
+		return accuracy
 
 
 	@staticmethod
@@ -263,7 +263,7 @@ class MNISTConvNet(torch.nn.Module):
 
 
 	def number_of_parameters(self):
-		return(sum(p.numel() for p in self.parameters() if p.requires_grad))
+		return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 
 

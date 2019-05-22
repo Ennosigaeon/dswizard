@@ -58,7 +58,7 @@ class HyperBand(Master):
             'max_SH_iter': self.max_SH_iter,
         })
 
-    def get_next_iteration(self, iteration, iteration_kwargs={}):
+    def get_next_iteration(self, iteration, iteration_kwargs=None):
         """
         Hyperband uses SuccessiveHalving for each iteration.
         See Li et al. (2016) for reference.
@@ -67,6 +67,8 @@ class HyperBand(Master):
         ----------
             iteration: int
                 the index of the iteration to be instantiated
+            iteration_kwargs: any
+                default
 
         Returns
         -------
@@ -74,6 +76,8 @@ class HyperBand(Master):
                 corresponding number of configurations
         """
 
+        if iteration_kwargs is None:
+            iteration_kwargs = {}
         # number of 'SH rungs'
         s = self.max_SH_iter - 1 - (iteration % self.max_SH_iter)
         # number of configurations in that bracket

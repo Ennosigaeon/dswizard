@@ -97,7 +97,7 @@ class H2BO(Master):
             'fully_dimensional': fully_dimensional,
         })
 
-    def get_next_iteration(self, iteration, iteration_kwargs={}):
+    def get_next_iteration(self, iteration, iteration_kwargs=None):
         """
             BO-HB uses (just like Hyperband) SuccessiveHalving for each iteration.
             See Li et al. (2016) for reference.
@@ -113,6 +113,8 @@ class H2BO(Master):
                     corresponding number of configurations
         """
 
+        if iteration_kwargs is None:
+            iteration_kwargs = {}
         min_budget = max(self.min_budget, self.config_generator.largest_budget_with_model())
         max_budget = self.max_budget
         eta = self.eta

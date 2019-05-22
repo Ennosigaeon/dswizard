@@ -48,7 +48,7 @@ def realtime_learning_curves(runs):
 	"""
 	sr = sorted(runs, key=lambda r: r.budget)
 	lc = list(filter(lambda t: not t[1] is None, [(r.time_stamps['finished'], r.info['test accuracy']) for r in sr]))
-	return([lc,])
+	return [lc, ]
 	
 lcs = result.get_learning_curves(lc_extractor=realtime_learning_curves)
 

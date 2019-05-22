@@ -112,7 +112,7 @@ class H2BO(BaseConfigGenerator):
                 )
                 info_dict['model_based_pick'] = True
 
-            except Exception as e:
+            except Exception:
                 self.logger.warning(("=" * 50 + "\n") * 3 +
                                     "Error sampling a configuration!\n" +
                                     "Models for budgets: {}".format(self.kde_models.keys()) +

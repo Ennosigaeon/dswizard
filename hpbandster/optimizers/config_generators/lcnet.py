@@ -102,7 +102,7 @@ class LCNetWrapper(BaseConfigGenerator):
         self.lock.release()
         return config.get_dictionary(), {}
 
-    def new_result(self, job):
+    def new_result(self, job, update_model=True):
         """
             function to register finished runs
 

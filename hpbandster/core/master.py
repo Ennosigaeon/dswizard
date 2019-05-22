@@ -162,7 +162,7 @@ class Master(object):
 
         raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
 
-    def run(self, n_iterations=1, min_n_workers=1, iteration_kwargs={}):
+    def run(self, n_iterations=1, min_n_workers=1, iteration_kwargs=None):
         """
             run n_iterations of SuccessiveHalving
 
@@ -172,8 +172,12 @@ class Master(object):
             number of iterations to be performed in this run
         min_n_workers: int
             minimum number of workers before starting the run
+        iteration_kwargs: any
+                default
         """
 
+        if iteration_kwargs is None:
+            iteration_kwargs = {}
         self.wait_for_workers(min_n_workers)
 
         iteration_kwargs.update({'result_logger': self.result_logger})

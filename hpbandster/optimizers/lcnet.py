@@ -89,7 +89,7 @@ class LCNet(Master):
             'min_bandwidth': min_bandwidth
         })
 
-    def get_next_iteration(self, iteration, iteration_kwargs={}):
+    def get_next_iteration(self, iteration, iteration_kwargs=None):
         """
             BO-HB uses (just like Hyperband) SuccessiveHalving for each iteration.
             See Li et al. (2016) for reference.
@@ -105,6 +105,8 @@ class LCNet(Master):
                     corresponding number of configurations
         """
 
+        if iteration_kwargs is None:
+            iteration_kwargs = {}
         # number of 'SH rungs'
         s = self.max_SH_iter - 1 - (iteration % self.max_SH_iter)
         # number of configurations in that bracket

@@ -66,7 +66,7 @@ class BaseIteration(object):
         self.logger = logger if logger is not None else logging.getLogger('hpbandster')
         self.result_logger = result_logger
 
-    def add_configuration(self, config=None, config_info={}):
+    def add_configuration(self, config=None, config_info=None):
         """
         function to add a new configuration to the current iteration
 
@@ -79,6 +79,8 @@ class BaseIteration(object):
             Some information about the configuration that will be stored in the results
         """
 
+        if config_info is None:
+            config_info = {}
         if config is None:
             config, config_info = self.config_sampler(self.budgets[self.stage])
 

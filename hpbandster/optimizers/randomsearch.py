@@ -53,7 +53,7 @@ class RandomSearch(Master):
             'max_budget': max_budget,
         })
 
-    def get_next_iteration(self, iteration, iteration_kwargs={}):
+    def get_next_iteration(self, iteration, iteration_kwargs=None):
         """
         Returns a SH iteration with only evaluations on the biggest budget
 
@@ -61,6 +61,8 @@ class RandomSearch(Master):
         ----------
             iteration: int
                 the index of the iteration to be instantiated
+            iteration_kwargs: any
+                default
 
         Returns
         -------
@@ -68,6 +70,8 @@ class RandomSearch(Master):
                 corresponding number of configurations
         """
 
+        if iteration_kwargs is None:
+            iteration_kwargs = {}
         budgets = [self.max_budget]
         ns = [self.budget_per_iteration // self.max_budget]
 

@@ -56,6 +56,8 @@ class MultivariateKDE(object):
             if t == 'U':
                 self.kernels.append(AitchisonAitken(**kwargs))
         self.data = None
+        self.weights = None
+        self.optimizer_result = None
 
     def fit(self, data, weights=None, bw_estimator='scott', efficient_bw_estimation=True, update_bandwidth=True):
         """

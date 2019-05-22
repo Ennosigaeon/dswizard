@@ -49,5 +49,5 @@ class MyWorker(Worker):
     def get_configspace():
         config_space = CS.ConfigurationSpace()
         config_space.add_hyperparameter(CS.UniformFloatHyperparameter('x', lower=0, upper=1))
-        return(config_space)
+        return config_space
 
