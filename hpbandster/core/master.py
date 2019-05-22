@@ -118,7 +118,7 @@ class Master(object):
         self.dispatcher_thread.start()
 
     def shutdown(self, shutdown_workers=False):
-        self.logger.debug('HBMASTER: shutdown initiated, shutdown_workers = %s' % (str(shutdown_workers)))
+        self.logger.debug('HBMASTER: shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
         self.dispatcher.shutdown(shutdown_workers)
         self.dispatcher_thread.join()
 
@@ -135,7 +135,7 @@ class Master(object):
         self.logger.debug('wait_for_workers trying to get the condition')
         with self.thread_cond:
             while self.dispatcher.number_of_workers() < min_n_workers:
-                self.logger.debug('HBMASTER: only %i worker(s) available, waiting for at least %i.' % (
+                self.logger.debug('HBMASTER: only {} worker(s) available, waiting for at least {}.'.format(
                     self.dispatcher.number_of_workers(), min_n_workers))
                 self.thread_cond.wait(1)
                 self.dispatcher.trigger_discover_worker()
@@ -160,7 +160,7 @@ class Master(object):
             HB_iteration: a valid HB iteration object
         """
 
-        raise NotImplementedError('implement get_next_iteration for %s' % type(self).__name__)
+        raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
 
     def run(self, n_iterations=1, min_n_workers=1, iteration_kwargs={}):
         """
@@ -182,7 +182,7 @@ class Master(object):
             self.time_ref = time.time()
             self.config['time_ref'] = self.time_ref
 
-            self.logger.info('HBMASTER: starting run at %s' % (str(self.time_ref)))
+            self.logger.info('HBMASTER: starting run at {}'.format(self.time_ref))
 
         self.thread_cond.acquire()
         while True:
@@ -197,7 +197,7 @@ class Master(object):
                     break
 
             if next_run is not None:
-                self.logger.debug('HBMASTER: schedule new run for iteration %i' % i)
+                self.logger.debug('HBMASTER: schedule new run for iteration {}'.format(i))
                 self._submit_job(*next_run)
                 continue
             else:
@@ -224,13 +224,13 @@ class Master(object):
 
     def adjust_queue_size(self, number_of_workers=None):
 
-        self.logger.debug('HBMASTER: number of workers changed to %s' % str(number_of_workers))
+        self.logger.debug('HBMASTER: number of workers changed to {}'.format(number_of_workers))
         with self.thread_cond:
             self.logger.debug('adjust_queue_size: lock accquired')
             if self.dynamic_queue_size:
                 nw = self.dispatcher.number_of_workers() if number_of_workers is None else number_of_workers
                 self.job_queue_sizes = (self.user_job_queue_sizes[0] + nw, self.user_job_queue_sizes[1] + nw)
-                self.logger.info('HBMASTER: adjusted queue size to %s' % str(self.job_queue_sizes))
+                self.logger.info('HBMASTER: adjusted queue size to {}'.format(self.job_queue_sizes))
             self.thread_cond.notify_all()
 
     def job_callback(self, job):
@@ -240,9 +240,9 @@ class Master(object):
         this will do some book keeping and call the user defined
         new_result_callback if one was specified
         """
-        self.logger.debug('job_callback for %s started' % str(job.id))
+        self.logger.debug('job_callback for {} started'.format(job.id))
         with self.thread_cond:
-            self.logger.debug('job_callback for %s got condition' % str(job.id))
+            self.logger.debug('job_callback for {} got condition'.format(job.id))
             self.num_running_jobs -= 1
 
             if self.result_logger is not None:
@@ -254,7 +254,7 @@ class Master(object):
                 self.logger.debug("HBMASTER: Trying to run another job!")
                 self.thread_cond.notify()
 
-        self.logger.debug('job_callback for %s finished' % str(job.id))
+        self.logger.debug('job_callback for {} finished'.format(job.id))
 
     def _queue_wait(self):
         """
@@ -263,8 +263,8 @@ class Master(object):
 
         if self.num_running_jobs >= self.job_queue_sizes[1]:
             while self.num_running_jobs > self.job_queue_sizes[0]:
-                self.logger.debug('HBMASTER: running jobs: %i, queue sizes: %s -> wait' % (
-                    self.num_running_jobs, str(self.job_queue_sizes)))
+                self.logger.debug('HBMASTER: running jobs: {}, queue sizes: {} -> wait'.format(
+                    self.num_running_jobs, self.job_queue_sizes))
                 self.thread_cond.wait()
 
     def _submit_job(self, config_id, config, budget):
@@ -274,15 +274,15 @@ class Master(object):
         This function handles the actual submission in a
         (hopefully) thread save way
         """
-        self.logger.debug('HBMASTER: trying submitting job %s to dispatcher' % str(config_id))
+        self.logger.debug('HBMASTER: trying submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
-            self.logger.debug('HBMASTER: submitting job %s to dispatcher' % str(config_id))
+            self.logger.debug('HBMASTER: submitting job {} to dispatcher'.format(config_id))
             self.dispatcher.submit_job(config_id, config=config, budget=budget,
                                        working_directory=self.working_directory)
             self.num_running_jobs += 1
 
         # shouldn't the next line be executed while holding the condition?
-        self.logger.debug("HBMASTER: job %s submitted to dispatcher" % str(config_id))
+        self.logger.debug("HBMASTER: job {} submitted to dispatcher".format(config_id))
 
     def active_iterations(self):
         """

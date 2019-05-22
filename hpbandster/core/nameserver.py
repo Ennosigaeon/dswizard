@@ -69,7 +69,7 @@ class NameServer(object):
 
         if self.dir is not None:
             os.makedirs(self.dir, exist_ok=True)
-            self.conf_fn = os.path.join(self.dir, 'HPB_run_%s_pyro.pkl' % self.run_id)
+            self.conf_fn = os.path.join(self.dir, 'HPB_run_{}_pyro.pkl'.format(self.run_id))
 
             with open(self.conf_fn, 'wb') as fh:
                 pickle.dump((self.host, self.port), fh)

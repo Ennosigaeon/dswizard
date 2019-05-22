@@ -35,7 +35,7 @@ class BOHB(BaseConfigGenerator):
             random_fraction: float
                 fraction of random configurations returned
             bandwidth_factor: float
-                widens the bandwidth for contiuous parameters for proposed points to optimize EI
+                widens the bandwidth for continuous parameters for proposed points to optimize EI
             min_bandwidth: float
                 to keep diversity, even when all (good) samples have the same value for one of the parameters,
                 a minimum bandwidth (Default: 1e-3) is used instead of zero.
@@ -52,8 +52,8 @@ class BOHB(BaseConfigGenerator):
             self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
 
         if self.min_points_in_model < len(self.configspace.get_hyperparameters()) + 1:
-            self.logger.warning('Invalid min_points_in_model value. Setting it to %i' % (
-                    len(self.configspace.get_hyperparameters()) + 1))
+            self.logger.warning('Invalid min_points_in_model value. Setting it to {}'.format(
+                len(self.configspace.get_hyperparameters()) + 1))
             self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
 
         self.num_samples = num_samples
@@ -67,7 +67,7 @@ class BOHB(BaseConfigGenerator):
         for h in hps:
             if hasattr(h, 'sequence'):
                 raise RuntimeError(
-                    'This version on BOHB does not support ordinal hyperparameters. Please encode %s as an integer parameter!' % (
+                    'This version on BOHB does not support ordinal hyperparameters. Please encode {} as an integer parameter!'.format(
                         h.name))
 
             if hasattr(h, 'choices'):
@@ -79,7 +79,7 @@ class BOHB(BaseConfigGenerator):
 
         self.vartypes = np.array(self.vartypes, dtype=int)
 
-        # store precomputed probs for the categorical parameters
+        # store precomputed probabilities for the categorical parameters
         self.cat_probs = []
 
         self.configs = dict()
@@ -151,9 +151,9 @@ class BOHB(BaseConfigGenerator):
                                 vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
                             except:
                                 self.logger.warning(
-                                    "Truncated Normal failed for:\ndatum=%s\nbandwidth=%s\nfor entry with value %s" % (
+                                    "Truncated Normal failed for:\ndatum={}\nbandwidth={}\nfor entry with value {}".format(
                                         datum, kde_good.bw, m))
-                                self.logger.warning("data in the KDE:\n%s" % kde_good.data)
+                                self.logger.warning("data in the KDE:\n{}".format(kde_good.data))
                         else:
 
                             if np.random.rand() < (1 - bw):
@@ -163,11 +163,11 @@ class BOHB(BaseConfigGenerator):
                     val = minimize_me(vector)
 
                     if not np.isfinite(val):
-                        self.logger.warning('sampled vector: %s has EI value %s' % (vector, val))
-                        self.logger.warning("data in the KDEs:\n%s\n%s" % (kde_good.data, kde_bad.data))
-                        self.logger.warning("bandwidth of the KDEs:\n%s\n%s" % (kde_good.bw, kde_bad.bw))
-                        self.logger.warning("l(x) = %s" % (l(vector)))
-                        self.logger.warning("g(x) = %s" % (g(vector)))
+                        self.logger.warning('sampled vector: {} has EI value {}'.format(vector, val))
+                        self.logger.warning("data in the KDEs:\n{}\n{}".format(kde_good.data, kde_bad.data))
+                        self.logger.warning("bandwidth of the KDEs:\n{}\n{}".format(kde_good.bw, kde_bad.bw))
+                        self.logger.warning("l(x) = {}".format(l(vector)))
+                        self.logger.warning("g(x) = {}".format(g(vector)))
 
                         # right now, this happens because a KDE does not contain all values for a categorical parameter
                         # this cannot be fixed with the statsmodels KDE, so for now, we are just going to evaluate this
@@ -183,7 +183,8 @@ class BOHB(BaseConfigGenerator):
 
                 if best_vector is None:
                     self.logger.debug(
-                        "Sampling based optimization with %i samples failed -> using random configuration" % self.num_samples)
+                        "Sampling based optimization with {} samples failed -> using random configuration".format(
+                            self.num_samples))
                     sample = self.configspace.sample_configuration().get_dictionary()
                     info_dict['model_based_pick'] = False
                 else:
@@ -207,15 +208,15 @@ class BOHB(BaseConfigGenerator):
                         info_dict['model_based_pick'] = True
 
                     except Exception as e:
-                        self.logger.warning(("=" * 50 + "\n") * 3 + \
-                                            "Error converting configuration:\n%s" % sample + \
-                                            "\n here is a traceback:" + \
+                        self.logger.warning(("=" * 50 + "\n") * 3 +
+                                            "Error converting configuration:\n{}".format(sample) +
+                                            "\n here is a traceback:" +
                                             traceback.format_exc())
                         raise e
 
             except:
                 self.logger.warning(
-                    "Sampling based optimization with %i samples failed\n %s \nUsing random configuration" % (
+                    "Sampling based optimization with {} samples failed\n {} \nUsing random configuration".format(
                         self.num_samples, traceback.format_exc()))
                 sample = self.configspace.sample_configuration()
                 info_dict['model_based_pick'] = False
@@ -226,10 +227,8 @@ class BOHB(BaseConfigGenerator):
                 configuration=sample.get_dictionary()
             ).get_dictionary()
         except Exception as e:
-            self.logger.warning("Error (%s) converting configuration: %s -> "
-                                "using random configuration!",
-                                e,
-                                sample)
+            self.logger.warning("Error ({}) converting configuration: {} -> "
+                                "using random configuration!".format(e, sample))
             sample = self.configspace.sample_configuration().get_dictionary()
         self.logger.debug('done sampling a new configuration.')
         return sample, info_dict
@@ -309,7 +308,7 @@ class BOHB(BaseConfigGenerator):
         # skip model building:
         # a) if not enough points are available
         if len(self.configs[budget]) <= self.min_points_in_model - 1:
-            self.logger.debug("Only %i run(s) for budget %f available, need more than %s -> can't build model!" % (
+            self.logger.debug("Only {} run(s) for budget {} available, need more than {} -> can't build model!".format(
                 len(self.configs[budget]), budget, self.min_points_in_model + 1))
             return
 
@@ -354,5 +353,5 @@ class BOHB(BaseConfigGenerator):
 
         # update probabilities for the categorical parameters for later sampling
         self.logger.debug(
-            'done building a new model for budget %f based on %i/%i split\nBest loss for this budget:%f\n\n\n\n\n' % (
+            'done building a new model for budget {} based on {}/{} split\nBest loss for this budget:{}\n\n\n\n'.format(
                 budget, n_good, n_bad, np.min(train_losses)))

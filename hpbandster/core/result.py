@@ -21,12 +21,10 @@ class Run(object):
 
     def __repr__(self):
         return (
-                "config_id: %s\t" % (self.config_id,) +
-                "budget: %f\t" % self.budget +
-                "loss: %s\n" % self.loss +
+                "config_id: {}\tbudget: {}\tloss: {}\n".format(self.config_id, self.budget, self.loss) +
                 "time_stamps: {submitted} (submitted), {started} (started), {finished} (finished)\n".format(
                     **self.time_stamps) +
-                "info: %s\n" % self.info
+                "info: {}\n".format(self.info)
         )
 
     def __getitem__(self, k):
@@ -104,7 +102,7 @@ class json_result_logger(object):
                 with open(self.config_fn, 'w') as fh:
                     pass
             else:
-                raise FileExistsError('The file %s already exists.' % self.config_fn)
+                raise FileExistsError('The file {} already exists.'.format(self.config_fn))
         except:
             raise
 
@@ -116,7 +114,7 @@ class json_result_logger(object):
                 with open(self.results_fn, 'w') as fh:
                     pass
             else:
-                raise FileExistsError('The file %s already exists.' % self.config_fn)
+                raise FileExistsError('The file {} already exists.'.format(self.config_fn))
 
         except:
             raise

@@ -29,8 +29,9 @@ def default_tool_tips(result_object, learning_curves, include_run_info=False):
         if len(all_runs) == 0:
             continue
 
-        s = ['id: %s' % str(id),
-             'duration (sec): %f' % (longest_run['time_stamps']['finished'] - longest_run['time_stamps']['started'])]
+        s = ['id: {}'.format(id),
+             'duration (sec): {}'.format(
+                 longest_run['time_stamps']['finished'] - longest_run['time_stamps']['started'])]
 
         if longest_run.loss is not None:
             s += [str(k) + "=" + str(v) for k, v in sorted(id2conf[id]['config'].items())]
@@ -78,7 +79,7 @@ def finished_runs_over_time(runs, show=False):
     fig, ax = plt.subplots()
 
     for b in budgets:
-        ax.plot(times[b], np.arange(len(times[b])), label='b = %f' % b)
+        ax.plot(times[b], np.arange(len(times[b])), label='b = {}'.format(b))
 
     ax.set_xlabel('time [s]')
     ax.set_ylabel('number of finished runs')
@@ -115,11 +116,11 @@ def performance_histogram_model_vs_random(runs, id2conf, show=False):
 
     for i, b in enumerate(budgets):
         mbax, rax = axarr[i]
-        mbax.hist(losses[b]['model_based'], label='b = %f \n n = %i' % (b, len(losses[b]['model_based'])))
+        mbax.hist(losses[b]['model_based'], label='b = {} \n n = {}'.format(b, len(losses[b]['model_based'])))
         mbax.set_ylabel('frequency')
         mbax.legend()
 
-        rax.hist(losses[b]['random'], label='b = %f \n n = %i' % (b, len(losses[b]['random'])))
+        rax.hist(losses[b]['random'], label='b = {} \n n = {}'.format(b, len(losses[b]['random'])))
         rax.legend()
 
         if i == len(budgets) - 1:
@@ -186,9 +187,8 @@ def correlation_across_budgets(results_object, show=False):
 
     for i in range(len(budgets) - 1):
         for j in range(i + 1, len(budgets)):
-            plt.text(j - 1, i, r'$\rho_{spearman}= %f$' % rhos[i][j - 1] + '\n' + r'$p = %f$' % ps[i][
-                j - 1] + '\n' + r'$n = %i$' % len(loss_pairs[budgets[i]][budgets[j]]),
-                     horizontalalignment='center', verticalalignment='center')
+            plt.text(j - 1, i, '$\\rho_{{spearman}}= {}$\n$p = {}$\n$n = {}$'.format(rhos[i][j - 1], ps[i][j - 1], len(
+                loss_pairs[budgets[i]][budgets[j]])), horizontalalignment='center', verticalalignment='center')
 
     if show:
         plt.show()
@@ -217,7 +217,7 @@ def losses_over_time(runs, get_loss_from_run_fn=lambda r: r.loss, cmap=plt.get_c
 
     for i, b in enumerate(budgets):
         data[b] = np.array(data[b])
-        ax.scatter(data[b][:, 0], data[b][:, 1], color=cmap(i), label='b=%f' % b)
+        ax.scatter(data[b][:, 0], data[b][:, 1], color=cmap(i), label='b={}'.format(b))
 
         ax.step(data[b][:, 0], np.minimum.accumulate(data[b][:, 1]), where='post')
 

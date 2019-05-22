@@ -37,7 +37,7 @@ inc_test_loss = inc_run.info['test accuracy']
 
 print('Best found configuration:')
 print(inc_config)
-print('It achieved accuracies of %f (validation) and %f (test).' % (1 - inc_loss, inc_test_loss))
+print('It achieved accuracies of {} (validation) and {} (test).'.format(1 - inc_loss, inc_test_loss))
 
 # Let's plot the observed losses grouped by budget,
 hpvis.losses_over_time(all_runs)

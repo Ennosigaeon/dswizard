@@ -18,7 +18,7 @@ class Datum(object):
     def __repr__(self):
         return (
                 "\nconfig:{}\n".format(self.config) +
-                "config_info:\n{}\n" % self.config_info +
+                "config_info:\n{}\n".format(self.config_info) +
                 "losses:\n"
                 '\t'.join(["{}: {}\t".format(k, v['loss']) for k, v in self.results.items()]) +
                 "time stamps: {}".format(self.time_stamps)
@@ -87,7 +87,8 @@ class BaseIteration(object):
 
         if self.actual_num_configs[self.stage] == self.num_configs[self.stage]:
             raise RuntimeError(
-                "Can't add another configuration to stage %i in HPBandSter iteration %i." % (self.stage, self.HPB_iter))
+                "Can't add another configuration to stage {} in HPBandSter iteration {}.".format(self.stage,
+                                                                                                 self.HPB_iter))
 
         config_id = (self.HPB_iter, self.stage, self.actual_num_configs[self.stage])
 
@@ -123,7 +124,7 @@ class BaseIteration(object):
         if not skip_sanity_checks:
             assert d.config == config, 'Configurations differ!'
             assert d.status == 'RUNNING', "Configuration wasn't scheduled for a run."
-            assert d.budget == budget, 'Budgets differ (%f != %f)!' % (self.data[config_id]['budget'], budget)
+            assert d.budget == budget, 'Budgets differ ({} != {})!'.format(self.data[config_id]['budget'], budget)
 
         d.time_stamps[budget] = timestamps
         d.results[budget] = result
@@ -194,7 +195,7 @@ class BaseIteration(object):
 
 
         """
-        raise NotImplementedError('_advance_to_next_stage not implemented for %s' % type(self).__name__)
+        raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))
 
     def process_results(self):
         """
@@ -230,7 +231,7 @@ class BaseIteration(object):
         for i, a in enumerate(advance):
             if a:
                 self.logger.debug(
-                    'ITERATION: Advancing config %s to next budget %f' % (config_ids[i], self.budgets[self.stage]))
+                    'ITERATION: Advancing config {} to next budget {}'.format(config_ids[i], self.budgets[self.stage]))
 
         for i, cid in enumerate(config_ids):
             if advance[i]:

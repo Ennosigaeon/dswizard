@@ -115,7 +115,7 @@ class H2BO(BaseConfigGenerator):
             except Exception as e:
                 self.logger.warning(("=" * 50 + "\n") * 3 +
                                     "Error sampling a configuration!\n" +
-                                    "Models for budgets: %s" % (self.kde_models.keys()) +
+                                    "Models for budgets: {}".format(self.kde_models.keys()) +
                                     "\n here is a traceback:" +
                                     traceback.format_exc())
 
@@ -206,7 +206,7 @@ class H2BO(BaseConfigGenerator):
             i = self.configs[budget].index(conf)
             self.losses[budget][i].append(loss)
             print('-' * 50)
-            print('ran config %s with loss %f again' % (conf, loss))
+            print('ran config {} with loss {} again'.format(conf, loss))
         else:
             self.configs[budget].append(conf)
             self.losses[budget].append([loss])
@@ -217,7 +217,7 @@ class H2BO(BaseConfigGenerator):
         tmp = np.array([np.mean(r) for r in self.losses[budget]])
         if np.sum(np.isfinite(tmp)) < min_num_points:
             self.logger.debug(
-                "Only %i successful run(s) for budget %f available, need more than %s -> can't build model!" % (
+                "Only {} successful run(s) for budget {} available, need more than {} -> can't build model!".format(
                     np.sum(np.isfinite(tmp)), budget, min_num_points))
             return
 
@@ -256,5 +256,5 @@ class H2BO(BaseConfigGenerator):
 
         # update probs for the categorical parameters for later sampling
         self.logger.debug(
-            'done building a new model for budget %f based on %i/%i split\nBest loss for this budget:%f\n\n\n\n\n' % (
+            'done building a new model for budget {} based on {}/{} split\nBest loss for this budget:{}\n\n\n\n'.format(
                 budget, n_good, n_bad, np.min(train_losses)))

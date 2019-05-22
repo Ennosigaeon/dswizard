@@ -39,7 +39,7 @@ class BaseConfigGenerator(object):
         returns: (config, info_dict)
             must return a valid configuration and a (possibly empty) info dict
         """
-        raise NotImplementedError('This function needs to be overwritten in %s.' % self.__class__.__name__)
+        raise NotImplementedError('This function needs to be overwritten in {}.'.format(self.__class__.__name__))
 
     def new_result(self, job, update_model=True):
         """

@@ -223,5 +223,5 @@ class MultivariateKDE(object):
                 types.append('O')
                 num_values.append(len(hp.sequence))
             else:
-                raise ValueError('Unsupported Parametertype %s' % type(hp))
+                raise ValueError('Unsupported Parametertype {}'.format(type(hp)))
         return types, num_values

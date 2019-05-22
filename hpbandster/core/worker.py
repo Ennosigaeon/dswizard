@@ -46,13 +46,13 @@ class Worker(object):
         self.host = host
         self.nameserver = nameserver
         self.nameserver_port = nameserver_port
-        self.worker_id = "hpbandster.run_%s.worker.%s.%i" % (self.run_id, socket.gethostname(), os.getpid())
+        self.worker_id = "hpbandster.run_{}.worker.{}.{}".format(self.run_id, socket.gethostname(), os.getpid())
 
         self.timeout = timeout
         self.timer = None
 
         if id is not None:
-            self.worker_id += '.%s' % str(id)
+            self.worker_id += '.{}'.format(id)
 
         self.thread = None
 
@@ -78,7 +78,7 @@ class Worker(object):
             interval: float
                 waiting period between the attempts
         """
-        fn = os.path.join(working_directory, 'HPB_run_%s_pyro.pkl' % self.run_id)
+        fn = os.path.join(working_directory, 'HPB_run_{}_pyro.pkl'.format(self.run_id))
 
         for i in range(num_tries):
             try:
@@ -86,7 +86,7 @@ class Worker(object):
                     self.nameserver, self.nameserver_port = pickle.load(fh)
                 return
             except FileNotFoundError:
-                self.logger.warning('config file %s not found (trail %i/%i)' % (fn, i + 1, num_tries))
+                self.logger.warning('config file {} not found (trail {}/{})'.format(fn, i + 1, num_tries))
                 time.sleep(interval)
             except:
                 raise
@@ -106,7 +106,7 @@ class Worker(object):
         """
         if background:
             self.worker_id += str(threading.get_ident())
-            self.thread = threading.Thread(target=self._run, name='worker %s thread' % self.worker_id)
+            self.thread = threading.Thread(target=self._run, name='worker {} thread'.format(self.worker_id))
             self.thread.daemon = True
             self.thread.start()
         else:
@@ -117,16 +117,16 @@ class Worker(object):
 
         try:
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                self.logger.debug('WORKER: Connected to nameserver %s' % (str(ns)))
-                dispatchers = ns.list(prefix="hpbandster.run_%s.dispatcher" % self.run_id)
+                self.logger.debug('WORKER: Connected to nameserver {}'.format(ns))
+                dispatchers = ns.list(prefix="hpbandster.run_{}.dispatcher".format(self.run_id))
         except Pyro4.errors.NamingError:
             if self.thread is None:
                 raise RuntimeError(
-                    'No nameserver found. Make sure the nameserver is running at that the host (%s) and port (%s) are correct' % (
+                    'No nameserver found. Make sure the nameserver is running at that the host ({}) and port ({}) are correct'.format(
                         self.nameserver, self.nameserver_port))
             else:
                 self.logger.error(
-                    'No nameserver found. Make sure the nameserver is running at that the host (%s) and port (%s) are correct' % (
+                    'No nameserver found. Make sure the nameserver is running at that the host ({}) and port ({}) are correct'.format(
                         self.nameserver, self.nameserver_port))
                 exit(1)
         except:
@@ -134,7 +134,7 @@ class Worker(object):
 
         for dn, uri in dispatchers.items():
             try:
-                self.logger.debug('WORKER: found dispatcher %s' % dn)
+                self.logger.debug('WORKER: found dispatcher {}'.format(dn))
                 with Pyro4.Proxy(uri) as dispatcher_proxy:
                     dispatcher_proxy.trigger_discover_worker()
 
@@ -198,9 +198,9 @@ class Worker(object):
             self.busy = True
         if self.timeout is not None and self.timer is not None:
             self.timer.cancel()
-        self.logger.info('WORKER: start processing job %s' % str(id))
-        self.logger.debug('WORKER: args: %s' % (str(args)))
-        self.logger.debug('WORKER: kwargs: %s' % (str(kwargs)))
+        self.logger.info('WORKER: start processing job {}'.format(id))
+        self.logger.debug('WORKER: args: {}'.format(args))
+        self.logger.debug('WORKER: kwargs: {}'.format(kwargs))
         try:
             result = {'result': self.compute(*args, config_id=id, **kwargs),
                       'exception': None}
@@ -208,12 +208,12 @@ class Worker(object):
             result = {'result': None,
                       'exception': traceback.format_exc()}
         finally:
-            self.logger.debug('WORKER: done with job %s, trying to register it.' % str(id))
+            self.logger.debug('WORKER: done with job {}, trying to register it.'.format(id))
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(id, result)
                 self.thread_cond.notify()
-        self.logger.info('WORKER: registered result for job %s with dispatcher' % str(id))
+        self.logger.info('WORKER: registered result for job {} with dispatcher'.format(id))
         if self.timeout is not None:
             self.timer = threading.Timer(self.timeout, self.shutdown)
             self.timer.daemon = True

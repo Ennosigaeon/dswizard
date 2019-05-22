@@ -112,7 +112,7 @@ class Dispatcher(object):
         self.runner_cond = threading.Condition(self.thread_lock)
         self.discover_cond = threading.Condition(self.thread_lock)
 
-        self.pyro_id = "hpbandster.run_%s.dispatcher" % self.run_id
+        self.pyro_id = "hpbandster.run_{}.dispatcher".format(self.run_id)
         self.pyro_daemon = None
 
     def run(self):
@@ -130,7 +130,7 @@ class Dispatcher(object):
                 uri = self.pyro_daemon.register(self, self.pyro_id)
                 ns.register(self.pyro_id, uri)
 
-            self.logger.info("DISPATCHER: Pyro daemon running on %s" % self.pyro_daemon.locationStr)
+            self.logger.info("DISPATCHER: Pyro daemon running on {}".format(self.pyro_daemon.locationStr))
 
         self.pyro_daemon.requestLoop()
 
@@ -182,18 +182,18 @@ class Dispatcher(object):
             update = False
 
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                worker_names = ns.list(prefix="hpbandster.run_%s.worker." % self.run_id)
-                self.logger.debug("DISPATCHER: Found %i potential workers, %i currently in the pool." % (
+                worker_names = ns.list(prefix="hpbandster.run_{}.worker.".format(self.run_id))
+                self.logger.debug("DISPATCHER: Found {} potential workers, {} currently in the pool.".format(
                     len(worker_names), len(self.worker_pool)))
 
                 for wn, uri in worker_names.items():
                     if wn not in self.worker_pool:
                         w = Worker(wn, uri)
                         if not w.is_alive():
-                            self.logger.debug('DISPATCHER: skipping dead worker, %s' % wn)
+                            self.logger.debug('DISPATCHER: skipping dead worker, {}'.format(wn))
                             continue
                         update = True
-                        self.logger.info('DISPATCHER: discovered new worker, %s' % wn)
+                        self.logger.info('DISPATCHER: discovered new worker, {}'.format(wn))
                         self.worker_pool[wn] = w
 
             # check the current list of workers
@@ -203,14 +203,14 @@ class Dispatcher(object):
             for wn in all_workers:
                 # remove dead entries from the nameserver
                 if not self.worker_pool[wn].is_alive():
-                    self.logger.info('DISPATCHER: removing dead worker, %s' % wn)
+                    self.logger.info('DISPATCHER: removing dead worker, {}'.format(wn))
                     update = True
                     # todo check if there were jobs running on that that need to be rescheduled
 
                     current_job = self.worker_pool[wn].runs_job
 
                     if current_job is not None:
-                        self.logger.info('Job %s was not completed' % str(current_job))
+                        self.logger.info('Job {} was not completed'.format(current_job))
                         crashed_jobs.add(current_job)
 
                     del self.worker_pool[wn]
@@ -258,7 +258,7 @@ class Dispatcher(object):
         while True:
 
             while self.waiting_jobs.empty() or len(self.idle_workers) == 0:
-                self.logger.debug('DISPATCHER: jobs to submit = %i, number of idle workers = %i -> waiting!' % (
+                self.logger.debug('DISPATCHER: jobs to submit = {}, number of idle workers = {} -> waiting!'.format(
                     self.waiting_jobs.qsize(), len(self.idle_workers)))
                 self.runner_cond.wait()
                 self.logger.debug('DISPATCHER: Trying to submit another job.')
@@ -272,7 +272,7 @@ class Dispatcher(object):
             wn = self.idle_workers.pop()
 
             worker = self.worker_pool[wn]
-            self.logger.debug('DISPATCHER: starting job %s on %s' % (str(job.id), worker.name))
+            self.logger.debug('DISPATCHER: starting job {} on %{}'.format(str(job.id), worker.name))
 
             job.time_it('started')
             worker.runs_job = job.id
@@ -282,10 +282,10 @@ class Dispatcher(object):
             job.worker_name = wn
             self.running_jobs[job.id] = job
 
-            self.logger.debug('DISPATCHER: job %s dispatched on %s' % (str(job.id), worker.name))
+            self.logger.debug('DISPATCHER: job {} dispatched on {}'.format(str(job.id), worker.name))
 
     def submit_job(self, id, **kwargs):
-        self.logger.debug('DISPATCHER: trying to submit job %s' % str(id))
+        self.logger.debug('DISPATCHER: trying to submit job {}'.format(id))
         with self.runner_cond:
             job = Job(id, **kwargs)
             job.time_it('submitted')
@@ -297,7 +297,7 @@ class Dispatcher(object):
     @Pyro4.callback
     @Pyro4.oneway
     def register_result(self, id=None, result=None):
-        self.logger.debug('DISPATCHER: job %s finished' % (str(id)))
+        self.logger.debug('DISPATCHER: job {} finished'.format(id))
         with self.runner_cond:
             self.logger.debug('DISPATCHER: register_result: lock acquired')
             # fill in missing information
@@ -306,7 +306,7 @@ class Dispatcher(object):
             job.result = result['result']
             job.exception = result['exception']
 
-            self.logger.debug('DISPATCHER: job %s on %s finished' % (str(job.id), job.worker_name))
+            self.logger.debug('DISPATCHER: job {} on {} finished' .format(job.id, job.worker_name))
             self.logger.debug(str(job))
 
             # delete job
