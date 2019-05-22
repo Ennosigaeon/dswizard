@@ -88,8 +88,6 @@ class Worker(object):
             except FileNotFoundError:
                 self.logger.warning('config file {} not found (trail {}/{})'.format(fn, i + 1, num_tries))
                 time.sleep(interval)
-            except:
-                raise
         raise RuntimeError("Could not find the nameserver information, aborting!")
 
     def run(self, background=False):
@@ -121,16 +119,14 @@ class Worker(object):
                 dispatchers = ns.list(prefix="hpbandster.run_{}.dispatcher".format(self.run_id))
         except Pyro4.errors.NamingError:
             if self.thread is None:
-                raise RuntimeError(
-                    'No nameserver found. Make sure the nameserver is running at that the host ({}) and port ({}) are correct'.format(
-                        self.nameserver, self.nameserver_port))
+                raise RuntimeError('No nameserver found. Make sure the nameserver is running and '
+                                   'that the host ({}) and port ({}) are correct'.format(self.nameserver,
+                                                                                         self.nameserver_port))
             else:
-                self.logger.error(
-                    'No nameserver found. Make sure the nameserver is running at that the host ({}) and port ({}) are correct'.format(
-                        self.nameserver, self.nameserver_port))
+                self.logger.error('No nameserver found. Make sure the nameserver is running and '
+                                  'that the host ({}) and port ({}) are correct'.format(self.nameserver,
+                                                                                        self.nameserver_port))
                 exit(1)
-        except:
-            raise
 
         for dn, uri in dispatchers.items():
             try:
@@ -141,8 +137,6 @@ class Worker(object):
             except Pyro4.errors.CommunicationError:
                 self.logger.debug('WORKER: Dispatcher did not respond. Waiting for one to initiate contact.')
                 pass
-            except:
-                raise
 
         if len(dispatchers) == 0:
             self.logger.debug('WORKER: No dispatcher found. Waiting for one to initiate contact.')

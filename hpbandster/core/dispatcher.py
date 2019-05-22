@@ -42,8 +42,6 @@ class Worker(object):
             self.proxy._pyroReconnect(1)
         except Pyro4.errors.ConnectionClosedError:
             return False
-        except:
-            raise
         return True
 
     def shutdown(self):
@@ -322,8 +320,6 @@ class Dispatcher(object):
             except KeyError:
                 # happens for crashed workers, but we can just continue
                 pass
-            except:
-                raise
 
         # call users callback function to register the result
         # needs to be with the condition released, as the master can call

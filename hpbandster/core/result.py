@@ -103,8 +103,6 @@ class json_result_logger(object):
                     pass
             else:
                 raise FileExistsError('The file {} already exists.'.format(self.config_fn))
-        except:
-            raise
 
         try:
             with open(self.results_fn, 'x') as fh:
@@ -115,9 +113,6 @@ class json_result_logger(object):
                     pass
             else:
                 raise FileExistsError('The file {} already exists.'.format(self.config_fn))
-
-        except:
-            raise
 
         self.config_ids = set()
 
@@ -236,8 +231,6 @@ class Result(object):
                     tmp_list.append((res['loss'], k))
             except KeyError as e:
                 pass
-            except:
-                raise
 
         if len(tmp_list) > 0:
             return min(tmp_list)[1]
@@ -326,16 +319,13 @@ class Result(object):
 
         runs = []
         for b in d.results.keys():
-            try:
-                err_logs = d.exceptions.get(b, None)
+            err_logs = d.exceptions.get(b, None)
 
-                if d.results[b] is None:
-                    r = Run(config_id, b, None, None, d.time_stamps[b], err_logs)
-                else:
-                    r = Run(config_id, b, d.results[b]['loss'], d.results[b]['info'], d.time_stamps[b], err_logs)
-                runs.append(r)
-            except:
-                raise
+            if d.results[b] is None:
+                r = Run(config_id, b, None, None, d.time_stamps[b], err_logs)
+            else:
+                r = Run(config_id, b, d.results[b]['loss'], d.results[b]['info'], d.time_stamps[b], err_logs)
+            runs.append(r)
         runs.sort(key=lambda r: r.budget)
         return runs
 
