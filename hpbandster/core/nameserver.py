@@ -1,6 +1,7 @@
 import os
 import pickle
 import threading
+from typing import Tuple
 
 import Pyro4.naming
 
@@ -19,7 +20,12 @@ class NameServer(object):
     `PYRO4 <https://pythonhosted.org/Pyro4/nameserver.html>`_ as a backend and this class is basically a wrapper.
     """
 
-    def __init__(self, run_id, working_directory=None, host=None, port=0, nic_name=None):
+    def __init__(self,
+                 run_id: str,
+                 working_directory: str = None,
+                 host: str = None,
+                 port: int = 0,
+                 nic_name: str = None):
         """
         Parameters
         ----------
@@ -43,7 +49,7 @@ class NameServer(object):
         self.conf_fn = None
         self.pyro_ns = None
 
-    def start(self):
+    def start(self) -> Tuple[str, int]:
         """
         starts a Pyro4 nameserver in a separate thread
 
@@ -76,7 +82,7 @@ class NameServer(object):
 
         return self.host, self.port
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """
             clean shutdown of the nameserver and the config file (if written)
         """

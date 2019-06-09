@@ -1,4 +1,5 @@
 import numpy as np
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.master import Master
 from hpbandster.optimizers.config_generators.random_sampling import RandomSampling as RS
@@ -6,8 +7,11 @@ from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
 class RandomSearch(Master):
-    def __init__(self, configspace=None,
-                 eta=3, min_budget=1, max_budget=1,
+    def __init__(self,
+                 configspace: ConfigurationSpace = None,
+                 eta: float = 3,
+                 min_budget: float = 1,
+                 max_budget: float = 1,
                  **kwargs
                  ):
         """
@@ -27,7 +31,7 @@ class RandomSearch(Master):
             budget for the evaluation
         """
 
-        # TODO: Propper check for ConfigSpace object!
+        # TODO: Proper check for ConfigSpace object!
         if configspace is None:
             raise ValueError("You have to provide a valid ConfigSpace object")
 
@@ -53,7 +57,9 @@ class RandomSearch(Master):
             'max_budget': max_budget,
         })
 
-    def get_next_iteration(self, iteration, iteration_kwargs=None):
+    def get_next_iteration(self,
+                           iteration: int,
+                           iteration_kwargs: dict = None) -> SuccessiveHalving:
         """
         Returns a SH iteration with only evaluations on the biggest budget
 

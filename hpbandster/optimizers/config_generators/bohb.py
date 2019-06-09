@@ -1,4 +1,5 @@
 import traceback
+from typing import Tuple
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -6,14 +7,22 @@ import ConfigSpace.util
 import numpy as np
 import scipy.stats as sps
 import statsmodels.api as sm
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core.dispatcher import Job
 
 
+# Hyperopt
 class BOHB(BaseConfigGenerator):
-    def __init__(self, configspace, min_points_in_model=None,
-                 top_n_percent=15, num_samples=64, random_fraction=1 / 3,
-                 bandwidth_factor=3, min_bandwidth=1e-3,
+    def __init__(self,
+                 configspace: ConfigurationSpace,
+                 min_points_in_model=None,
+                 top_n_percent: int = 15,
+                 num_samples: int = 64,
+                 random_fraction: float = 1 / 3,
+                 bandwidth_factor: float = 3,
+                 min_bandwidth: float = 1e-3,
                  **kwargs):
         """
             Fits for each given budget a kernel density estimator on the best N percent of the
@@ -66,10 +75,8 @@ class BOHB(BaseConfigGenerator):
 
         for h in hps:
             if hasattr(h, 'sequence'):
-                raise RuntimeError(
-                    'This version on BOHB does not support ordinal hyperparameters. Please encode {} as an integer parameter!'.format(
-                        h.name))
-
+                raise RuntimeError('This version on BOHB does not support ordinal hyperparameters. '
+                                   'Please encode {} as an integer parameter!'.format(h.name))
             if hasattr(h, 'choices'):
                 self.kde_vartypes += 'u'
                 self.vartypes += [len(h.choices)]
@@ -87,12 +94,12 @@ class BOHB(BaseConfigGenerator):
         self.good_config_rankings = dict()
         self.kde_models = dict()
 
-    def largest_budget_with_model(self):
+    def largest_budget_with_model(self) -> float:
         if len(self.kde_models) == 0:
             return -float('inf')
         return max(self.kde_models.keys())
 
-    def get_config(self, budget):
+    def get_config(self, budget: float) -> Tuple[dict, dict]:
         """
             Function to sample a new configuration
 
@@ -262,7 +269,9 @@ class BOHB(BaseConfigGenerator):
             return_array[i, :] = datum
         return return_array
 
-    def new_result(self, job, update_model=True):
+    def new_result(self,
+                   job: Job,
+                   update_model: bool = True) -> None:
         """
             function to register finished runs
 
@@ -320,7 +329,8 @@ class BOHB(BaseConfigGenerator):
         train_losses = np.array(self.losses[budget])
 
         n_good = max(self.min_points_in_model, (self.top_n_percent * train_configs.shape[0]) // 100)
-        # n_bad = min(max(self.min_points_in_model, ((100-self.top_n_percent)*train_configs.shape[0])//100), 10)
+        # TODO use this??? Is bad trainings data complete set without n_good?
+        # n_bad = max(self.min_points_in_model, train_configs.shape[0] - n_good)
         n_bad = max(self.min_points_in_model, ((100 - self.top_n_percent) * train_configs.shape[0]) // 100)
 
         # Refit KDE for the current budget

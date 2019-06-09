@@ -1,6 +1,9 @@
 import copy
 import json
 import os
+from typing import Tuple, Any, List, Dict, Optional, Callable
+
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.base_iteration import Datum
 
@@ -11,7 +14,13 @@ class Run(object):
         information about a particular run
     """
 
-    def __init__(self, config_id, budget, loss, info, time_stamps, error_logs):
+    def __init__(self,
+                 config_id: Tuple[int, int, int],
+                 budget: float,
+                 loss: Optional[float],
+                 info: Any,
+                 time_stamps: dict,
+                 error_logs: Any):
         self.config_id = config_id
         self.budget = budget
         self.error_logs = error_logs
@@ -63,13 +72,13 @@ def extract_HBS_learning_curves(runs):
     return [lc, ]
 
 
-class json_result_logger(object):
-    def __init__(self, directory, overwrite=False):
+class JsonResultLogger(object):
+    def __init__(self, directory: str, overwrite: bool = False):
         """
         convenience logger for 'semi-live-results'
 
         Logger that writes job results into two files (configs.json and results.json).
-        Both files contain propper json objects in each line.
+        Both files contain proper json objects in each line.
 
         This version opens and closes the files for each result.
         This might be very slow if individual runs are fast and the
@@ -135,69 +144,6 @@ class json_result_logger(object):
             fh.write("\n")
 
 
-def logged_results_to_HBS_result(directory):
-    """
-    function to import logged 'live-results' and return a HB_result object
-
-    You can load live run results with this function and the returned
-    HB_result object gives you access to the results the same way
-    a finished run would.
-
-    Parameters
-    ----------
-    directory: str
-        the directory containing the results.json and config.json files
-
-    Returns
-    -------
-    hpbandster.core.result.Result: :object:
-        TODO
-
-    """
-    data = {}
-    time_ref = float('inf')
-    budget_set = set()
-
-    with open(os.path.join(directory, 'configs.json')) as fh:
-        for line in fh:
-
-            line = json.loads(line)
-
-            if len(line) == 3:
-                config_id, config, config_info = line
-            if len(line) == 2:
-                config_id, config, = line
-                config_info = 'N/A'
-
-            data[tuple(config_id)] = Datum(config=config, config_info=config_info)
-
-    with open(os.path.join(directory, 'results.json')) as fh:
-        for line in fh:
-            config_id, budget, time_stamps, result, exception = json.loads(line)
-
-            id = tuple(config_id)
-
-            data[id].time_stamps[budget] = time_stamps
-            data[id].results[budget] = result
-            data[id].exceptions[budget] = exception
-
-            budget_set.add(budget)
-            time_ref = min(time_ref, time_stamps['submitted'])
-
-    # infer the hyperband configuration from the data
-    budget_list = sorted(list(budget_set))
-
-    HB_config = {
-        'eta': None if len(budget_list) < 2 else budget_list[1] / budget_list[0],
-        'min_budget': min(budget_set),
-        'max_budget': max(budget_set),
-        'budgets': budget_list,
-        'max_SH_iter': len(budget_set),
-        'time_ref': time_ref
-    }
-    return Result([data], HB_config)
-
-
 class Result(object):
     """
     Object returned by the HB_master.run function
@@ -206,15 +152,32 @@ class Result(object):
     a Hyperband run.
     """
 
-    def __init__(self, HB_iteration_data, HB_config):
-        self.data = HB_iteration_data
+    def __init__(self,
+                 HB_iteration_data: List[Dict[Tuple[int, int, int], Datum]],
+                 HB_config: dict):
         self.HB_config = HB_config
-        self._merge_results()
+        self.data = self._merge_results(HB_iteration_data)
+
+    def _merge_results(self, data: List[Dict[Tuple[int, int, int], Datum]]) -> Dict[Tuple[int, int, int], Datum]:
+        """
+        protected function to merge the list of results into one
+        dictionary and 'normalize' the time stamps
+        """
+        new_dict = {}
+        for it in data:
+            new_dict.update(it)
+
+        for k, v in new_dict.items():
+            for kk, vv in v.time_stamps.items():
+                for kkk, vvv in vv.items():
+                    new_dict[k].time_stamps[kk][kkk] = vvv - self.HB_config['time_ref']
+
+        return new_dict
 
     def __getitem__(self, k):
         return self.data[k]
 
-    def get_incumbent_id(self):
+    def get_incumbent_id(self) -> Optional[Tuple[int, int, int]]:
         """
         Find the config_id of the incumbent.
 
@@ -236,7 +199,8 @@ class Result(object):
             return min(tmp_list)[1]
         return None
 
-    def get_incumbent_trajectory(self, all_budgets=True, bigger_is_better=True, non_decreasing_budget=True):
+    def get_incumbent_trajectory(self, all_budgets: bool = True, bigger_is_better: bool = True,
+                                 non_decreasing_budget: bool = True) -> dict:
         """
         Returns the best configurations over time
 
@@ -261,7 +225,7 @@ class Result(object):
         all_runs = self.get_all_runs(only_largest_budget=not all_budgets)
 
         if not all_budgets:
-            all_runs = list(filter(lambda r: r.budget == res.HB_config['max_budget'], all_runs))
+            all_runs = list(filter(lambda r: r.budget == self.HB_config['max_budget'], all_runs))
 
         all_runs.sort(key=lambda r: r.time_stamps['finished'])
 
@@ -308,7 +272,7 @@ class Result(object):
 
         return return_dict
 
-    def get_runs_by_id(self, config_id):
+    def get_runs_by_id(self, config_id: Tuple[int, int, int]) -> List[Run]:
         """
         returns a list of runs for a given config id
 
@@ -329,7 +293,8 @@ class Result(object):
         runs.sort(key=lambda r: r.budget)
         return runs
 
-    def get_learning_curves(self, lc_extractor=extract_HBS_learning_curves, config_ids=None):
+    def get_learning_curves(self, lc_extractor: Callable = extract_HBS_learning_curves,
+                            config_ids=List[Tuple[int, int, int]]) -> dict:
         """
         extracts all learning curves from all run configurations
 
@@ -358,7 +323,7 @@ class Result(object):
 
         return lc_dict
 
-    def get_all_runs(self, only_largest_budget=False):
+    def get_all_runs(self, only_largest_budget: bool = False) -> List[Run]:
         """
         returns all runs performed
 
@@ -384,7 +349,7 @@ class Result(object):
 
         return all_runs
 
-    def get_id2config_mapping(self):
+    def get_id2config_mapping(self) -> Dict[Tuple[int, int, int], dict]:
         """
         returns a dict where the keys are the config_ids and the values
         are the actual configurations
@@ -395,30 +360,18 @@ class Result(object):
             new_dict[k]['config'] = copy.deepcopy(v.config)
             try:
                 new_dict[k]['config_info'] = copy.deepcopy(v.config_info)
-            except:
+            except KeyError:
                 pass
         return new_dict
 
-    def _merge_results(self):
-        """
-        hidden function to merge the list of results into one
-        dictionary and 'normalize' the time stamps
-        """
-        new_dict = {}
-        for it in self.data:
-            new_dict.update(it)
-
-        for k, v in new_dict.items():
-            for kk, vv in v.time_stamps.items():
-                for kkk, vvv in vv.items():
-                    new_dict[k].time_stamps[kk][kkk] = vvv - self.HB_config['time_ref']
-
-        self.data = new_dict
-
-    def num_iterations(self):
+    def num_iterations(self) -> int:
         return max([k[0] for k in self.data.keys()]) + 1
 
-    def get_fANOVA_data(self, config_space, budgets=None, loss_fn=lambda r: r.loss, failed_loss=None):
+    def get_fANOVA_data(self,
+                        config_space: ConfigurationSpace,
+                        budgets=None,
+                        loss_fn=lambda r: r.loss,
+                        failed_loss=None):
 
         import numpy as np
         import ConfigSpace as CS
@@ -504,3 +457,66 @@ class Result(object):
         df_y = pd.DataFrame(all_losses)
 
         return df_X, df_y
+
+
+def logged_results_to_HBS_result(directory: str) -> Result:
+    """
+    function to import logged 'live-results' and return a HB_result object
+
+    You can load live run results with this function and the returned
+    HB_result object gives you access to the results the same way
+    a finished run would.
+
+    Parameters
+    ----------
+    directory: str
+        the directory containing the results.json and config.json files
+
+    Returns
+    -------
+    hpbandster.core.result.Result: :object:
+        TODO
+
+    """
+    data = {}
+    time_ref = float('inf')
+    budget_set = set()
+
+    with open(os.path.join(directory, 'configs.json')) as fh:
+        for line in fh:
+
+            line = json.loads(line)
+
+            if len(line) == 3:
+                config_id, config, config_info = line
+            if len(line) == 2:
+                config_id, config, = line
+                config_info = 'N/A'
+
+            data[tuple(config_id)] = Datum(config=config, config_info=config_info)
+
+    with open(os.path.join(directory, 'results.json')) as fh:
+        for line in fh:
+            config_id, budget, time_stamps, result, exception = json.loads(line)
+
+            id = tuple(config_id)
+
+            data[id].time_stamps[budget] = time_stamps
+            data[id].results[budget] = result
+            data[id].exceptions[budget] = exception
+
+            budget_set.add(budget)
+            time_ref = min(time_ref, time_stamps['submitted'])
+
+    # infer the hyperband configuration from the data
+    budget_list = sorted(list(budget_set))
+
+    HB_config = {
+        'eta': None if len(budget_list) < 2 else budget_list[1] / budget_list[0],
+        'min_budget': min(budget_set),
+        'max_budget': max(budget_set),
+        'budgets': budget_list,
+        'max_SH_iter': len(budget_set),
+        'time_ref': time_ref
+    }
+    return Result([data], HB_config)

@@ -58,7 +58,7 @@ if args.worker:
 # interesting. The core.result submodule contains the functionality to
 # read the two generated files (results.json and configs.json) and
 # create a Result object.
-result_logger = hpres.json_result_logger(directory=args.shared_directory, overwrite=False)
+result_logger = hpres.JsonResultLogger(directory=args.shared_directory, overwrite=False)
 
 # Start a nameserver:
 NS = hpns.NameServer(run_id=args.run_id, host=host, port=0, working_directory=args.shared_directory)

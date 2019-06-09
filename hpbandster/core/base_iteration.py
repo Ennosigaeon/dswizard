@@ -1,4 +1,5 @@
 import logging
+from typing import List, Callable, Tuple, Optional
 
 import numpy as np
 
@@ -6,7 +7,14 @@ from hpbandster.core.dispatcher import Job
 
 
 class Datum(object):
-    def __init__(self, config, config_info, results=None, time_stamps=None, exceptions=None, status='QUEUED', budget=0):
+    def __init__(self,
+                 config: dict,
+                 config_info: dict,
+                 results: dict = None,
+                 time_stamps: dict = None,
+                 exceptions: dict = None,
+                 status: str = 'QUEUED',
+                 budget: float = 0):
         self.config = config
         self.config_info = config_info
         self.results = results if results is not None else {}
@@ -32,7 +40,13 @@ class BaseIteration(object):
     implementations) determine the further development.
     """
 
-    def __init__(self, HPB_iter, num_configs, budgets, config_sampler, logger=None, result_logger=None):
+    def __init__(self,
+                 HPB_iter: int,
+                 num_configs: List[int],
+                 budgets: List[float],
+                 config_sampler: Callable[[float], Tuple[dict, dict]],
+                 logger: logging.Logger = None,
+                 result_logger=None):
         """
         Parameters
         ----------
@@ -66,7 +80,7 @@ class BaseIteration(object):
         self.logger = logger if logger is not None else logging.getLogger('hpbandster')
         self.result_logger = result_logger
 
-    def add_configuration(self, config=None, config_info=None):
+    def add_configuration(self, config: dict = None, config_info: dict = None) -> Tuple[int, int, int]:
         """
         function to add a new configuration to the current iteration
 
@@ -103,7 +117,7 @@ class BaseIteration(object):
 
         return config_id
 
-    def register_result(self, job, skip_sanity_checks=False):
+    def register_result(self, job: Job, skip_sanity_checks: bool = False) -> None:
         """
         function to register the result of a job
 
@@ -139,7 +153,7 @@ class BaseIteration(object):
         d.exceptions[budget] = exception
         self.num_running -= 1
 
-    def get_next_run(self):
+    def get_next_run(self) -> Optional[Tuple[Tuple[int, int, int], dict, float]]:
         """
         function to return the next configuration and budget to run.
 
@@ -176,7 +190,7 @@ class BaseIteration(object):
 
         return None
 
-    def _advance_to_next_stage(self, config_ids, losses):
+    def _advance_to_next_stage(self, config_ids: List[Tuple[int, int, int]], losses: np.ndarray) -> np.ndarray:
         """
         Function that implements the strategy to advance configs within this iteration
 
@@ -192,14 +206,14 @@ class BaseIteration(object):
 
         Returns
         -------
-            list of bool
+            numpy array of bool
                 A boolean for each entry in config_ids indicating whether to advance it or not
 
 
         """
         raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))
 
-    def process_results(self):
+    def process_results(self) -> None:
         """
         function that is called when a stage is completed and
         needs to be analyzed befor further computations.
@@ -243,7 +257,7 @@ class BaseIteration(object):
             else:
                 self.data[cid].status = 'TERMINATED'
 
-    def finish_up(self):
+    def finish_up(self) -> None:
         self.is_finished = True
 
         for k, v in self.data.items():

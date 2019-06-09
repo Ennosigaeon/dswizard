@@ -1,4 +1,5 @@
 import numpy as np
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.master import Master
 from hpbandster.optimizers.config_generators.bohb import BOHB as CG_BOHB
@@ -6,11 +7,17 @@ from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
 class BOHB(Master):
-    def __init__(self, configspace=None,
-                 eta=3, min_budget=0.01, max_budget=1,
-                 min_points_in_model=None, top_n_percent=15,
-                 num_samples=64, random_fraction=1 / 3, bandwidth_factor=3,
-                 min_bandwidth=1e-3,
+    def __init__(self,
+                 configspace: ConfigurationSpace = None,
+                 eta: float = 3,
+                 min_budget: float = 0.01,
+                 max_budget: float = 1,
+                 min_points_in_model: int = None,
+                 top_n_percent: int = 15,
+                 num_samples: int = 64,
+                 random_fraction: float = 1 / 3,
+                 bandwidth_factor: float = 3,
+                 min_bandwidth: float = 1e-3,
                  **kwargs):
         """
                 BOHB performs robust and efficient hyperparameter optimization
@@ -66,9 +73,9 @@ class BOHB(Master):
             kwargs to be added to the instantiation of each iteration
         """
 
-        # TODO: Propper check for ConfigSpace object!
+        # TODO: Proper check for ConfigSpace object!
         if configspace is None:
-            raise ValueError("You have to provide a valid CofigSpace object")
+            raise ValueError("You have to provide a valid ConfigSpace object")
 
         cg = CG_BOHB(configspace=configspace,
                      min_points_in_model=min_points_in_model,
@@ -104,7 +111,9 @@ class BOHB(Master):
             'min_bandwidth': min_bandwidth
         })
 
-    def get_next_iteration(self, iteration: int, iteration_kwargs=None):
+    def get_next_iteration(self,
+                           iteration: int,
+                           iteration_kwargs: dict = None) -> SuccessiveHalving:
         """
         BO-HB uses (just like Hyperband) SuccessiveHalving for each iteration.
         See Li et al. (2016) for reference.

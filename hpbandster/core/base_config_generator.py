@@ -1,5 +1,7 @@
 import logging
 
+from typing import Tuple
+
 
 class BaseConfigGenerator(object):
     """
@@ -8,7 +10,7 @@ class BaseConfigGenerator(object):
     configurations.
     """
 
-    def __init__(self, logger=None):
+    def __init__(self, logger: logging.Logger = None):
         """
         Parameters
         ----------
@@ -25,7 +27,7 @@ class BaseConfigGenerator(object):
         else:
             self.logger = logger
 
-    def get_config(self, budget):
+    def get_config(self, budget: float) -> Tuple[dict, dict]:
         """
         function to sample a new configuration
 
@@ -41,7 +43,7 @@ class BaseConfigGenerator(object):
         """
         raise NotImplementedError('This function needs to be overwritten in {}.'.format(self.__class__.__name__))
 
-    def new_result(self, job, update_model=True):
+    def new_result(self, job, update_model: bool = True) -> None:
         """
         registers finished runs
 

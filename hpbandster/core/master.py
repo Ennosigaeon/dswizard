@@ -3,27 +3,28 @@ import logging
 import os
 import threading
 import time
+from typing import Tuple, Optional, List, Any
 
-from hpbandster.core.base_iteration import WarmStartIteration
-from hpbandster.core.dispatcher import Dispatcher
+from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
+from hpbandster.core.dispatcher import Dispatcher, Job
 from hpbandster.core.result import Result
 
 
 class Master(object):
     def __init__(self,
-                 run_id,
-                 config_generator,
-                 working_directory='.',
-                 ping_interval=60,
-                 nameserver='127.0.0.1',
-                 nameserver_port=None,
-                 host=None,
-                 shutdown_workers=True,
-                 job_queue_sizes=(-1, 0),
-                 dynamic_queue_size=True,
-                 logger=None,
-                 result_logger=None,
-                 previous_result=None,
+                 run_id: str,
+                 config_generator: BaseConfigGenerator,
+                 working_directory: str = '.',
+                 ping_interval: int = 60,
+                 nameserver: str = '127.0.0.1',
+                 nameserver_port: int = None,
+                 host: str = None,
+                 job_queue_sizes: Tuple[int, int] = (-1, 0),
+                 dynamic_queue_size: bool = True,
+                 logger: logging.Logger = None,
+                 result_logger: Any = None,
+                 previous_result: Any = None,
                  ):
         """The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
                 instantiations of Master, that handle the important steps of deciding what configurations to run on what
@@ -38,17 +39,6 @@ class Master(object):
             An object that can generate new configurations and registers results of executed runs
         working_directory: string
             The top level working directory accessible to all compute nodes(shared filesystem).
-        eta : float
-            In each iteration, a complete run of sequential halving is executed. In it,
-            after evaluating each configuration on the same subset size, only a fraction of
-            1/eta of them 'advances' to the next round.
-            Must be greater or equal to 2.
-        min_budget : float
-            The smallest budget to consider. Needs to be positive!
-        max_budget : float
-            the largest budget to consider. Needs to be larger than min_budget!
-            The budgets will be geometrically distributed :math:`\sim \eta^k` for
-            :math:`k\in [0, 1, ... , num\_subsets - 1]`.
         ping_interval: int
             number of seconds between pings to discover new nodes. Default is 60 seconds.
         nameserver: str
@@ -57,9 +47,7 @@ class Master(object):
             port of Pyro4 nameserver
         host: str
             ip (or name that resolves to that) of the network interface to use
-        shutdown_workers: bool
-            flag to control whether the workers are shutdown after the computation is done
-        job_queue_size: tuple of ints
+        job_queue_sizes: tuple of ints
             min and max size of the job queue. During the run, when the number of jobs in the queue
             reaches the min value, it will be filled up to the max size. Default: (0,1)
         dynamic_queue_size: bool
@@ -84,7 +72,7 @@ class Master(object):
         self.result_logger = result_logger
 
         self.config_generator = config_generator
-        self.time_ref = None
+        self.time_ref: Optional[float] = None
 
         self.iterations = []
         self.jobs = []
@@ -117,12 +105,12 @@ class Master(object):
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
 
-    def shutdown(self, shutdown_workers=False):
-        self.logger.debug('HBMASTER: shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
+    def shutdown(self, shutdown_workers: bool = False) -> None:
+        self.logger.info('HBMASTER: shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
         self.dispatcher.shutdown(shutdown_workers)
         self.dispatcher_thread.join()
 
-    def wait_for_workers(self, min_n_workers=1):
+    def wait_for_workers(self, min_n_workers: int = 1) -> None:
         """
         helper function to hold execution until some workers are active
 
@@ -142,7 +130,7 @@ class Master(object):
 
         self.logger.debug('Enough workers to start this run!')
 
-    def get_next_iteration(self, iteration, iteration_kwargs):
+    def get_next_iteration(self, iteration: int, iteration_kwargs: dict) -> BaseIteration:
         """
         instantiates the next iteration
 
@@ -162,7 +150,7 @@ class Master(object):
 
         raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
 
-    def run(self, n_iterations=1, min_n_workers=1, iteration_kwargs=None):
+    def run(self, n_iterations: int = 1, min_n_workers: int = 1, iteration_kwargs: dict = None) -> Result:
         """
             run n_iterations of SuccessiveHalving
 
@@ -172,12 +160,13 @@ class Master(object):
             number of iterations to be performed in this run
         min_n_workers: int
             minimum number of workers before starting the run
-        iteration_kwargs: any
+        iteration_kwargs: dict
                 default
         """
 
         if iteration_kwargs is None:
             iteration_kwargs = {}
+
         self.wait_for_workers(min_n_workers)
 
         iteration_kwargs.update({'result_logger': self.result_logger})
@@ -201,6 +190,7 @@ class Master(object):
                     break
 
             if next_run is not None:
+                # noinspection PyUnboundLocalVariable
                 self.logger.debug('HBMASTER: schedule new run for iteration {}'.format(i))
                 self._submit_job(*next_run)
                 continue
@@ -210,7 +200,7 @@ class Master(object):
                     n_iterations -= 1
                     continue
 
-            # at this point there is no imediate run that can be scheduled,
+            # at this point there is no immediate run that can be scheduled,
             # so wait for some job to finish if there are active iterations
             if self.active_iterations():
                 self.thread_cond.wait()
@@ -226,18 +216,17 @@ class Master(object):
 
         return Result([copy.deepcopy(i.data) for i in self.iterations] + ws_data, self.config)
 
-    def adjust_queue_size(self, number_of_workers=None):
-
+    def adjust_queue_size(self, number_of_workers: int = None) -> None:
         self.logger.debug('HBMASTER: number of workers changed to {}'.format(number_of_workers))
         with self.thread_cond:
-            self.logger.debug('adjust_queue_size: lock accquired')
+            self.logger.debug('adjust_queue_size: lock acquired')
             if self.dynamic_queue_size:
                 nw = self.dispatcher.number_of_workers() if number_of_workers is None else number_of_workers
                 self.job_queue_sizes = (self.user_job_queue_sizes[0] + nw, self.user_job_queue_sizes[1] + nw)
                 self.logger.info('HBMASTER: adjusted queue size to {}'.format(self.job_queue_sizes))
             self.thread_cond.notify_all()
 
-    def job_callback(self, job):
+    def job_callback(self, job: Job) -> None:
         """
         method to be called when a job has finished
 
@@ -260,7 +249,7 @@ class Master(object):
 
         self.logger.debug('job_callback for {} finished'.format(job.id))
 
-    def _queue_wait(self):
+    def _queue_wait(self) -> None:
         """
         helper function to wait for the queue to not overflow/underload it
         """
@@ -271,9 +260,9 @@ class Master(object):
                     self.num_running_jobs, self.job_queue_sizes))
                 self.thread_cond.wait()
 
-    def _submit_job(self, config_id, config, budget):
+    def _submit_job(self, config_id: Tuple[int, int, int], config: dict, budget: float) -> None:
         """
-        hidden function to submit a new job to the dispatcher
+        protected function to submit a new job to the dispatcher
 
         This function handles the actual submission in a
         (hopefully) thread save way
@@ -281,14 +270,12 @@ class Master(object):
         self.logger.debug('HBMASTER: trying submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
             self.logger.debug('HBMASTER: submitting job {} to dispatcher'.format(config_id))
-            self.dispatcher.submit_job(config_id, config=config, budget=budget,
-                                       working_directory=self.working_directory)
+            self.dispatcher.submit_job(config_id, config=config,
+                                       budget=budget, working_directory=self.working_directory)
             self.num_running_jobs += 1
+            self.logger.debug("HBMASTER: job {} submitted to dispatcher".format(config_id))
 
-        # shouldn't the next line be executed while holding the condition?
-        self.logger.debug("HBMASTER: job {} submitted to dispatcher".format(config_id))
-
-    def active_iterations(self):
+    def active_iterations(self) -> List[int]:
         """
         function to find active (not marked as finished) iterations
 
@@ -297,8 +284,4 @@ class Master(object):
             list: all active iteration objects (empty if there are none)
         """
 
-        l = list(filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))))
-        return l
-
-    def __del__(self):
-        pass
+        return list(filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))))

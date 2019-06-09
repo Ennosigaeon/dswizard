@@ -1,4 +1,5 @@
 import numpy as np
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.master import Master
 from hpbandster.optimizers.config_generators import RandomSampling
@@ -6,8 +7,11 @@ from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
 class HyperBand(Master):
-    def __init__(self, configspace=None,
-                 eta=3, min_budget=0.01, max_budget=1,
+    def __init__(self,
+                 configspace: ConfigurationSpace = None,
+                 eta: float = 3,
+                 min_budget: float = 0.01,
+                 max_budget: float = 1,
                  **kwargs):
         """
                 Hyperband implements hyperparameter optimization by sampling
@@ -35,9 +39,9 @@ class HyperBand(Master):
             $k\in [0, 1, ... , num_subsets - 1]$.
         """
 
-        # TODO: Propper check for ConfigSpace object!
+        # TODO: Proper check for ConfigSpace object!
         if configspace is None:
-            raise ValueError("You have to provide a valid CofigSpace object")
+            raise ValueError("You have to provide a valid ConfigSpace object")
 
         super().__init__(config_generator=RandomSampling(configspace), **kwargs)
 
@@ -58,7 +62,9 @@ class HyperBand(Master):
             'max_SH_iter': self.max_SH_iter,
         })
 
-    def get_next_iteration(self, iteration, iteration_kwargs=None):
+    def get_next_iteration(self,
+                           iteration: int,
+                           iteration_kwargs: dict = None) -> SuccessiveHalving:
         """
         Hyperband uses SuccessiveHalving for each iteration.
         See Li et al. (2016) for reference.

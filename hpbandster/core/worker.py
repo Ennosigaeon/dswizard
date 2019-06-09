@@ -5,21 +5,30 @@ import socket
 import threading
 import time
 import traceback
+from typing import Tuple
 
 import Pyro4
+from Pyro4.errors import CommunicationError, NamingError
 
 
 class Worker(object):
     """
-    The worker is responsible for evaluating a single configuration on a single budget at a time.
-    Communication to the individual workers goes via the nameserver, management of the worker-pool and job
-    scheduling is done by the Dispatcher and jobs are determined by the Master. In distributed systems, each
-    cluster-node runs a Worker-instance. To implement your own worker, overwrite the `__init__`- and the `compute`-method.
-    The first allows to perform inital computations, e.g. loading the dataset, when the worker is started, while the
-    latter is repeatedly called during the optimization and evaluates a given configuration yielding the associated loss.
+    The worker is responsible for evaluating a single configuration on a single budget at a time. Communication to the
+    individual workers goes via the nameserver, management of the worker-pool and job scheduling is done by the
+    Dispatcher and jobs are determined by the Master. In distributed systems, each cluster-node runs a Worker-instance.
+    To implement your own worker, overwrite the `__init__`- and the `compute`-method. The first allows to perform
+    initial computations, e.g. loading the dataset, when the worker is started, while the latter is repeatedly called
+    during the optimization and evaluates a given configuration yielding the associated loss.
     """
 
-    def __init__(self, run_id, nameserver=None, nameserver_port=None, logger=None, host=None, id=None, timeout=None):
+    def __init__(self,
+                 run_id: str,
+                 nameserver: str = None,
+                 nameserver_port: int = None,
+                 logger: logging.Logger = None,
+                 host: str = None,
+                 id: any = None,
+                 timeout: float = None):
         """
 
         Parameters
@@ -35,7 +44,8 @@ class Worker(object):
         host: str
             hostname for this worker process
         id: anything with a __str__method
-            if multiple workers are started in the same process, you MUST provide a unique id for each one of them using the `id` argument.
+            if multiple workers are started in the same process, you MUST provide a unique id for each one of them using
+            the `id` argument.
         timeout: int or float
             specifies the timeout a worker will wait for a new after finishing a computation before shutting down.
             Towards the end of a long run with multiple workers, this helps to shutdown idling workers. We recommend
@@ -65,7 +75,10 @@ class Worker(object):
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
 
-    def load_nameserver_credentials(self, working_directory, num_tries=60, interval=1):
+    def load_nameserver_credentials(self,
+                                    working_directory: str,
+                                    num_tries: int = 60,
+                                    interval: int = 1) -> None:
         """
         loads the nameserver credentials in cases where master and workers share a filesystem
 
@@ -90,7 +103,7 @@ class Worker(object):
                 time.sleep(interval)
         raise RuntimeError("Could not find the nameserver information, aborting!")
 
-    def run(self, background=False):
+    def run(self, background: bool = False) -> None:
         """
         Method to start the worker.
 
@@ -117,7 +130,7 @@ class Worker(object):
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
                 self.logger.debug('WORKER: Connected to nameserver {}'.format(ns))
                 dispatchers = ns.list(prefix="hpbandster.run_{}.dispatcher".format(self.run_id))
-        except Pyro4.errors.NamingError:
+        except NamingError:
             if self.thread is None:
                 raise RuntimeError('No nameserver found. Make sure the nameserver is running and '
                                    'that the host ({}) and port ({}) are correct'.format(self.nameserver,
@@ -134,7 +147,7 @@ class Worker(object):
                 with Pyro4.Proxy(uri) as dispatcher_proxy:
                     dispatcher_proxy.trigger_discover_worker()
 
-            except Pyro4.errors.CommunicationError:
+            except CommunicationError:
                 self.logger.debug('WORKER: Dispatcher did not respond. Waiting for one to initiate contact.')
                 pass
 
@@ -154,7 +167,11 @@ class Worker(object):
         with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
             ns.remove(self.worker_id)
 
-    def compute(self, config_id, config, budget, working_directory):
+    def compute(self,
+                config_id: Tuple[int, int, int],
+                config: dict,
+                budget: float,
+                working_directory: str):
         """ The function you have to overload implementing your computation.
 
         Parameters
@@ -162,21 +179,27 @@ class Worker(object):
         config_id: tuple
             a triplet of ints that uniquely identifies a configuration. the convention is
             id = (iteration, budget index, running index) with the following meaning:
-            - iteration: the iteration of the optimization algorithms. E.g, for Hyperband that is one round of Successive Halving
-            - budget index: the budget (of the current iteration) for which this configuration was sampled by the optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to fill empty slots, or you use a more 'advanced' optimizer.
-            - running index: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e. (x,x,0) was sampled before (x,x,1).
+            - iteration: the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
+                         Successive Halving
+            - budget index: the budget (of the current iteration) for which this configuration was sampled by the
+                            optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to
+                            fill empty slots, or you use a more 'advanced' optimizer.
+            - running index: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e.
+                             (x,x,0) was sampled before (x,x,1).
         config: dict
             the actual configuration to be evaluated.
         budget: float
             the budget for the evaluation
         working_directory: str
-            a name of a directory that is unique to this configuration. Use this to store intermediate results on lower budgets that can be reused later for a larger budget (for iterative algorithms, for example).
+            a name of a directory that is unique to this configuration. Use this to store intermediate results on lower
+            budgets that can be reused later for a larger budget (for iterative algorithms, for example).
         Returns
         -------
         dict:
             needs to return a dictionary with two mandatory entries:
                 - 'loss': a numerical value that is MINIMIZED
-                - 'info': This can be pretty much any build in python type, e.g. a dict with lists as value. Due to Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!
+                - 'info': This can be pretty much any build in python type, e.g. a dict with lists as value. Due to
+                          Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!
         """
 
         raise NotImplementedError(
@@ -184,8 +207,11 @@ class Worker(object):
 
     @Pyro4.expose
     @Pyro4.oneway
-    def start_computation(self, callback, id, *args, **kwargs):
-
+    def start_computation(self,
+                          callback,
+                          id: Tuple[int, int, int],
+                          *args,
+                          **kwargs):
         with self.thread_cond:
             while self.busy:
                 self.thread_cond.wait()
@@ -195,6 +221,7 @@ class Worker(object):
         self.logger.info('WORKER: start processing job {}'.format(id))
         self.logger.debug('WORKER: args: {}'.format(args))
         self.logger.debug('WORKER: kwargs: {}'.format(kwargs))
+        result = None
         try:
             result = {'result': self.compute(*args, config_id=id, **kwargs),
                       'exception': None}
@@ -215,12 +242,12 @@ class Worker(object):
         return result
 
     @Pyro4.expose
-    def is_busy(self):
+    def is_busy(self) -> bool:
         return self.busy
 
     @Pyro4.expose
     @Pyro4.oneway
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.logger.debug('WORKER: shutting down now!')
         self.pyro_daemon.shutdown()
         if self.thread is not None:

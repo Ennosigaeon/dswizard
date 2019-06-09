@@ -2,13 +2,14 @@ import logging
 import queue
 import threading
 import time
+from typing import Tuple, Callable
 
 import Pyro4
 
 
 class Job(object):
-    def __init__(self, id, **kwargs):
-        self.id = id
+    def __init__(self, id: Tuple[int, int, int], **kwargs):
+        self.id: Tuple[int, int, int] = id
 
         self.kwargs = kwargs
 
@@ -19,35 +20,33 @@ class Job(object):
 
         self.worker_name = None
 
-    def time_it(self, which_time):
+    def time_it(self, which_time: str) -> None:
         self.timestamps[which_time] = time.time()
 
     def __repr__(self):
-        return (
-                "job_id: " + str(self.id) + "\n" +
-                "kwargs: " + str(self.kwargs) + "\n" +
-                "result: " + str(self.result) + "\n" +
-                "exception: " + str(self.exception) + "\n"
-        )
+        return "job_id: {}\n" \
+               "kwargs: {}\n" \
+               "result: {}\n" \
+               "exception: {}\n".format(self.id, self.kwargs, self.result, self.exception)
 
 
 class Worker(object):
-    def __init__(self, name, uri):
+    def __init__(self, name: str, uri: str):
         self.name = name
         self.proxy = Pyro4.Proxy(uri)
         self.runs_job = None
 
-    def is_alive(self):
+    def is_alive(self) -> bool:
         try:
             self.proxy._pyroReconnect(1)
         except Pyro4.errors.ConnectionClosedError:
             return False
         return True
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         self.proxy.shutdown()
 
-    def is_busy(self):
+    def is_busy(self) -> bool:
         return self.proxy.is_busy()
 
     def __repr__(self):
@@ -60,10 +59,15 @@ class Dispatcher(object):
     communicate to the nameserver.
     """
 
-    def __init__(self, new_result_callback, run_id='0',
-                 ping_interval=10, nameserver='localhost',
-                 nameserver_port=None,
-                 host=None, logger=None, queue_callback=None):
+    def __init__(self,
+                 new_result_callback: Callable[[Job], None],
+                 run_id: str = '0',
+                 ping_interval: int = 10,
+                 nameserver: str = 'localhost',
+                 nameserver_port: int = None,
+                 host: str = None,
+                 logger: logging.Logger = None,
+                 queue_callback: Callable[[int], None] = None):
         """
         Parameters
         ----------
@@ -113,7 +117,7 @@ class Dispatcher(object):
         self.pyro_id = "hpbandster.run_{}.dispatcher".format(self.run_id)
         self.pyro_daemon = None
 
-    def run(self):
+    def run(self) -> None:
         with self.discover_cond:
             t1 = threading.Thread(target=self.discover_workers, name='discover_workers')
             t1.start()
@@ -148,7 +152,7 @@ class Dispatcher(object):
         self.logger.debug('DISPATCHER: \'job_runner\' thread exited')
         self.logger.info('DISPATCHER: shut down complete')
 
-    def shutdown_all_workers(self, rediscover=False):
+    def shutdown_all_workers(self, rediscover: bool = False) -> None:
         with self.discover_cond:
             for worker in self.worker_pool.values():
                 worker.shutdown()
@@ -156,7 +160,7 @@ class Dispatcher(object):
                 time.sleep(1)
                 self.discover_cond.notify()
 
-    def shutdown(self, shutdown_workers=False):
+    def shutdown(self, shutdown_workers: bool = False) -> None:
         if shutdown_workers:
             self.shutdown_all_workers()
 
@@ -165,13 +169,13 @@ class Dispatcher(object):
 
     @Pyro4.expose
     @Pyro4.oneway
-    def trigger_discover_worker(self):
+    def trigger_discover_worker(self) -> None:
         # time.sleep(1)
         self.logger.info("DISPATCHER: A new worker triggered discover_worker")
         with self.discover_cond:
             self.discover_cond.notify()
 
-    def discover_workers(self):
+    def discover_workers(self) -> None:
         self.discover_cond.acquire()
 
         while True:
@@ -245,11 +249,11 @@ class Dispatcher(object):
                 self.discover_cond.release()
                 return
 
-    def number_of_workers(self):
+    def number_of_workers(self) -> int:
         with self.discover_cond:
             return len(self.worker_pool)
 
-    def job_runner(self):
+    def job_runner(self) -> None:
 
         self.runner_cond.acquire()
         while True:
@@ -281,7 +285,7 @@ class Dispatcher(object):
 
             self.logger.debug('DISPATCHER: job {} dispatched on {}'.format(str(job.id), worker.name))
 
-    def submit_job(self, id, **kwargs):
+    def submit_job(self, id: Tuple[int, int, int], **kwargs: dict) -> None:
         self.logger.debug('DISPATCHER: trying to submit job {}'.format(id))
         with self.runner_cond:
             job = Job(id, **kwargs)
@@ -293,7 +297,7 @@ class Dispatcher(object):
     @Pyro4.expose
     @Pyro4.callback
     @Pyro4.oneway
-    def register_result(self, id=None, result=None):
+    def register_result(self, id: Tuple[int, int, int] = None, result: dict = None) -> None:
         self.logger.debug('DISPATCHER: job {} finished'.format(id))
         with self.runner_cond:
             self.logger.debug('DISPATCHER: register_result: lock acquired')

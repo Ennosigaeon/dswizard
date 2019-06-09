@@ -20,7 +20,10 @@ class MyWorker(Worker):
 
         self.sleep_interval = sleep_interval
 
-    def compute(self, config, budget, **kwargs):
+    def compute(self,
+                config: dict,
+                budget: float,
+                **kwargs: dict) -> dict:
         """
         Simple example for a compute function
         The loss is just a the config + some noise (that decreases with the budget)

@@ -5,7 +5,7 @@ import unittest
 import ConfigSpace as CS
 
 from hpbandster.core.result import Run, extract_HBS_learning_curves, \
-    json_result_logger
+    JsonResultLogger
 
 
 class TestResult(unittest.TestCase):
@@ -39,7 +39,7 @@ class TestJsonResultLogger(unittest.TestCase):
         cs.add_hyperparameter(CS.CategoricalHyperparameter('test', [1]))
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            logger = json_result_logger(temp_dir)
+            logger = JsonResultLogger(temp_dir)
 
             logger.new_config('1', cs.sample_configuration().get_dictionary(), {'test': 'test'})
 

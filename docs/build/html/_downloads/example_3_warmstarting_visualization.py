@@ -35,7 +35,7 @@ config_space = sample_configspace()
 config_space.add_hyperparameter(CS.UniformFloatHyperparameter('x', lower=0, upper=1))
 
 # We use live logging with the jason result logger
-result_logger = hpres.json_result_logger(directory='.', overwrite=True)
+result_logger = hpres.JsonResultLogger(directory='.', overwrite=True)
 
 # Every run has to have a unique (at runtime) id.
 # This needs to be unique for concurrent runs, i.e. when multiple
