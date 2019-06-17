@@ -27,7 +27,7 @@ class SuccessiveResampling(BaseIteration):
         self.resampling_rate = resampling_rate
         self.min_samples_advance = min_samples_advance
 
-    def _advance_to_next_stage(self, config_ids, losses):
+    def _advance_to_next_stage(self, losses):
         """
             SuccessiveHalving simply continues the best based on the current loss.
         """

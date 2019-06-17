@@ -164,7 +164,7 @@ class BaseIteration(object):
 
         return None
 
-    def _advance_to_next_stage(self, config_ids: List[Tuple[int, int, int]], losses: np.ndarray) -> np.ndarray:
+    def _advance_to_next_stage(self, losses: np.ndarray) -> np.ndarray:
         """
         Function that implements the strategy to advance configs within this iteration
 
@@ -173,8 +173,6 @@ class BaseIteration(object):
 
         Parameters
         ----------
-            config_ids: list
-                all config ids to be considered
             losses: list
                 losses of the run on the current budget
 
@@ -216,7 +214,7 @@ class BaseIteration(object):
 
         losses = np.array([self.data[cid].results[budget]['loss'] for cid in config_ids])
 
-        advance = self._advance_to_next_stage(config_ids, losses)
+        advance = self._advance_to_next_stage(losses)
 
         for i, a in enumerate(advance):
             if a:
@@ -284,5 +282,5 @@ class WarmStartIteration(BaseIteration):
                 for kkk, vvv in vv.items():
                     self.data[k].time_stamps[kk][kkk] += time_ref
 
-    def _advance_to_next_stage(self, config_ids, losses):
+    def _advance_to_next_stage(self, losses):
         pass
