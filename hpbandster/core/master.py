@@ -5,10 +5,10 @@ import threading
 import time
 from typing import Tuple, Optional, List, Any
 
-from hpbandster.core.model import ConfigId
 from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
 from hpbandster.core.dispatcher import Dispatcher
+from hpbandster.core.model import ConfigId
 from hpbandster.core.model import Job
 from hpbandster.core.result import JsonResultLogger
 from hpbandster.core.result import Result
@@ -144,7 +144,7 @@ class Master(object):
             iteration: int
                 the index of the iteration to be instantiated
             iteration_kwargs: dict
-                additional kwargs for the iteration class
+                additional kwargs for the iteration class. Defaults to empty dictionary
 
         Returns
         -------
@@ -164,7 +164,7 @@ class Master(object):
         min_n_workers: int
             minimum number of workers before starting the run
         iteration_kwargs: dict
-                default
+            additional kwargs for the iteration class. Defaults to empty dictionary
         """
 
         if iteration_kwargs is None:

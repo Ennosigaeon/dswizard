@@ -1,12 +1,11 @@
 import copy
 import json
 import os
-from typing import Tuple, Any, List, Dict, Optional, Callable
+from typing import Any, List, Dict, Optional, Callable
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core.model import ConfigId
-from hpbandster.core.model import Datum
+from hpbandster.core.model import ConfigId, Datum, Job
 
 
 class Run(object):
@@ -126,14 +125,14 @@ class JsonResultLogger(object):
 
         self.config_ids = set()
 
-    def new_config(self, config_id, config, config_info):
+    def new_config(self, config_id: ConfigId, config: ConfigurationSpace, config_info: dict) -> None:
         if config_id not in self.config_ids:
             self.config_ids.add(config_id)
             with open(self.config_fn, 'a') as fh:
-                fh.write(json.dumps([config_id, config, config_info]))
+                fh.write(json.dumps([config_id, config.get_dictionary(), config_info]))
                 fh.write('\n')
 
-    def __call__(self, job):
+    def __call__(self, job: Job) -> None:
         if job.id not in self.config_ids:
             # should never happen! TODO: log warning here!
             self.config_ids.add(job.id)

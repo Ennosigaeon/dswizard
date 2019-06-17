@@ -203,18 +203,18 @@ class Hyperopt(BaseConfigGenerator):
                                 ConfigSpace.hyperparameters.CategoricalHyperparameter
                         ):
                             best_vector[i] = int(np.rint(best_vector[i]))
-                    sample = ConfigSpace.Configuration(self.configspace, vector=best_vector).get_dictionary()
+                    sample = ConfigSpace.Configuration(self.configspace, vector=best_vector)
 
                     try:
                         sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
                             configuration_space=self.configspace,
-                            configuration=sample
+                            configuration=sample.get_dictionary()
                         )
                         info_dict['model_based_pick'] = True
 
                     except Exception as e:
                         self.logger.warning(("=" * 50 + "\n") * 3 +
-                                            "Error converting configuration:\n{}".format(sample) +
+                                            "Error converting configuration:\n{}".format(sample.get_dictionary()) +
                                             "\n here is a traceback:" +
                                             traceback.format_exc())
                         raise e
@@ -230,7 +230,7 @@ class Hyperopt(BaseConfigGenerator):
             sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
                 configuration_space=self.configspace,
                 configuration=sample.get_dictionary()
-            ).get_dictionary()
+            )
         except Exception as e:
             self.logger.warning("Error ({}) converting configuration: {} -> "
                                 "using random configuration!".format(e, sample))

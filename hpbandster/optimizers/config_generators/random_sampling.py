@@ -27,4 +27,4 @@ class RandomSampling(BaseConfigGenerator):
         self.configspace = configspace
 
     def get_config(self, budget: float) -> Tuple[dict, dict]:
-        return self.configspace.sample_configuration().get_dictionary(), {}
+        return self.configspace.sample_configuration(), {}

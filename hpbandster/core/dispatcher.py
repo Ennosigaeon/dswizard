@@ -2,7 +2,7 @@ import logging
 import queue
 import threading
 import time
-from typing import Callable, Tuple, Dict
+from typing import Callable, Tuple, Dict, Set, Optional
 
 import Pyro4
 
@@ -13,9 +13,12 @@ class Worker(object):
     def __init__(self, name: str, uri: str):
         self.name = name
         self.proxy = Pyro4.Proxy(uri)
+        self.runs_job: Optional[Job] = None
 
     def is_alive(self) -> bool:
+        # noinspection PyUnresolvedReferences
         try:
+            # noinspection PyProtectedMember
             self.proxy._pyroReconnect(1)
         except Pyro4.errors.ConnectionClosedError:
             return False
@@ -85,8 +88,8 @@ class Dispatcher(object):
         self.worker_pool: Dict[str, Worker] = {}
 
         self.waiting_jobs: queue.Queue[Job] = queue.Queue()
-        self.running_jobs = {}
-        self.idle_workers = set()
+        self.running_jobs: Dict[ConfigId, Job] = {}
+        self.idle_workers: Set[str] = set()
 
         self.thread_lock = threading.Lock()
         self.runner_cond = threading.Condition(self.thread_lock)
@@ -176,7 +179,7 @@ class Dispatcher(object):
                         self.worker_pool[wn] = w
 
             # check the current list of workers
-            crashed_jobs = set()
+            crashed_jobs: Set[Job] = set()
 
             all_workers = list(self.worker_pool.keys())
             for wn in all_workers:
@@ -209,16 +212,11 @@ class Dispatcher(object):
 
             for crashed_job in crashed_jobs:
                 self.discover_cond.release()
-                self.register_result(crashed_job, {'result': None, 'exception': 'Worker died unexpectedly.'})
+                self.register_result(crashed_job.id.as_tuple(),
+                                     {'result': None, 'exception': 'Worker died unexpectedly.'})
                 self.discover_cond.acquire()
 
             self.logger.debug('DISPATCHER: Finished worker discovery')
-
-            # if (len(self.worker_pool) == 0 ): # ping for new workers if no workers are currently available
-            #	self.logger.debug('No workers available! Keep pinging')
-            #	self.discover_cond.wait(sleep_interval)
-            #	sleep_interval *= 2
-            # else:
             self.discover_cond.wait(self.ping_interval)
 
             if self.shutdown_all_threads:
@@ -232,7 +230,6 @@ class Dispatcher(object):
             return len(self.worker_pool)
 
     def job_runner(self) -> None:
-
         self.runner_cond.acquire()
         while True:
 
@@ -298,6 +295,7 @@ class Dispatcher(object):
             # label worker as idle again
             try:
                 self.worker_pool[job.worker_name].runs_job = None
+                # noinspection PyProtectedMember
                 self.worker_pool[job.worker_name].proxy._pyroRelease()
                 self.idle_workers.add(job.worker_name)
                 # notify the job_runner to check for more jobs to run

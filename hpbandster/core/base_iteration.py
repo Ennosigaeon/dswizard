@@ -2,6 +2,7 @@ import logging
 from typing import List, Callable, Tuple, Optional, Dict, Any
 
 import numpy as np
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.model import ConfigId, Datum, Job
 from hpbandster.core.result import JsonResultLogger
@@ -18,7 +19,7 @@ class BaseIteration(object):
                  HPB_iter: int,
                  num_configs: List[int],
                  budgets: List[float],
-                 config_sampler: Callable[[float], Tuple[dict, dict]],
+                 config_sampler: Callable[[float], Tuple[ConfigurationSpace, dict]],
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
@@ -66,6 +67,7 @@ class BaseIteration(object):
         config_info: dict
             Some information about the configuration that will be stored in the results
         """
+        # TODO transfer config parameter to ConfigurationSpace
 
         if config_info is None:
             config_info = {}
@@ -250,6 +252,7 @@ class WarmStartIteration(BaseIteration):
         id2conf = Result.get_id2config_mapping()
         delta_t = - max(map(lambda r: r.time_stamps['finished'], Result.get_all_runs()))
 
+        # noinspection PyTypeChecker
         super().__init__(-1, [len(id2conf)], [None], None)
 
         for i, id in enumerate(id2conf):
