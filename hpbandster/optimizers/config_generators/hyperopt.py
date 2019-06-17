@@ -13,8 +13,7 @@ from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.dispatcher import Job
 
 
-# Hyperopt
-class BOHB(BaseConfigGenerator):
+class Hyperopt(BaseConfigGenerator):
     def __init__(self,
                  configspace: ConfigurationSpace,
                  min_points_in_model=None,

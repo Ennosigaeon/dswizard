@@ -4,7 +4,7 @@ import ConfigSpace as CS
 import numpy as np
 
 from hpbandster.core.dispatcher import Job
-from hpbandster.optimizers.config_generators.bohb import BOHB
+from hpbandster.optimizers.config_generators.hyperopt import Hyperopt
 
 
 class TestBinaryRssRegressionForest(unittest.TestCase):
@@ -35,21 +35,21 @@ class TestBinaryRssRegressionForest(unittest.TestCase):
 
     def test_imputation_conditional_spaces(self):
 
-        bohb = BOHB(self.configspace, random_fraction=0)
+        hyperopt = Hyperopt(self.configspace, random_fraction=0)
 
         raw_array = []
 
         for i in range(128):
             config = self.configspace.sample_configuration()
             raw_array.append(config.get_array())
-            imputed_array = bohb.impute_conditional_data(np.array(raw_array))
+            imputed_array = hyperopt.impute_conditional_data(np.array(raw_array))
             self.assertFalse(np.any(np.isnan(imputed_array)))
             job = Job(i, budget=1, config=config)
             job.result = {'loss': np.random.rand(), 'info': {}}
-            bohb.new_result(job)
+            hyperopt.new_result(job)
 
         for j in range(64):
-            conf, info = bohb.get_config(1)
+            conf, info = hyperopt.get_config(1)
             self.assertTrue(info['model_based_pick'])
 
 

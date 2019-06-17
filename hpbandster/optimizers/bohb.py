@@ -2,7 +2,7 @@ import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.master import Master
-from hpbandster.optimizers.config_generators.bohb import BOHB as CG_BOHB
+from hpbandster.optimizers.config_generators.hyperopt import Hyperopt
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
@@ -77,14 +77,14 @@ class BOHB(Master):
         if configspace is None:
             raise ValueError("You have to provide a valid ConfigSpace object")
 
-        cg = CG_BOHB(configspace=configspace,
-                     min_points_in_model=min_points_in_model,
-                     top_n_percent=top_n_percent,
-                     num_samples=num_samples,
-                     random_fraction=random_fraction,
-                     bandwidth_factor=bandwidth_factor,
-                     min_bandwidth=min_bandwidth
-                     )
+        cg = Hyperopt(configspace=configspace,
+                      min_points_in_model=min_points_in_model,
+                      top_n_percent=top_n_percent,
+                      num_samples=num_samples,
+                      random_fraction=random_fraction,
+                      bandwidth_factor=bandwidth_factor,
+                      min_bandwidth=min_bandwidth
+                      )
 
         super().__init__(config_generator=cg, **kwargs)
 
