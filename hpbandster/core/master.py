@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Tuple, Optional, List, Any
 
+from hpbandster.core.model import ConfigId
 from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
 from hpbandster.core.dispatcher import Dispatcher
@@ -76,7 +77,7 @@ class Master(object):
         self.config_generator = config_generator
         self.time_ref: Optional[float] = None
 
-        self.iterations = []
+        self.iterations: List[BaseIteration] = []
         self.jobs = []
 
         self.num_running_jobs = 0
@@ -242,7 +243,7 @@ class Master(object):
 
             if self.result_logger is not None:
                 self.result_logger(job)
-            self.iterations[job.id[0]].register_result(job)
+            self.iterations[job.id.iteration].register_result(job)
             self.config_generator.new_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
@@ -262,7 +263,7 @@ class Master(object):
                     self.num_running_jobs, self.job_queue_sizes))
                 self.thread_cond.wait()
 
-    def _submit_job(self, config_id: Tuple[int, int, int], config: dict, budget: float) -> None:
+    def _submit_job(self, config_id: ConfigId, config: dict, budget: float) -> None:
         """
         protected function to submit a new job to the dispatcher
 

@@ -5,6 +5,7 @@ from typing import Tuple, Any, List, Dict, Optional, Callable
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 
+from hpbandster.core.model import ConfigId
 from hpbandster.core.model import Datum
 
 
@@ -15,7 +16,7 @@ class Run(object):
     """
 
     def __init__(self,
-                 config_id: Tuple[int, int, int],
+                 config_id: ConfigId,
                  budget: float,
                  loss: Optional[float],
                  info: Any,
@@ -153,12 +154,12 @@ class Result(object):
     """
 
     def __init__(self,
-                 HB_iteration_data: List[Dict[Tuple[int, int, int], Datum]],
+                 HB_iteration_data: List[Dict[ConfigId, Datum]],
                  HB_config: dict):
         self.HB_config = HB_config
         self.data = self._merge_results(HB_iteration_data)
 
-    def _merge_results(self, data: List[Dict[Tuple[int, int, int], Datum]]) -> Dict[Tuple[int, int, int], Datum]:
+    def _merge_results(self, data: List[Dict[ConfigId, Datum]]) -> Dict[ConfigId, Datum]:
         """
         protected function to merge the list of results into one
         dictionary and 'normalize' the time stamps
@@ -177,7 +178,7 @@ class Result(object):
     def __getitem__(self, k):
         return self.data[k]
 
-    def get_incumbent_id(self) -> Optional[Tuple[int, int, int]]:
+    def get_incumbent_id(self) -> Optional[ConfigId]:
         """
         Find the config_id of the incumbent.
 
@@ -276,7 +277,7 @@ class Result(object):
 
         return return_dict
 
-    def get_runs_by_id(self, config_id: Tuple[int, int, int]) -> List[Run]:
+    def get_runs_by_id(self, config_id: ConfigId) -> List[Run]:
         """
         returns a list of runs for a given config id
 
@@ -298,7 +299,7 @@ class Result(object):
         return runs
 
     def get_learning_curves(self, lc_extractor: Callable = extract_HBS_learning_curves,
-                            config_ids=List[Tuple[int, int, int]]) -> dict:
+                            config_ids=List[ConfigId]) -> dict:
         """
         extracts all learning curves from all run configurations
 
@@ -353,7 +354,7 @@ class Result(object):
 
         return all_runs
 
-    def get_id2config_mapping(self) -> Dict[Tuple[int, int, int], dict]:
+    def get_id2config_mapping(self) -> Dict[ConfigId, dict]:
         """
         returns a dict where the keys are the config_ids and the values
         are the actual configurations

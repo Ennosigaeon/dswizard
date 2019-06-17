@@ -1,5 +1,47 @@
 import time
-from typing import Tuple
+
+
+class ConfigId(object):
+
+    def __init__(self, iteration: int, budget: int, idx: int):
+        """
+
+        :param iteration:
+        :param budget:
+        :param idx:
+
+        config_id: tuple
+            a triplet of ints that uniquely identifies a configuration. the convention is
+            id = (iteration, budget index, running index) with the following meaning:
+            - iteration: the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
+                         Successive Halving
+            - budget index: the budget (of the current iteration) for which this configuration was sampled by the
+                            optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to
+                            fill empty slots, or you use a more 'advanced' optimizer.
+            - running index: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e.
+                             (x,x,0) was sampled before (x,x,1).
+        """
+
+        self.iteration = iteration
+        self.budget = budget
+        self.idx = idx
+
+    def as_tuple(self):
+        return self.iteration, self.budget, self.idx
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return str(self.as_tuple())
+
+    def __hash__(self):
+        return hash(self.as_tuple())
+
+    def __eq__(self, other):
+        if not isinstance(other, ConfigId):
+            return False
+        return self.as_tuple() == other.as_tuple()
 
 
 class Datum(object):
@@ -30,8 +72,8 @@ class Datum(object):
 
 
 class Job(object):
-    def __init__(self, id: Tuple[int, int, int], **kwargs):
-        self.id: Tuple[int, int, int] = id
+    def __init__(self, id: ConfigId, **kwargs):
+        self.id: ConfigId = id
 
         self.kwargs = kwargs
 

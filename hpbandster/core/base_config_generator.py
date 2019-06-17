@@ -1,6 +1,7 @@
 import logging
-
 from typing import Tuple
+
+from hpbandster.core.model import Job
 
 
 class BaseConfigGenerator(object):
@@ -40,7 +41,7 @@ class BaseConfigGenerator(object):
         """
         raise NotImplementedError('This function needs to be overwritten in {}.'.format(self.__class__.__name__))
 
-    def new_result(self, job, update_model: bool = True) -> None:
+    def new_result(self, job: Job, update_model: bool = True) -> None:
         """
         registers finished runs
 

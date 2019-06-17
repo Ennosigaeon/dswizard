@@ -5,7 +5,7 @@ Example 1 - Local and Sequential
 """
 import logging
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.DEBUG)
 
 import argparse
 

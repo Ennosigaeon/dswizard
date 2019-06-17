@@ -10,6 +10,8 @@ from typing import Tuple
 import Pyro4
 from Pyro4.errors import CommunicationError, NamingError
 
+from hpbandster.core.model import ConfigId
+
 
 class Worker(object):
     """
@@ -168,7 +170,7 @@ class Worker(object):
             ns.remove(self.worker_id)
 
     def compute(self,
-                config_id: Tuple[int, int, int],
+                config_id: ConfigId,
                 config: dict,
                 budget: float,
                 working_directory: str):
@@ -207,6 +209,7 @@ class Worker(object):
 
     @Pyro4.expose
     @Pyro4.oneway
+    # TODO pyro4 refuses to receive custom object
     def start_computation(self,
                           callback,
                           id: Tuple[int, int, int],
@@ -218,23 +221,25 @@ class Worker(object):
             self.busy = True
         if self.timeout is not None and self.timer is not None:
             self.timer.cancel()
-        self.logger.info('WORKER: start processing job {}'.format(id))
+
+        configId = ConfigId(*id)
+        self.logger.info('WORKER: start processing job {}'.format(configId))
         self.logger.debug('WORKER: args: {}'.format(args))
         self.logger.debug('WORKER: kwargs: {}'.format(kwargs))
         result = None
         try:
-            result = {'result': self.compute(*args, config_id=id, **kwargs),
+            result = {'result': self.compute(*args, config_id=configId, **kwargs),
                       'exception': None}
         except Exception as e:
             result = {'result': None,
                       'exception': traceback.format_exc()}
         finally:
-            self.logger.debug('WORKER: done with job {}, trying to register it.'.format(id))
+            self.logger.debug('WORKER: done with job {}, trying to register it.'.format(configId))
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(id, result)
                 self.thread_cond.notify()
-        self.logger.info('WORKER: registered result for job {} with dispatcher'.format(id))
+        self.logger.info('WORKER: registered result for job {} with dispatcher'.format(configId))
         if self.timeout is not None:
             self.timer = threading.Timer(self.timeout, self.shutdown)
             self.timer.daemon = True

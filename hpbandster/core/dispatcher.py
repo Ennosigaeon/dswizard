@@ -2,18 +2,17 @@ import logging
 import queue
 import threading
 import time
-from typing import Tuple, Callable
+from typing import Callable, Tuple, Dict
 
 import Pyro4
 
-from hpbandster.core.model import Job
+from hpbandster.core.model import ConfigId, Job
 
 
 class Worker(object):
     def __init__(self, name: str, uri: str):
         self.name = name
         self.proxy = Pyro4.Proxy(uri)
-        self.runs_job = None
 
     def is_alive(self) -> bool:
         try:
@@ -83,9 +82,9 @@ class Dispatcher(object):
         else:
             self.logger = logger
 
-        self.worker_pool = {}
+        self.worker_pool: Dict[str, Worker] = {}
 
-        self.waiting_jobs = queue.Queue()
+        self.waiting_jobs: queue.Queue[Job] = queue.Queue()
         self.running_jobs = {}
         self.idle_workers = set()
 
@@ -257,14 +256,15 @@ class Dispatcher(object):
             job.time_it('started')
             worker.runs_job = job.id
 
-            worker.proxy.start_computation(self, job.id, **job.kwargs)
+            # TODO pyro4 refuses to send custom object
+            worker.proxy.start_computation(self, job.id.as_tuple(), **job.kwargs)
 
             job.worker_name = wn
             self.running_jobs[job.id] = job
 
             self.logger.debug('DISPATCHER: job {} dispatched on {}'.format(str(job.id), worker.name))
 
-    def submit_job(self, id: Tuple[int, int, int], **kwargs: dict) -> None:
+    def submit_job(self, id: ConfigId, **kwargs: dict) -> None:
         self.logger.debug('DISPATCHER: trying to submit job {}'.format(id))
         with self.runner_cond:
             job = Job(id, **kwargs)
@@ -276,12 +276,15 @@ class Dispatcher(object):
     @Pyro4.expose
     @Pyro4.callback
     @Pyro4.oneway
+    # TODO pyro4 refuses to receive custom object
     def register_result(self, id: Tuple[int, int, int] = None, result: dict = None) -> None:
         self.logger.debug('DISPATCHER: job {} finished'.format(id))
         with self.runner_cond:
             self.logger.debug('DISPATCHER: register_result: lock acquired')
+            configId = ConfigId(*id)
+
             # fill in missing information
-            job = self.running_jobs[id]
+            job = self.running_jobs[configId]
             job.time_it('finished')
             job.result = result['result']
             job.exception = result['exception']
@@ -290,7 +293,7 @@ class Dispatcher(object):
             self.logger.debug(str(job))
 
             # delete job
-            del self.running_jobs[id]
+            del self.running_jobs[configId]
 
             # label worker as idle again
             try:

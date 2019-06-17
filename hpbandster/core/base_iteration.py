@@ -1,9 +1,9 @@
 import logging
-from typing import List, Callable, Tuple, Optional
+from typing import List, Callable, Tuple, Optional, Dict, Any
 
 import numpy as np
 
-from hpbandster.core.model import Datum, Job
+from hpbandster.core.model import ConfigId, Datum, Job
 from hpbandster.core.result import JsonResultLogger
 
 
@@ -42,7 +42,7 @@ class BaseIteration(object):
             a result logger that writes live results to disk
         """
 
-        self.data = {}  # this holds all the configs and results of this iteration
+        self.data: Dict[ConfigId, Any] = {}  # this holds all the configs and results of this iteration
         self.is_finished = False
         self.HPB_iter = HPB_iter
         self.stage = 0  # internal iteration, but different name for clarity
@@ -54,7 +54,7 @@ class BaseIteration(object):
         self.logger = logger if logger is not None else logging.getLogger('hpbandster')
         self.result_logger = result_logger
 
-    def add_configuration(self, config: dict = None, config_info: dict = None) -> Tuple[int, int, int]:
+    def add_configuration(self, config: dict = None, config_info: dict = None) -> ConfigId:
         """
         function to add a new configuration to the current iteration
 
@@ -80,7 +80,7 @@ class BaseIteration(object):
                 "Can't add another configuration to stage {} in HPBandSter iteration {}.".format(self.stage,
                                                                                                  self.HPB_iter))
 
-        config_id = (self.HPB_iter, self.stage, self.actual_num_configs[self.stage])
+        config_id = ConfigId(self.HPB_iter, self.stage, self.actual_num_configs[self.stage])
 
         self.data[config_id] = Datum(config=config, config_info=config_info, budget=self.budgets[self.stage])
 
@@ -127,7 +127,7 @@ class BaseIteration(object):
         d.exceptions[budget] = exception
         self.num_running -= 1
 
-    def get_next_run(self) -> Optional[Tuple[Tuple[int, int, int], dict, float]]:
+    def get_next_run(self) -> Optional[Tuple[ConfigId, dict, float]]:
         """
         function to return the next configuration and budget to run.
 
