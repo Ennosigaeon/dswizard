@@ -23,31 +23,20 @@ class Hyperopt(BaseConfigGenerator):
                  min_bandwidth: float = 1e-3,
                  **kwargs):
         """
-            Fits for each given budget a kernel density estimator on the best N percent of the
-            evaluated configurations on this budget.
-
-
-            Parameters:
-            -----------
-            configspace: ConfigSpace
-                Configuration space object
-            top_n_percent: int
-                Determines the percentile of configurations that will be used as training data
-                for the kernel density estimator, e.g if set to 10 the 10% best configurations will be considered
-                for training.
-            min_points_in_model: int
-                minimum number of datapoints needed to fit a model
-            num_samples: int
-                number of samples drawn to optimize EI via sampling
-            random_fraction: float
-                fraction of random configurations returned
-            bandwidth_factor: float
-                widens the bandwidth for continuous parameters for proposed points to optimize EI
-            min_bandwidth: float
-                to keep diversity, even when all (good) samples have the same value for one of the parameters,
-                a minimum bandwidth (Default: 1e-3) is used instead of zero.
-
+        Fits for each given budget a kernel density estimator on the best N percent of the evaluated configurations on
+        this budget.
+        :param configspace: Configuration space object
+        :param min_points_in_model: Determines the percentile of configurations that will be used as training data for
+            the kernel density estimator, e.g if set to 10 the 10% best configurations will be considered for training.
+        :param top_n_percent: minimum number of datapoints needed to fit a model
+        :param num_samples: number of samples drawn to optimize EI via sampling
+        :param random_fraction: fraction of random configurations returned
+        :param bandwidth_factor: widens the bandwidth for continuous parameters for proposed points to optimize EI
+        :param min_bandwidth: to keep diversity, even when all (good) samples have the same value for one of the
+            parameters, a minimum bandwidth (Default: 1e-3) is used instead of zero.
+        :param kwargs:
         """
+
         super().__init__(**kwargs)
         self.top_n_percent = top_n_percent
         self.configspace = configspace
@@ -99,19 +88,11 @@ class Hyperopt(BaseConfigGenerator):
 
     def get_config(self, budget: float) -> Tuple[dict, dict]:
         """
-            Function to sample a new configuration
+        Function to sample a new configuration
 
-            This function is called inside Hyperband to query a new configuration
-
-
-            Parameters:
-            -----------
-            budget: float
-                the budget for which this configuration is scheduled
-
-            returns: config
-                should return a valid configuration
-
+        This function is called inside Hyperband to query a new configuration
+        :param budget: the budget for which this configuration is scheduled
+        :return: should return a valid configuration
         """
 
         self.logger.debug('start sampling a new configuration.')
@@ -271,18 +252,13 @@ class Hyperopt(BaseConfigGenerator):
                    job: Job,
                    update_model: bool = True) -> None:
         """
-            function to register finished runs
+        function to register finished runs
 
-            Every time a run has finished, this function should be called
-            to register it with the result logger. If overwritten, make
-            sure to call this method from the base class to ensure proper
-            logging.
-
-
-            Parameters:
-            -----------
-            job: hpbandster.distributed.dispatcher.Job object
-                contains all the info about the run
+        Every time a run has finished, this function should be called to register it with the result logger. If
+        overwritten, make sure to call this method from the base class to ensure proper logging.
+        :param job: contains all the info about the run
+        :param update_model:
+        :return:
         """
 
         super().new_result(job)

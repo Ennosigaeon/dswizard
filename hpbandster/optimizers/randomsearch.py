@@ -15,20 +15,15 @@ class RandomSearch(Master):
                  **kwargs
                  ):
         """
-                Implements a random search across the search space for comparison.
-                Candidates are sampled at random and run on the maximum budget.
-
-        Parameters
-        ----------
-        configspace: ConfigSpace object
-            valid representation of the search space
-        eta : float
-            In each iteration, a complete run of sequential halving is executed. In it,
-            after evaluating each configuration on the same subset size, only a fraction of
-            1/eta of them 'advances' to the next round.
-            Must be greater or equal to 2.
-        budget : float
-            budget for the evaluation
+        Implements a random search across the search space for comparison. Candidates are sampled at random and run on
+        the maximum budget.
+        :param configspace: valid representation of the search space
+        :param eta: In each iteration, a complete run of sequential halving is executed. In it, after evaluating each
+            configuration on the same subset size, only a fraction of 1/eta of them 'advances' to the next round. Must
+            be greater or equal to 2.
+        :param min_budget: budget for the evaluation
+        :param max_budget: budget for the evaluation
+        :param kwargs:
         """
 
         # TODO: Proper check for ConfigSpace object!
@@ -62,18 +57,9 @@ class RandomSearch(Master):
                            iteration_kwargs: dict = None) -> SuccessiveHalving:
         """
         Returns a SH iteration with only evaluations on the biggest budget
-
-        Parameters
-        ----------
-            iteration: int
-                the index of the iteration to be instantiated
-            iteration_kwargs: any
-                default
-
-        Returns
-        -------
-            SuccessiveHalving: the SuccessiveHalving iteration with the
-                corresponding number of configurations
+        :param iteration: the index of the iteration to be instantiated
+        :param iteration_kwargs: default
+        :return: the SuccessiveHalving iteration with the corresponding number of configurations
         """
 
         if iteration_kwargs is None:

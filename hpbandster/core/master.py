@@ -29,39 +29,25 @@ class Master(object):
                  result_logger: JsonResultLogger = None,
                  previous_result: Any = None,
                  ):
-        """The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
-                instantiations of Master, that handle the important steps of deciding what configurations to run on what
-                budget when.
-
-        Parameters
-        ----------
-        run_id : string
-            A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running multiple
-            concurrent runs to separate them
-        config_generator: hpbandster.config_generators object
-            An object that can generate new configurations and registers results of executed runs
-        working_directory: string
-            The top level working directory accessible to all compute nodes(shared filesystem).
-        ping_interval: int
-            number of seconds between pings to discover new nodes. Default is 60 seconds.
-        nameserver: str
-            address of the Pyro4 nameserver
-        nameserver_port: int
-            port of Pyro4 nameserver
-        host: str
-            ip (or name that resolves to that) of the network interface to use
-        job_queue_sizes: tuple of ints
-            min and max size of the job queue. During the run, when the number of jobs in the queue
+        """
+        The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
+        instantiations of Master, that handle the important steps of deciding what configurations to run on what
+        budget when.
+        :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
+            multiple concurrent runs to separate them
+        :param config_generator: An object that can generate new configurations and registers results of executed runs
+        :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
+        :param ping_interval: number of seconds between pings to discover new nodes. Default is 60 seconds.
+        :param nameserver: address of the Pyro4 nameserver
+        :param nameserver_port: port of Pyro4 nameserver
+        :param host: IP (or name that resolves to that) of the network interface to use
+        :param job_queue_sizes: min and max size of the job queue. During the run, when the number of jobs in the queue
             reaches the min value, it will be filled up to the max size. Default: (0,1)
-        dynamic_queue_size: bool
-            Whether or not to change the queue size based on the number of workers available.
+        :param dynamic_queue_size:  Whether or not to change the queue size based on the number of workers available.
             If true (default), the job_queue_sizes are relative to the current number of workers.
-        logger: logging.logger like object
-            the logger to output some (more or less meaningful) information
-        result_logger: JsonResultLogger object
-            a result logger that writes live results to disk
-        previous_result: hpbandster.core.result.Result object
-            previous run to warmstart the run
+        :param logger: the logger to output some (more or less meaningful) information
+        :param result_logger: a result logger that writes live results to disk
+        :param previous_result: previous run to warmstart the run
         """
 
         self.working_directory = working_directory
@@ -116,11 +102,8 @@ class Master(object):
     def wait_for_workers(self, min_n_workers: int = 1) -> None:
         """
         helper function to hold execution until some workers are active
-
-        Parameters
-        ----------
-        min_n_workers: int
-            minimum number of workers present before the run starts
+        :param min_n_workers: minimum number of workers present before the run starts
+        :return:
         """
 
         self.logger.debug('wait_for_workers trying to get the condition')
@@ -138,33 +121,20 @@ class Master(object):
         instantiates the next iteration
 
         Overwrite this to change the iterations for different optimizers
-
-        Parameters
-        ----------
-            iteration: int
-                the index of the iteration to be instantiated
-            iteration_kwargs: dict
-                additional kwargs for the iteration class. Defaults to empty dictionary
-
-        Returns
-        -------
-            HB_iteration: a valid HB iteration object
+        :param iteration: the index of the iteration to be instantiated
+        :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
+        :return: a valid HB iteration object
         """
 
         raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
 
     def run(self, n_iterations: int = 1, min_n_workers: int = 1, iteration_kwargs: dict = None) -> Result:
         """
-            run n_iterations of SuccessiveHalving
-
-        Parameters
-        ----------
-        n_iterations: int
-            number of iterations to be performed in this run
-        min_n_workers: int
-            minimum number of workers before starting the run
-        iteration_kwargs: dict
-            additional kwargs for the iteration class. Defaults to empty dictionary
+        run n_iterations of SuccessiveHalving
+        :param n_iterations: number of iterations to be performed in this run
+        :param min_n_workers: minimum number of workers before starting the run
+        :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
+        :return:
         """
 
         if iteration_kwargs is None:
@@ -235,6 +205,8 @@ class Master(object):
 
         this will do some book keeping and call the user defined
         new_result_callback if one was specified
+        :param job: Finished Job
+        :return:
         """
         self.logger.debug('job_callback for {} started'.format(job.id))
         with self.thread_cond:
@@ -267,8 +239,7 @@ class Master(object):
         """
         protected function to submit a new job to the dispatcher
 
-        This function handles the actual submission in a
-        (hopefully) thread save way
+        This function handles the actual submission in a (hopefully) thread save way
         """
         self.logger.debug('HBMASTER: trying submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
@@ -281,10 +252,7 @@ class Master(object):
     def active_iterations(self) -> List[int]:
         """
         function to find active (not marked as finished) iterations
-
-        Returns
-        -------
-            list: all active iteration objects (empty if there are none)
+        :return: all active iteration indices (empty if there are none)
         """
 
         return list(filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))))

@@ -50,25 +50,15 @@ class Dispatcher(object):
                  logger: logging.Logger = None,
                  queue_callback: Callable[[int], None] = None):
         """
-        Parameters
-        ----------
-        new_result_callback: function
-            function that will be called with a `Job instance <hpbandster.core.dispatcher.Job>`_ as argument.
-            From the `Job` the result can be read and e.g. logged.
-        run_id: str
-            unique run_id associated with the HPB run
-        ping_interval: int
-            how often to ping for workers (in seconds)
-        nameserver: str
-            address of the Pyro4 nameserver
-        nameserver_port: int
-            port of Pyro4 nameserver
-        host: str
-            ip (or name that resolves to that) of the network interface to use
-        logger: logging.Logger
-            logger-instance for info and debug
-        queue_callback: function
-            gets called with the number of workers in the pool on every update-cycle
+        :param new_result_callback: function that will be called with a `Job instance <hpbandster.core.dispatcher.Job>`
+            as argument. From the `Job` the result can be read and e.g. logged.
+        :param run_id: unique run_id associated with the HPB run
+        :param ping_interval: how often to ping for workers (in seconds)
+        :param nameserver: address of the Pyro4 nameserver
+        :param nameserver_port: port of Pyro4 nameserver
+        :param host: ip (or name that resolves to that) of the network interface to use
+        :param logger: logger-instance for info and debug
+        :param queue_callback: gets called with the number of workers in the pool on every update-cycle
         """
 
         self.new_result_callback = new_result_callback

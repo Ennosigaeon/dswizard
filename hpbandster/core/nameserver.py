@@ -27,20 +27,15 @@ class NameServer(object):
                  port: int = 0,
                  nic_name: str = None):
         """
-        Parameters
-        ----------
-            run_id: str
-                unique run_id associated with the HPB run
-            working_directory: str
-                path to the working directory of the HPB run to store the nameservers credentials.
-                If None, no config file will be written.
-            host: str
-                the hostname to use for the nameserver
-            port: int
-                the port to be used. Default (=0) means a random port
-            nic_name: str
-                name of the network interface to use (only used if host is not given)
+
+        :param run_id: unique run_id associated with the HPB run
+        :param working_directory: path to the working directory of the HPB run to store the nameservers credentials.
+            If None, no config file will be written.
+        :param host: the hostname to use for the nameserver
+        :param port: the port to be used. Default (=0) means a random port
+        :param nic_name: name of the network interface to use (only used if host is not given)
         """
+
         self.run_id = run_id
         self.host = host
         self.nic_name = nic_name
@@ -52,11 +47,7 @@ class NameServer(object):
     def start(self) -> Tuple[str, int]:
         """
         starts a Pyro4 nameserver in a separate thread
-
-        Returns
-        -------
-            tuple (str, int):
-                the host name and the used port
+        :return: the host name and the used port
         """
 
         if self.host is None:
@@ -84,7 +75,7 @@ class NameServer(object):
 
     def shutdown(self) -> None:
         """
-            clean shutdown of the nameserver and the config file (if written)
+        clean shutdown of the nameserver and the config file (if written)
         """
         if self.pyro_ns is not None:
             self.pyro_ns.shutdown()

@@ -7,20 +7,15 @@ from hpbandster.core import BaseConfigGenerator
 
 class RandomSampling(BaseConfigGenerator):
     """
-        class to implement random sampling from a ConfigSpace
+    class to implement random sampling from a ConfigSpace
     """
 
     def __init__(self, configspace: ConfigurationSpace, **kwargs):
         """
 
-        Parameters:
-        -----------
-
-        configspace: ConfigSpace.ConfigurationSpace
-            The configuration space to sample from. It contains the full
-            specification of the Hyperparameters with their priors
-        **kwargs:
-            see  hyperband.config_generators.base.base_config_generator for additional arguments
+        :param configspace: The configuration space to sample from. It contains the full specification of the
+            Hyperparameters with their priors
+        :param kwargs: see hyperband.core.BaseConfigGenerator for additional arguments
         """
 
         super().__init__(**kwargs)

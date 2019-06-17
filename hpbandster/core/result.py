@@ -10,8 +10,7 @@ from hpbandster.core.model import ConfigId, Datum, Job
 
 class Run(object):
     """
-        Not a proper class, more a 'struct' to bundle important
-        information about a particular run
+    Not a proper class, more a 'struct' to bundle important information about a particular run
     """
 
     def __init__(self,
@@ -38,7 +37,7 @@ class Run(object):
 
     def __getitem__(self, k):
         """
-             in case somebody wants to use it like a dictionary
+        in case somebody wants to use it like a dictionary
         """
         return getattr(self, k)
 
@@ -49,23 +48,10 @@ def extract_HBS_learning_curves(runs):
 
     This is an example function showing the interface to use the
     HB_result.get_learning_curves method.
-
-    Parameters
-    ----------
-
-    runs: list of HB_result.run objects
-        the performed runs for an unspecified config
-
-    Returns
-    -------
-
-    list of learning curves: list of lists of tuples
-        An individual learning curve is a list of (t, x_t) tuples.
-        This function must return a list of these. One could think
-        of cases where one could extract multiple learning curves
-        from these runs, e.g. if each run is an independent training
-        run of a neural network on the data.
-
+    :param runs: the performed runs for an unspecified config
+    :return: An individual learning curve is a list of (t, x_t) tuples. This function must return a list of these. One
+        could think of cases where one could extract multiple learning curves from these runs, e.g. if each run is an
+        independent training run of a neural network on the data.
     """
     sr = sorted(runs, key=lambda r: r.budget)
     lc = list(filter(lambda t: t[1] is not None, [(r.budget, r.loss) for r in sr]))
@@ -81,19 +67,10 @@ class JsonResultLogger(object):
         Both files contain proper json objects in each line.
 
         This version opens and closes the files for each result.
-        This might be very slow if individual runs are fast and the
-        filesystem is rather slow (e.g. a NFS).
-
-        Parameters
-        ----------
-
-        directory: string
-            the directory where the two files 'configs.json' and
-            'results.json' are stored
-        overwrite: bool
-            In case the files already exist, this flag controls the
+        This might be very slow if individual runs are fast and the filesystem is rather slow (e.g. a NFS).
+        :param directory: the directory where the two files 'configs.json' and 'results.json' are stored
+        :param overwrite: In case the files already exist, this flag controls the
             behavior:
-
                 * True:   The existing files will be overwritten. Potential risk of deleting previous results
                 * False:  A FileExistsError is raised and the files are not modified.
         """
@@ -129,7 +106,7 @@ class JsonResultLogger(object):
         if config_id not in self.config_ids:
             self.config_ids.add(config_id)
             with open(self.config_fn, 'a') as fh:
-                fh.write(json.dumps([config_id, config.get_dictionary(), config_info]))
+                fh.write(json.dumps([config_id.as_tuple(), config.get_dictionary(), config_info]))
                 fh.write('\n')
 
     def __call__(self, job: Job) -> None:
@@ -137,10 +114,10 @@ class JsonResultLogger(object):
             # should never happen! TODO: log warning here!
             self.config_ids.add(job.id)
             with open(self.config_fn, 'a') as fh:
-                fh.write(json.dumps([job.id, job.kwargs['config'], {}]))
+                fh.write(json.dumps([job.id.as_tuple(), job.kwargs['config'], {}]))
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
-            fh.write(json.dumps([job.id, job.kwargs['budget'], job.timestamps, job.result, job.exception]))
+            fh.write(json.dumps([job.id.as_tuple(), job.kwargs['budget'], job.timestamps, job.result, job.exception]))
             fh.write("\n")
 
 
@@ -203,24 +180,14 @@ class Result(object):
                                  non_decreasing_budget: bool = True) -> dict:
         """
         Returns the best configurations over time
-
-
-        Parameters
-        ----------
-            all_budgets: bool
-                If set to true all runs (even those not with the largest budget) can be the incumbent.
-                Otherwise, only full budget runs are considered
-            bigger_is_better:bool
-                flag whether an evaluation on a larger budget is always considered better.
-                If True, the incumbent might increase for the first evaluations on a bigger budget
-            non_decreasing_budget: bool
-                flag whether the budget of a new incumbent should be at least as big as the one for
-                the current incumbent.
-        Returns
-        -------
-            dict:
-                dictionary with all the config IDs, the times the runs
-                finished, their respective budgets, and corresponding losses
+        :param all_budgets: If set to true all runs (even those not with the largest budget) can be the incumbent.
+            Otherwise, only full budget runs are considered
+        :param bigger_is_better: flag whether an evaluation on a larger budget is always considered better.
+            If True, the incumbent might increase for the first evaluations on a bigger budget
+        :param non_decreasing_budget: flag whether the budget of a new incumbent should be at least as big as the one
+            for the current incumbent.
+        :return: dictionary with all the config IDs, the times the runs finished, their respective budgets, and
+         corresponding losses
         """
         all_runs = self.get_all_runs(only_largest_budget=not all_budgets)
 
@@ -229,11 +196,12 @@ class Result(object):
 
         all_runs.sort(key=lambda r: r.time_stamps['finished'])
 
-        return_dict = {'config_ids': [],
-                       'times_finished': [],
-                       'budgets': [],
-                       'losses': [],
-                       }
+        return_dict = {
+            'config_ids': [],
+            'times_finished': [],
+            'budgets': [],
+            'losses': [],
+        }
 
         if len(all_runs) == 0:
             return return_dict
@@ -301,20 +269,10 @@ class Result(object):
                             config_ids=List[ConfigId]) -> dict:
         """
         extracts all learning curves from all run configurations
-
-        Parameters
-        ----------
-            lc_extractor: callable
-                a function to return a list of learning_curves.
-                defaults to hpbanster.HB_result.extract_HP_learning_curves
-            config_ids: list of valid config ids
-                if only a subset of the config ids is wanted
-
-        Returns
-        -------
-            dict
-                a dictionary with the config_ids as keys and the
-                learning curves as values
+        :param lc_extractor: a function to return a list of learning_curves. defaults to
+            hpbanster.HB_result.extract_HP_learning_curves
+        :param config_ids: if only a subset of the config ids is wanted
+        :return: a dictionary with the config_ids as keys and the learning curves as values
         """
 
         config_ids = self.data.keys() if config_ids is None else config_ids
@@ -330,15 +288,10 @@ class Result(object):
     def get_all_runs(self, only_largest_budget: bool = False) -> List[Run]:
         """
         returns all runs performed
-
-        Parameters
-        ----------
-            only_largest_budget: boolean
-                if True, only the largest budget for each configuration
-                is returned. This makes sense if the runs are continued
-                across budgets and the info field contains the information
-                you care about. If False, all runs of a configuration
-                are returned
+        :param only_largest_budget: if True, only the largest budget for each configuration is returned. This makes
+            sense if the runs are continued across budgets and the info field contains the information you care about.
+            If False, all runs of a configuration are returned
+        :return:
         """
         all_runs = []
 
@@ -369,7 +322,7 @@ class Result(object):
         return new_dict
 
     def num_iterations(self) -> int:
-        return max([k[0] for k in self.data.keys()]) + 1
+        return max([k.iteration for k in self.data.keys()]) + 1
 
     def get_fANOVA_data(self,
                         config_space: ConfigurationSpace,
@@ -471,17 +424,10 @@ def logged_results_to_HBS_result(directory: str) -> Result:
     HB_result object gives you access to the results the same way
     a finished run would.
 
-    Parameters
-    ----------
-    directory: str
-        the directory containing the results.json and config.json files
-
-    Returns
-    -------
-    hpbandster.core.result.Result: :object:
-        TODO
-
+    :param directory: the directory containing the results.json and config.json files
+    :return:
     """
+
     data = {}
     time_ref = float('inf')
     budget_set = set()
@@ -497,13 +443,13 @@ def logged_results_to_HBS_result(directory: str) -> Result:
                 config_id, config, = line
                 config_info = 'N/A'
 
-            data[tuple(config_id)] = Datum(config=config, config_info=config_info)
+            data[ConfigId(*config_id)] = Datum(config=config, config_info=config_info)
 
     with open(os.path.join(directory, 'results.json')) as fh:
         for line in fh:
             config_id, budget, time_stamps, result, exception = json.loads(line)
 
-            id = tuple(config_id)
+            id = ConfigId(*config_id)
 
             data[id].time_stamps[budget] = time_stamps
             data[id].results[budget] = result

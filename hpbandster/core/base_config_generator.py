@@ -15,10 +15,7 @@ class BaseConfigGenerator(object):
 
     def __init__(self, logger: logging.Logger = None):
         """
-        Parameters
-        ----------
-        logger: logging.logger
-            for some debug output
+        :param logger: for some debug output
         """
 
         if logger is None:
@@ -31,15 +28,10 @@ class BaseConfigGenerator(object):
         function to sample a new configuration
 
         This function is called inside Hyperband to query a new configuration
-
-        Parameters
-        ----------
-        budget: float
-            the budget for which this configuration is scheduled
-
-        returns: (config, info_dict)
-            must return a valid configuration and a (possibly empty) info dict
+        :param budget: the budget for which this configuration is scheduled
+        :return: must return a valid configuration and a (possibly empty) info dict
         """
+
         raise NotImplementedError('This function needs to be overwritten in {}.'.format(self.__class__.__name__))
 
     def new_result(self, job: Job, update_model: bool = True) -> None:
@@ -51,13 +43,10 @@ class BaseConfigGenerator(object):
         sure to call this method from the base class to ensure proper
         logging.
 
-
-        Parameters
-        ----------
-        job: instance of hpbandster.distributed.dispatcher.Job
-            contains all necessary information about the job
-        update_model: boolean
-            determines whether a model inside the config_generator should be updated
+        :param job: contains all necessary information about the job
+        :param update_model: determines whether a model inside the config_generator should be updated
+        :return:
         """
+
         if job.exception is not None:
             self.logger.warning("job {} failed with exception\n{}".format(job.id, job.exception))

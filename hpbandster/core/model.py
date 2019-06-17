@@ -4,24 +4,20 @@ from ConfigSpace.configuration_space import ConfigurationSpace
 
 
 class ConfigId(object):
+    """
+    a triplet of ints that uniquely identifies a configuration. the convention is id = (iteration, budget index,
+    running index)
+    """
 
     def __init__(self, iteration: int, budget: int, idx: int):
         """
-
-        :param iteration:
-        :param budget:
-        :param idx:
-
-        config_id: tuple
-            a triplet of ints that uniquely identifies a configuration. the convention is
-            id = (iteration, budget index, running index) with the following meaning:
-            - iteration: the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
-                         Successive Halving
-            - budget index: the budget (of the current iteration) for which this configuration was sampled by the
-                            optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to
-                            fill empty slots, or you use a more 'advanced' optimizer.
-            - running index: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e.
-                             (x,x,0) was sampled before (x,x,1).
+        :param iteration:the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
+            Successive Halving
+        :param budget: the budget (of the current iteration) for which this configuration was sampled by the
+            optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to fill empty
+            slots, or you use a more 'advanced' optimizer.
+        :param idx: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e. (x,x,0) was
+            sampled before (x,x,1).
         """
 
         self.iteration = iteration

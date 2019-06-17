@@ -23,24 +23,15 @@ class BaseIteration(object):
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
-        Parameters
-        ----------
 
-        HPB_iter: int
-            The current HPBandSter iteration index.
-        num_configs: list of ints
-            the number of configurations in each stage of SH
-        budgets: list of floats
-            the budget associated with each stage
-        config_sampler: callable
-            a function that returns a valid configuration. Its only
-            argument should be the budget that this config is first
-            scheduled for. This might be used to pick configurations
-            that perform best after this particular budget is exhausted
-            to build a better autoML system.
-        logger: a logger
-        result_logger: JsonResultLogger object
-            a result logger that writes live results to disk
+        :param HPB_iter: The current HPBandSter iteration index.
+        :param num_configs: the number of configurations in each stage of SH
+        :param budgets: the budget associated with each stage
+        :param config_sampler: a function that returns a valid configuration. Its only argument should be the budget
+            that this config is first scheduled for. This might be used to pick configurations that perform best after this
+            particular budget is exhausted to build a better autoML system.
+        :param logger: a logger
+        :param result_logger: a result logger that writes live results to disk
         """
 
         self.data: Dict[ConfigId, Any] = {}  # this holds all the configs and results of this iteration
@@ -58,14 +49,9 @@ class BaseIteration(object):
     def add_configuration(self, config: dict = None, config_info: dict = None) -> ConfigId:
         """
         function to add a new configuration to the current iteration
-
-        Parameters
-        ----------
-
-        config : valid configuration
-            The configuration to add. If None, a configuration is sampled from the config_sampler
-        config_info: dict
-            Some information about the configuration that will be stored in the results
+        :param config: The configuration to add. If None, a configuration is sampled from the config_sampler
+        :param config_info: Some information about the configuration that will be stored in the results
+        :return: The id of the new configuration
         """
         # TODO transfer config parameter to ConfigurationSpace
 
@@ -99,6 +85,9 @@ class BaseIteration(object):
 
         This function is called from HB_master, don't call this from
         your script.
+        :param job: Finished job
+        :param skip_sanity_checks: Basic sanity checks for passed job
+        :return:
         """
 
         if self.is_finished:
@@ -142,6 +131,7 @@ class BaseIteration(object):
         If there are empty slots to be filled in the current SH stage
         (which never happens in the original SH version), a new
         configuration will be sampled and scheduled to run next.
+        :return:
         """
 
         if self.is_finished:
@@ -172,18 +162,8 @@ class BaseIteration(object):
 
         Overload this to implement different strategies, like
         SuccessiveHalving, SuccessiveResampling.
-
-        Parameters
-        ----------
-            losses: list
-                losses of the run on the current budget
-
-        Returns
-        -------
-            numpy array of bool
-                A boolean for each entry in config_ids indicating whether to advance it or not
-
-
+        :param losses: losses of the run on the current budget
+        :return: A boolean for each entry in config_ids indicating whether to advance it or not
         """
         raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))
 
@@ -277,7 +257,9 @@ class WarmStartIteration(BaseIteration):
 
     def fix_timestamps(self, time_ref):
         """
-            manipulates internal time stamps such that the last run ends at time 0
+        manipulates internal time stamps such that the last run ends at time 0
+        :param time_ref:
+        :return:
         """
 
         for k, v in self.data.items():

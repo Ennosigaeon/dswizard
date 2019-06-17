@@ -32,26 +32,16 @@ class Worker(object):
                  id: any = None,
                  timeout: float = None):
         """
-
-        Parameters
-        ----------
-        run_id: anything with a __str__ method
-            unique id to identify individual HpBandSter run
-        nameserver: str
-            hostname or IP of the nameserver
-        nameserver_port: int
-            port of the nameserver
-        logger: logging.logger instance
-            logger used for debugging output
-        host: str
-            hostname for this worker process
-        id: anything with a __str__method
-            if multiple workers are started in the same process, you MUST provide a unique id for each one of them using
-            the `id` argument.
-        timeout: int or float
-            specifies the timeout a worker will wait for a new after finishing a computation before shutting down.
-            Towards the end of a long run with multiple workers, this helps to shutdown idling workers. We recommend
-            a timeout that is roughly half the time it would take for the second largest budget to finish.
+        :param run_id: unique id to identify individual HpBandSter run
+        :param nameserver: hostname or IP of the nameserver
+        :param nameserver_port: port of the nameserver
+        :param logger: logger used for debugging output
+        :param host: hostname for this worker process
+        :param id: if multiple workers are started in the same process, you MUST provide a unique id for each one of
+            them using the `id` argument.
+        :param timeout: specifies the timeout a worker will wait for a new after finishing a computation before shutting
+            down. Towards the end of a long run with multiple workers, this helps to shutdown idling workers. We
+            recommend a timeout that is roughly half the time it would take for the second largest budget to finish.
             The default (None) means that the worker will wait indefinitely and never shutdown on its own.
         """
         self.run_id = run_id
@@ -83,15 +73,10 @@ class Worker(object):
                                     interval: int = 1) -> None:
         """
         loads the nameserver credentials in cases where master and workers share a filesystem
-
-        Parameters
-        ----------
-            working_directory: str
-                the working directory for the HPB run (see master)
-            num_tries: int
-                number of attempts to find the file (default 60)
-            interval: float
-                waiting period between the attempts
+        :param working_directory: the working directory for the HPB run (see master)
+        :param num_tries: number of attempts to find the file (default 60)
+        :param interval: waiting period between the attempts
+        :return:
         """
         fn = os.path.join(working_directory, 'HPB_run_{}_pyro.pkl'.format(self.run_id))
 
@@ -108,14 +93,10 @@ class Worker(object):
     def run(self, background: bool = False) -> None:
         """
         Method to start the worker.
-
-        Parameters
-        ----------
-            background: bool
-                If set to False (Default). the worker is executed in the current thread.
-                If True, a new daemon thread is created that runs the worker. This is
-                useful in a single worker scenario/when the compute function only simulates
-                work.
+        :param background: If set to False (Default). the worker is executed in the current thread. If True, a new
+            daemon thread is created that runs the worker. This is useful in a single worker scenario/when the compute
+            function only simulates work.
+        :return:
         """
         if background:
             self.worker_id += str(threading.get_ident())
@@ -174,31 +155,15 @@ class Worker(object):
                 config: dict,
                 budget: float,
                 working_directory: str):
-        """ The function you have to overload implementing your computation.
-
-        Parameters
-        ----------
-        config_id: tuple
-            a triplet of ints that uniquely identifies a configuration. the convention is
-            id = (iteration, budget index, running index) with the following meaning:
-            - iteration: the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
-                         Successive Halving
-            - budget index: the budget (of the current iteration) for which this configuration was sampled by the
-                            optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to
-                            fill empty slots, or you use a more 'advanced' optimizer.
-            - running index: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e.
-                             (x,x,0) was sampled before (x,x,1).
-        config: dict
-            the actual configuration to be evaluated.
-        budget: float
-            the budget for the evaluation
-        working_directory: str
-            a name of a directory that is unique to this configuration. Use this to store intermediate results on lower
-            budgets that can be reused later for a larger budget (for iterative algorithms, for example).
-        Returns
-        -------
-        dict:
-            needs to return a dictionary with two mandatory entries:
+        """
+        The function you have to overload implementing your computation.
+        :param config_id: the id of the configuration to be evaluated
+        :param config: the actual configuration to be evaluated.
+        :param budget: the budget for the evaluation
+        :param working_directory: a name of a directory that is unique to this configuration. Use this to store
+            intermediate results on lower  budgets that can be reused later for a larger budget (for iterative
+            algorithms, for example).
+        :return: needs to return a dictionary with two mandatory entries:
                 - 'loss': a numerical value that is MINIMIZED
                 - 'info': This can be pretty much any build in python type, e.g. a dict with lists as value. Due to
                           Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!

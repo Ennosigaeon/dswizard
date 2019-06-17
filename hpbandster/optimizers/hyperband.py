@@ -14,29 +14,18 @@ class HyperBand(Master):
                  max_budget: float = 1,
                  **kwargs):
         """
-                Hyperband implements hyperparameter optimization by sampling
-                candidates at random and "trying" them first, running them for
-                a specific budget. The approach is iterative, promising
-                candidates are run for a longer time, increasing the fidelity
-                for their performance. While this is a very efficient racing
-                approach, random sampling makes no use of the knowledge gained
-                about the candidates during optimization.
-
-        Parameters
-        ----------
-        configspace: ConfigSpace object
-            valid representation of the search space
-        eta : float
-            In each iteration, a complete run of sequential halving is executed. In it,
-            after evaluating each configuration on the same subset size, only a fraction of
-            1/eta of them 'advances' to the next round.
+        Hyperband implements hyperparameter optimization by sampling candidates at random and "trying" them first,
+        running them for a specific budget. The approach is iterative, promising candidates are run for a longer time,
+        increasing the fidelity for their performance. While this is a very efficient racing approach, random sampling
+        makes no use of the knowledge gained about the candidates during optimization.
+        :param configspace: valid representation of the search space
+        :param eta: In each iteration, a complete run of sequential halving is executed. In it, after evaluating each
+            configuration on the same subset size, only a fraction of 1/eta of them 'advances' to the next round.
             Must be greater or equal to 2.
-        min_budget : float
-            The smallest budget to consider. Needs to be positive!
-        max_budget : float
-            the largest budget to consider. Needs to be larger than min_budget!
-            The budgets will be geometrically distributed $\sim \eta^k$ for
-            $k\in [0, 1, ... , num_subsets - 1]$.
+        :param min_budget: The smallest budget to consider. Needs to be positive!
+        :param max_budget: the largest budget to consider. Needs to be larger than min_budget! The budgets will be
+            geometrically distributed $\sim \eta^k$ for $k\in [0, 1, ... , num_subsets - 1]$.
+        :param kwargs:
         """
 
         # TODO: Proper check for ConfigSpace object!
@@ -68,18 +57,9 @@ class HyperBand(Master):
         """
         Hyperband uses SuccessiveHalving for each iteration.
         See Li et al. (2016) for reference.
-
-        Parameters
-        ----------
-            iteration: int
-                the index of the iteration to be instantiated
-            iteration_kwargs: any
-                default
-
-        Returns
-        -------
-            SuccessiveHalving: the SuccessiveHalving iteration with the
-                corresponding number of configurations
+        :param iteration: the index of the iteration to be instantiated
+        :param iteration_kwargs: default
+        :return: the SuccessiveHalving iteration with the corresponding number of configurations
         """
 
         if iteration_kwargs is None:

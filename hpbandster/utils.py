@@ -13,21 +13,11 @@ def nic_name_to_host(nic_name):
 
 def start_local_nameserver(host=None, port=0, nic_name=None):
     """
-        starts a Pyro4 nameserver in a daemon thread
-
-        Parameters:
-        -----------
-            host: str
-                the hostname to use for the nameserver
-            port: int
-                the port to be used. Default =0 means a random port
-            nic_name: str
-                name of the network interface to use
-
-        Returns:
-        --------
-            tuple (str, int):
-                the host name and the used port
+    starts a Pyro4 nameserver in a daemon thread
+    :param host: the hostname to use for the nameserver
+    :param port: the port to be used. Default =0 means a random port
+    :param nic_name: name of the network interface to use
+    :return: the host name and the used port
     """
 
     if host is None:
