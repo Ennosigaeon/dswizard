@@ -3,17 +3,16 @@ import tempfile
 import time
 import unittest
 
-logging.basicConfig(level=logging.WARNING)
-
 import ConfigSpace as CS
-from hpbandster.core.worker import Worker
-import hpbandster.core.nameserver as hpn
 
-from hpbandster.optimizers.hyperband import HyperBand
+import hpbandster.core.nameserver as hpn
+from hpbandster.core.worker import Worker
 from hpbandster.optimizers.bohb import BOHB
-from hpbandster.optimizers.h2bo import H2BO
+from hpbandster.optimizers.hyperband import HyperBand
 # from hpbandster.optimizers.lcnet import LCNet
 from hpbandster.optimizers.randomsearch import RandomSearch
+
+logging.basicConfig(level=logging.WARNING)
 
 rapid_development = True
 rapid_development = False
@@ -137,7 +136,7 @@ class TestWorkers(unittest.TestCase):
 
     @unittest.skipIf(rapid_development, "test skipped to accelerate developing new tests")
     def test_optimizers(self):
-        optimizers = [BOHB, H2BO, RandomSearch]
+        optimizers = [BOHB, RandomSearch]
 
         for optimizer in optimizers:
             host = hpn.nic_name_to_host('lo')
