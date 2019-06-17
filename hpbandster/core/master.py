@@ -7,7 +7,9 @@ from typing import Tuple, Optional, List, Any
 
 from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
-from hpbandster.core.dispatcher import Dispatcher, Job
+from hpbandster.core.dispatcher import Dispatcher
+from hpbandster.core.model import Job
+from hpbandster.core.result import JsonResultLogger
 from hpbandster.core.result import Result
 
 
@@ -23,7 +25,7 @@ class Master(object):
                  job_queue_sizes: Tuple[int, int] = (-1, 0),
                  dynamic_queue_size: bool = True,
                  logger: logging.Logger = None,
-                 result_logger: Any = None,
+                 result_logger: JsonResultLogger = None,
                  previous_result: Any = None,
                  ):
         """The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
@@ -55,7 +57,7 @@ class Master(object):
             If true (default), the job_queue_sizes are relative to the current number of workers.
         logger: logging.logger like object
             the logger to output some (more or less meaningful) information
-        result_logger: hpbandster.api.results.util.json_result_logger object
+        result_logger: JsonResultLogger object
             a result logger that writes live results to disk
         previous_result: hpbandster.core.result.Result object
             previous run to warmstart the run

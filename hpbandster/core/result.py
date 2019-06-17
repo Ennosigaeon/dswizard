@@ -5,7 +5,7 @@ from typing import Tuple, Any, List, Dict, Optional, Callable
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core.base_iteration import Datum
+from hpbandster.core.model import Datum
 
 
 class Run(object):
@@ -235,6 +235,9 @@ class Result(object):
                        'losses': [],
                        }
 
+        if len(all_runs) == 0:
+            return return_dict
+
         current_incumbent = float('inf')
         incumbent_budget = self.HB_config['min_budget']
 
@@ -262,6 +265,7 @@ class Result(object):
                 return_dict['budgets'].append(r.budget)
                 return_dict['losses'].append(r.loss)
 
+        # noinspection PyUnboundLocalVariable
         if current_incumbent != r.loss:
             r = all_runs[-1]
 

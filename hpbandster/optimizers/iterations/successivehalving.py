@@ -1,7 +1,8 @@
-import numpy as np
 from typing import List, Tuple
 
-from hpbandster.core.base_iteration import BaseIteration
+import numpy as np
+
+from hpbandster.core import BaseIteration
 
 
 class SuccessiveHalving(BaseIteration):

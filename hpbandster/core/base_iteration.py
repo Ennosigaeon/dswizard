@@ -3,34 +3,8 @@ from typing import List, Callable, Tuple, Optional
 
 import numpy as np
 
-from hpbandster.core.dispatcher import Job
-
-
-class Datum(object):
-    def __init__(self,
-                 config: dict,
-                 config_info: dict,
-                 results: dict = None,
-                 time_stamps: dict = None,
-                 exceptions: dict = None,
-                 status: str = 'QUEUED',
-                 budget: float = 0):
-        self.config = config
-        self.config_info = config_info
-        self.results = results if results is not None else {}
-        self.time_stamps = time_stamps if time_stamps is not None else {}
-        self.exceptions = exceptions if exceptions is not None else {}
-        self.status = status
-        self.budget = budget
-
-    def __repr__(self):
-        return (
-                "\nconfig:{}\n".format(self.config) +
-                "config_info:\n{}\n".format(self.config_info) +
-                "losses:\n"
-                '\t'.join(["{}: {}\t".format(k, v['loss']) for k, v in self.results.items()]) +
-                "time stamps: {}".format(self.time_stamps)
-        )
+from hpbandster.core.model import Datum, Job
+from hpbandster.core.result import JsonResultLogger
 
 
 class BaseIteration(object):
@@ -46,7 +20,7 @@ class BaseIteration(object):
                  budgets: List[float],
                  config_sampler: Callable[[float], Tuple[dict, dict]],
                  logger: logging.Logger = None,
-                 result_logger=None):
+                 result_logger: JsonResultLogger = None):
         """
         Parameters
         ----------
@@ -64,7 +38,7 @@ class BaseIteration(object):
             that perform best after this particular budget is exhausted
             to build a better autoML system.
         logger: a logger
-        result_logger: hpbandster.api.results.util.json_result_logger object
+        result_logger: JsonResultLogger object
             a result logger that writes live results to disk
         """
 

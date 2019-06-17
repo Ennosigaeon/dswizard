@@ -1,10 +1,15 @@
+from typing import List, Callable, Tuple
+
 import numpy as np
-from hpbandster.iterations.base import BaseIteration
+
+from hpbandster.core import BaseIteration
 
 
 class SuccessiveResampling(BaseIteration):
 
-    def __init__(self, *args, resampling_rate=0.5, min_samples_advance=1, **kwargs):
+    def __init__(self, HPB_iter: int, num_configs: List[int], budgets: List[float],
+                 config_sampler: Callable[[float], Tuple[dict, dict]],
+                 *args, resampling_rate=0.5, min_samples_advance=1, **kwargs):
         """
             Iteration class to resample new configurations along side keeping the good ones
             in SuccessiveHalving.
@@ -18,6 +23,7 @@ class SuccessiveResampling(BaseIteration):
                     stage regardless of the fraction.
 
         """
+        super().__init__(HPB_iter, num_configs, budgets, config_sampler)
         self.resampling_rate = resampling_rate
         self.min_samples_advance = min_samples_advance
 

@@ -1,8 +1,8 @@
 import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core.master import Master
-from hpbandster.optimizers.config_generators.random_sampling import RandomSampling as RS
+from hpbandster.core import Master
+from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
@@ -35,7 +35,7 @@ class RandomSearch(Master):
         if configspace is None:
             raise ValueError("You have to provide a valid ConfigSpace object")
 
-        cg = RS(configspace=configspace)
+        cg = RandomSampling(configspace=configspace)
 
         super().__init__(config_generator=cg, **kwargs)
 

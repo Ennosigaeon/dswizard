@@ -2,7 +2,7 @@ from typing import Tuple
 
 from ConfigSpace import ConfigurationSpace
 
-from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core import BaseConfigGenerator
 
 
 class RandomSampling(BaseConfigGenerator):

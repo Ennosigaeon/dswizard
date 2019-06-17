@@ -6,28 +6,7 @@ from typing import Tuple, Callable
 
 import Pyro4
 
-
-class Job(object):
-    def __init__(self, id: Tuple[int, int, int], **kwargs):
-        self.id: Tuple[int, int, int] = id
-
-        self.kwargs = kwargs
-
-        self.timestamps = {}
-
-        self.result = None
-        self.exception = None
-
-        self.worker_name = None
-
-    def time_it(self, which_time: str) -> None:
-        self.timestamps[which_time] = time.time()
-
-    def __repr__(self):
-        return "job_id: {}\n" \
-               "kwargs: {}\n" \
-               "result: {}\n" \
-               "exception: {}\n".format(self.id, self.kwargs, self.result, self.exception)
+from hpbandster.core.model import Job
 
 
 class Worker(object):

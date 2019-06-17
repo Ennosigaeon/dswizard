@@ -14,9 +14,6 @@ class BaseConfigGenerator(object):
         """
         Parameters
         ----------
-
-        logger: hpbandster.utils.result_logger_v??
-            the logger to store the data, defaults to v1
         logger: logging.logger
             for some debug output
 
