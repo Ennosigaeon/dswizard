@@ -1,5 +1,5 @@
 import traceback
-from typing import Tuple
+from typing import Tuple, Optional
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -7,7 +7,7 @@ import ConfigSpace.util
 import numpy as np
 import scipy.stats as sps
 import statsmodels.api as sm
-from ConfigSpace.configuration_space import ConfigurationSpace
+from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
 from hpbandster.core import BaseConfigGenerator, Job
 
@@ -86,7 +86,7 @@ class Hyperopt(BaseConfigGenerator):
             return -float('inf')
         return max(self.kde_models.keys())
 
-    def get_config(self, budget: float) -> Tuple[dict, dict]:
+    def get_config(self, budget: float) -> Tuple[Configuration, dict]:
         """
         Function to sample a new configuration
 
@@ -97,7 +97,7 @@ class Hyperopt(BaseConfigGenerator):
 
         self.logger.debug('start sampling a new configuration.')
 
-        sample = None
+        sample: Optional[Configuration] = None
         info_dict = {}
 
         # If no model is available, sample from prior
@@ -171,7 +171,7 @@ class Hyperopt(BaseConfigGenerator):
                     self.logger.debug(
                         "Sampling based optimization with {} samples failed -> using random configuration".format(
                             self.num_samples))
-                    sample = self.configspace.sample_configuration().get_dictionary()
+                    sample = self.configspace.sample_configuration()
                     info_dict['model_based_pick'] = False
                 else:
                     self.logger.debug(
@@ -215,7 +215,7 @@ class Hyperopt(BaseConfigGenerator):
         except Exception as e:
             self.logger.warning("Error ({}) converting configuration: {} -> "
                                 "using random configuration!".format(e, sample))
-            sample = self.configspace.sample_configuration().get_dictionary()
+            sample = self.configspace.sample_configuration()
         self.logger.debug('done sampling a new configuration.')
         return sample, info_dict
 

@@ -3,7 +3,7 @@ import json
 import os
 from typing import Any, List, Dict, Optional, Callable
 
-from ConfigSpace.configuration_space import ConfigurationSpace
+from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
 from hpbandster.core.model import ConfigId, Datum, Job
 
@@ -99,7 +99,7 @@ class JsonResultLogger(object):
 
         self.config_ids = set()
 
-    def new_config(self, config_id: ConfigId, config: ConfigurationSpace, config_info: dict) -> None:
+    def new_config(self, config_id: ConfigId, config: Configuration, config_info: dict) -> None:
         if config_id not in self.config_ids:
             self.config_ids.add(config_id)
             with open(self.config_fn, 'a') as fh:

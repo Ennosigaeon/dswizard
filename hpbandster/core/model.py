@@ -1,6 +1,6 @@
 import time
 
-from ConfigSpace.configuration_space import ConfigurationSpace
+from ConfigSpace.configuration_space import Configuration
 
 
 class ConfigId(object):
@@ -44,7 +44,7 @@ class ConfigId(object):
 
 class Datum(object):
     def __init__(self,
-                 config: ConfigurationSpace,
+                 config: Configuration,
                  config_info: dict,
                  results: dict = None,
                  time_stamps: dict = None,

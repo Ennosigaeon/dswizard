@@ -2,7 +2,7 @@ import logging
 from typing import List, Callable, Tuple, Optional, Dict, Any
 
 import numpy as np
-from ConfigSpace.configuration_space import ConfigurationSpace
+from ConfigSpace.configuration_space import Configuration
 
 from hpbandster.core.model import ConfigId, Datum, Job
 from hpbandster.core.result import JsonResultLogger
@@ -19,7 +19,7 @@ class BaseIteration(object):
                  HPB_iter: int,
                  num_configs: List[int],
                  budgets: List[float],
-                 config_sampler: Callable[[float], Tuple[ConfigurationSpace, dict]],
+                 config_sampler: Callable[[float], Tuple[Configuration, dict]],
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
