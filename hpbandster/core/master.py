@@ -203,8 +203,7 @@ class Master(object):
         """
         method to be called when a job has finished
 
-        this will do some book keeping and call the user defined
-        new_result_callback if one was specified
+        this will do some book keeping and call the user defined new_result_callback if one was specified
         :param job: Finished Job
         :return:
         """

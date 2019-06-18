@@ -55,8 +55,7 @@ class HyperBand(Master):
                            iteration: int,
                            iteration_kwargs: dict = None) -> SuccessiveHalving:
         """
-        Hyperband uses SuccessiveHalving for each iteration.
-        See Li et al. (2016) for reference.
+        Hyperband uses SuccessiveHalving for each iteration. See Li et al. (2016) for reference.
         :param iteration: the index of the iteration to be instantiated
         :param iteration_kwargs: default
         :return: the SuccessiveHalving iteration with the corresponding number of configurations

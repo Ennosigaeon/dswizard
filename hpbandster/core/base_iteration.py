@@ -10,9 +10,9 @@ from hpbandster.core.result import JsonResultLogger
 
 class BaseIteration(object):
     """
-    Base class for various iteration possibilities. This decides what configuration should be run on what budget
-    next. Typical choices are e.g. successive halving. Results from runs are processed and (depending on the
-    implementations) determine the further development.
+    Base class for various iteration possibilities. This decides what configuration should be run on what budget next.
+    Typical choices are e.g. successive halving. Results from runs are processed and (depending on the implementations)
+    determine the further development.
     """
 
     def __init__(self,
@@ -28,8 +28,8 @@ class BaseIteration(object):
         :param num_configs: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
         :param config_sampler: a function that returns a valid configuration. Its only argument should be the budget
-            that this config is first scheduled for. This might be used to pick configurations that perform best after this
-            particular budget is exhausted to build a better autoML system.
+            that this config is first scheduled for. This might be used to pick configurations that perform best after
+            this particular budget is exhausted to build a better autoML system.
         :param logger: a logger
         :param result_logger: a result logger that writes live results to disk
         """
@@ -83,8 +83,7 @@ class BaseIteration(object):
         """
         function to register the result of a job
 
-        This function is called from HB_master, don't call this from
-        your script.
+        This function is called from HB_master, don't call this from your script.
         :param job: Finished job
         :param skip_sanity_checks: Basic sanity checks for passed job
         :return:
@@ -122,15 +121,11 @@ class BaseIteration(object):
         """
         function to return the next configuration and budget to run.
 
-        This function is called from HB_master, don't call this from
-        your script.
+        This function is called from HB_master, don't call this from your script. It returns None if this run of SH is
+        finished or there are pending jobs that need to finish to progress to the next stage.
 
-        It returns None if this run of SH is finished or there are
-        pending jobs that need to finish to progress to the next stage.
-
-        If there are empty slots to be filled in the current SH stage
-        (which never happens in the original SH version), a new
-        configuration will be sampled and scheduled to run next.
+        If there are empty slots to be filled in the current SH stage (which never happens in the original SH version),
+        a new configuration will be sampled and scheduled to run next.
         :return:
         """
 
@@ -160,8 +155,7 @@ class BaseIteration(object):
         """
         Function that implements the strategy to advance configs within this iteration
 
-        Overload this to implement different strategies, like
-        SuccessiveHalving, SuccessiveResampling.
+        Overload this to implement different strategies, like SuccessiveHalving, SuccessiveResampling.
         :param losses: losses of the run on the current budget
         :return: A boolean for each entry in config_ids indicating whether to advance it or not
         """
@@ -169,16 +163,12 @@ class BaseIteration(object):
 
     def process_results(self) -> None:
         """
-        function that is called when a stage is completed and
-        needs to be analyzed befor further computations.
+        function that is called when a stage is completed and needs to be analyzed befor further computations.
 
-        The code here implements the original SH algorithms by
-        advancing the k-best (lowest loss) configurations at the current
-        budget. k is defined by the num_configs list (see __init__)
-        and the current stage value.
+        The code here implements the original SH algorithms by advancing the k-best (lowest loss) configurations at the
+        current budget. k is defined by the num_configs list (see __init__) and the current stage value.
 
-        For more advanced methods like resampling after each stage,
-        overload this function only.
+        For more advanced methods like resampling after each stage, overload this function only.
         """
         self.stage += 1
 

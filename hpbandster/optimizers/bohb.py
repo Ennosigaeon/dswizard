@@ -96,8 +96,7 @@ class BOHB(Master):
                            iteration: int,
                            iteration_kwargs: dict = None) -> SuccessiveHalving:
         """
-        BOHB uses (just like Hyperband) SuccessiveHalving for each iteration.
-        See Li et al. (2016) for reference.
+        BOHB uses (just like Hyperband) SuccessiveHalving for each iteration. See Li et al. (2016) for reference.
         :param iteration: the index of the iteration to be instantiated
         :param iteration_kwargs: default
         :return: the SuccessiveHalving iteration with the corresponding number of configurations

@@ -38,10 +38,8 @@ class BaseConfigGenerator(object):
         """
         registers finished runs
 
-        Every time a run has finished, this function should be called
-        to register it with the result logger. If overwritten, make
-        sure to call this method from the base class to ensure proper
-        logging.
+        Every time a run has finished, this function should be called to register it with the result logger. If
+        overwritten, make sure to call this method from the base class to ensure proper logging.
 
         :param job: contains all necessary information about the job
         :param update_model: determines whether a model inside the config_generator should be updated

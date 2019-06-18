@@ -46,8 +46,7 @@ def extract_HBS_learning_curves(runs):
     """
     function to get the hyperband learning curves
 
-    This is an example function showing the interface to use the
-    HB_result.get_learning_curves method.
+    This is an example function showing the interface to use the HB_result.get_learning_curves method.
     :param runs: the performed runs for an unspecified config
     :return: An individual learning curve is a list of (t, x_t) tuples. This function must return a list of these. One
         could think of cases where one could extract multiple learning curves from these runs, e.g. if each run is an
@@ -63,11 +62,9 @@ class JsonResultLogger(object):
         """
         convenience logger for 'semi-live-results'
 
-        Logger that writes job results into two files (configs.json and results.json).
-        Both files contain proper json objects in each line.
-
-        This version opens and closes the files for each result.
-        This might be very slow if individual runs are fast and the filesystem is rather slow (e.g. a NFS).
+        Logger that writes job results into two files (configs.json and results.json). Both files contain proper json
+        objects in each line.  This version opens and closes the files for each result. This might be very slow if
+        individual runs are fast and the filesystem is rather slow (e.g. a NFS).
         :param directory: the directory where the two files 'configs.json' and 'results.json' are stored
         :param overwrite: In case the files already exist, this flag controls the
             behavior:
@@ -125,8 +122,7 @@ class Result(object):
     """
     Object returned by the HB_master.run function
 
-    This class offers a simple API to access the information from
-    a Hyperband run.
+    This class offers a simple API to access the information from a Hyperband run.
     """
 
     def __init__(self,
@@ -137,8 +133,7 @@ class Result(object):
 
     def _merge_results(self, data: List[Dict[ConfigId, Datum]]) -> Dict[ConfigId, Datum]:
         """
-        protected function to merge the list of results into one
-        dictionary and 'normalize' the time stamps
+        protected function to merge the list of results into one dictionary and 'normalize' the time stamps
         """
         new_dict = {}
         for it in data:
@@ -158,9 +153,8 @@ class Result(object):
         """
         Find the config_id of the incumbent.
 
-        The incumbent here is the configuration with the smallest loss
-        among all runs on the maximum budget! If no run finishes on the
-        maximum budget, None is returned!
+        The incumbent here is the configuration with the smallest loss among all runs on the maximum budget! If no run
+        finishes on the maximum budget, None is returned!
         """
         tmp_list = []
         for k, v in self.data.items():
@@ -182,12 +176,12 @@ class Result(object):
         Returns the best configurations over time
         :param all_budgets: If set to true all runs (even those not with the largest budget) can be the incumbent.
             Otherwise, only full budget runs are considered
-        :param bigger_is_better: flag whether an evaluation on a larger budget is always considered better.
-            If True, the incumbent might increase for the first evaluations on a bigger budget
+        :param bigger_is_better: flag whether an evaluation on a larger budget is always considered better. If True, the
+            incumbent might increase for the first evaluations on a bigger budget
         :param non_decreasing_budget: flag whether the budget of a new incumbent should be at least as big as the one
             for the current incumbent.
         :return: dictionary with all the config IDs, the times the runs finished, their respective budgets, and
-         corresponding losses
+            corresponding losses
         """
         all_runs = self.get_all_runs(only_largest_budget=not all_budgets)
 
@@ -248,8 +242,7 @@ class Result(object):
         """
         returns a list of runs for a given config id
 
-        The runs are sorted by ascending budget, so '-1' will give
-        the longest run for this config.
+        The runs are sorted by ascending budget, so '-1' will give the longest run for this config.
         """
         d = self.data[config_id]
 
@@ -308,8 +301,7 @@ class Result(object):
 
     def get_id2config_mapping(self) -> Dict[ConfigId, dict]:
         """
-        returns a dict where the keys are the config_ids and the values
-        are the actual configurations
+        returns a dict where the keys are the config_ids and the values are the actual configurations
         """
         new_dict = {}
         for k, v in self.data.items():
@@ -420,9 +412,8 @@ def logged_results_to_HBS_result(directory: str) -> Result:
     """
     function to import logged 'live-results' and return a HB_result object
 
-    You can load live run results with this function and the returned
-    HB_result object gives you access to the results the same way
-    a finished run would.
+    You can load live run results with this function and the returned HB_result object gives you access to the results
+    the same way a finished run would.
 
     :param directory: the directory containing the results.json and config.json files
     :return:
