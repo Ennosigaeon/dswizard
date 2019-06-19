@@ -137,9 +137,9 @@ class Hyperopt(BaseConfigGenerator):
                                 vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
                             except:
                                 self.logger.warning(
-                                    "Truncated Normal failed for:\ndatum={}\nbandwidth={}\nfor entry with value {}".format(
+                                    'Truncated Normal failed for:\ndatum={}\nbandwidth={}\nfor entry with value {}'.format(
                                         datum, kde_good.bw, m))
-                                self.logger.warning("data in the KDE:\n{}".format(kde_good.data))
+                                self.logger.warning('data in the KDE:\n{}'.format(kde_good.data))
                         else:
 
                             if np.random.rand() < (1 - bw):
@@ -150,10 +150,10 @@ class Hyperopt(BaseConfigGenerator):
 
                     if not np.isfinite(val):
                         self.logger.warning('sampled vector: {} has EI value {}'.format(vector, val))
-                        self.logger.warning("data in the KDEs:\n{}\n{}".format(kde_good.data, kde_bad.data))
-                        self.logger.warning("bandwidth of the KDEs:\n{}\n{}".format(kde_good.bw, kde_bad.bw))
-                        self.logger.warning("l(x) = {}".format(l(vector)))
-                        self.logger.warning("g(x) = {}".format(g(vector)))
+                        self.logger.warning('data in the KDEs:\n{}\n{}'.format(kde_good.data, kde_bad.data))
+                        self.logger.warning('bandwidth of the KDEs:\n{}\n{}'.format(kde_good.bw, kde_bad.bw))
+                        self.logger.warning('l(x) = {}'.format(l(vector)))
+                        self.logger.warning('g(x) = {}'.format(g(vector)))
 
                         # right now, this happens because a KDE does not contain all values for a categorical parameter
                         # this cannot be fixed with the statsmodels KDE, so for now, we are just going to evaluate this
@@ -169,7 +169,7 @@ class Hyperopt(BaseConfigGenerator):
 
                 if best_vector is None:
                     self.logger.debug(
-                        "Sampling based optimization with {} samples failed -> using random configuration".format(
+                        'Sampling based optimization with {} samples failed -> using random configuration'.format(
                             self.num_samples))
                     sample = self.configspace.sample_configuration()
                     info_dict['model_based_pick'] = False
@@ -195,14 +195,14 @@ class Hyperopt(BaseConfigGenerator):
 
                     except Exception as e:
                         self.logger.warning(("=" * 50 + "\n") * 3 +
-                                            "Error converting configuration:\n{}".format(sample.get_dictionary()) +
-                                            "\n here is a traceback:" +
+                                            'Error converting configuration:\n{}'.format(sample.get_dictionary()) +
+                                            '\n here is a traceback:' +
                                             traceback.format_exc())
                         raise e
 
             except:
                 self.logger.warning(
-                    "Sampling based optimization with {} samples failed\n {} \nUsing random configuration".format(
+                    'Sampling based optimization with {} samples failed\n {} \nUsing random configuration'.format(
                         self.num_samples, traceback.format_exc()))
                 sample = self.configspace.sample_configuration()
                 info_dict['model_based_pick'] = False
@@ -213,8 +213,8 @@ class Hyperopt(BaseConfigGenerator):
                 configuration=sample.get_dictionary()
             )
         except Exception as e:
-            self.logger.warning("Error ({}) converting configuration: {} -> "
-                                "using random configuration!".format(e, sample))
+            self.logger.warning('Error ({}) converting configuration: {} -> '
+                                'using random configuration!'.format(e, sample))
             sample = self.configspace.sample_configuration()
         self.logger.debug('done sampling a new configuration.')
         return sample, info_dict
@@ -270,9 +270,9 @@ class Hyperopt(BaseConfigGenerator):
         else:
             # same for non numeric losses.
             # Note that this means losses of minus infinity will count as bad!
-            loss = job.result["loss"] if np.isfinite(job.result["loss"]) else np.inf
+            loss = job.result['loss'] if np.isfinite(job.result['loss']) else np.inf
 
-        budget = job.kwargs["budget"]
+        budget = job.kwargs['budget']
 
         if budget not in self.configs.keys():
             self.configs[budget] = []
@@ -284,7 +284,7 @@ class Hyperopt(BaseConfigGenerator):
 
         # We want to get a numerical representation of the configuration in the original space
 
-        conf = ConfigSpace.Configuration(self.configspace, job.kwargs["config"])
+        conf = ConfigSpace.Configuration(self.configspace, job.kwargs['config'])
         self.configs[budget].append(conf.get_array())
         self.losses[budget].append(loss)
 

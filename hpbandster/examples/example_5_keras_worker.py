@@ -55,13 +55,13 @@ try:
     from keras.layers import Conv2D, MaxPooling2D
     from keras import backend as K
 except:
-    raise ImportError("For this example you need to install keras.")
+    raise ImportError('For this example you need to install keras.')
 
 try:
     import torchvision
     import torchvision.transforms as transforms
 except:
-    raise ImportError("For this example you need to install pytorch-vision.")
+    raise ImportError('For this example you need to install pytorch-vision.')
 
 import logging
 
@@ -224,7 +224,7 @@ class KerasWorker(Worker):
         return cs
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     worker = KerasWorker(run_id='0')
     cs = worker.get_configspace()
 

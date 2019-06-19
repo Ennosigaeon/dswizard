@@ -49,4 +49,4 @@ class BaseStructureGenerator(object):
         """
 
         if job.exception is not None:
-            self.logger.warning("job {} failed with exception\n{}".format(job.id, job.exception))
+            self.logger.warning('job {} failed with exception\n{}'.format(job.id, job.exception))

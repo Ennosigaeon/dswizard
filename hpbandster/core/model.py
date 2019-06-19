@@ -72,11 +72,11 @@ class Datum(object):
 
     def __repr__(self):
         return (
-                "\nconfig:{}\n".format(self.config) +
-                "config_info:\n{}\n".format(self.config_info) +
-                "losses:\n"
+                '\nconfig:{}\n'.format(self.config) +
+                'config_info:\n{}\n'.format(self.config_info) +
+                'losses:\n'
                 '\t'.join(["{}: {}\t".format(k, v['loss']) for k, v in self.results.items()]) +
-                "time stamps: {}".format(self.time_stamps)
+                'time stamps: {}'.format(self.time_stamps)
         )
 
 
@@ -97,7 +97,7 @@ class Job(object):
         self.timestamps[which_time] = time.time()
 
     def __repr__(self):
-        return "job_id: {}\n" \
-               "kwargs: {}\n" \
-               "result: {}\n" \
-               "exception: {}\n".format(self.id, self.kwargs, self.result, self.exception)
+        return 'job_id: {}\n' \
+               'kwargs: {}\n' \
+               'result: {}\n' \
+               'exception: {}\n'.format(self.id, self.kwargs, self.result, self.exception)

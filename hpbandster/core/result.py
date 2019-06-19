@@ -29,10 +29,10 @@ class Run(object):
 
     def __repr__(self):
         return (
-                "config_id: {}\tbudget: {}\tloss: {}\n".format(self.config_id, self.budget, self.loss) +
-                "time_stamps: {submitted} (submitted), {started} (started), {finished} (finished)\n".format(
+                'config_id: {}\tbudget: {}\tloss: {}\n'.format(self.config_id, self.budget, self.loss) +
+                'time_stamps: {submitted} (submitted), {started} (started), {finished} (finished)\n'.format(
                     **self.time_stamps) +
-                "info: {}\n".format(self.info)
+                'info: {}\n'.format(self.info)
         )
 
     def __getitem__(self, k):

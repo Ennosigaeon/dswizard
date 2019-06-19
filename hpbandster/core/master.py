@@ -72,7 +72,7 @@ class Master(object):
         self.dynamic_queue_size = dynamic_queue_size
 
         if job_queue_sizes[0] >= job_queue_sizes[1]:
-            raise ValueError("The queue size range needs to be (min, max) with min<max!")
+            raise ValueError('The queue size range needs to be (min, max) with min<max!')
 
         if previous_result is None:
             self.warmstart_iteration = []
@@ -218,7 +218,7 @@ class Master(object):
             self.config_generator.new_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
-                self.logger.debug("HBMASTER: Trying to run another job!")
+                self.logger.debug('HBMASTER: Trying to run another job!')
                 self.thread_cond.notify()
 
         self.logger.debug('job_callback for {} finished'.format(job.id))
@@ -246,7 +246,7 @@ class Master(object):
             self.dispatcher.submit_job(config_id, config=config, config_info=config_info,
                                        budget=budget, working_directory=self.working_directory)
             self.num_running_jobs += 1
-            self.logger.debug("HBMASTER: job {} submitted to dispatcher".format(config_id))
+            self.logger.debug('HBMASTER: job {} submitted to dispatcher'.format(config_id))
 
     def active_iterations(self) -> List[int]:
         """

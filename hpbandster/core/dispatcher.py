@@ -85,7 +85,7 @@ class Dispatcher(object):
         self.runner_cond = threading.Condition(self.thread_lock)
         self.discover_cond = threading.Condition(self.thread_lock)
 
-        self.pyro_id = "hpbandster.run_{}.dispatcher".format(self.run_id)
+        self.pyro_id = 'hpbandster.run_{}.dispatcher'.format(self.run_id)
         self.pyro_daemon = None
 
     def run(self) -> None:
@@ -103,7 +103,7 @@ class Dispatcher(object):
                 uri = self.pyro_daemon.register(self, self.pyro_id)
                 ns.register(self.pyro_id, uri)
 
-            self.logger.info("DISPATCHER: Pyro daemon running on {}".format(self.pyro_daemon.locationStr))
+            self.logger.info('DISPATCHER: Pyro daemon running on {}'.format(self.pyro_daemon.locationStr))
 
         self.pyro_daemon.requestLoop()
 
@@ -142,7 +142,7 @@ class Dispatcher(object):
     @Pyro4.oneway
     def trigger_discover_worker(self) -> None:
         # time.sleep(1)
-        self.logger.info("DISPATCHER: A new worker triggered discover_worker")
+        self.logger.info('DISPATCHER: A new worker triggered discover_worker')
         with self.discover_cond:
             self.discover_cond.notify()
 
@@ -154,8 +154,8 @@ class Dispatcher(object):
             update = False
 
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                worker_names = ns.list(prefix="hpbandster.run_{}.worker.".format(self.run_id))
-                self.logger.debug("DISPATCHER: Found {} potential workers, {} currently in the pool.".format(
+                worker_names = ns.list(prefix='hpbandster.run_{}.worker.'.format(self.run_id))
+                self.logger.debug('DISPATCHER: Found {} potential workers, {} currently in the pool.'.format(
                     len(worker_names), len(self.worker_pool)))
 
                 for wn, uri in worker_names.items():

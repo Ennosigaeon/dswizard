@@ -29,7 +29,7 @@ class RandomSearch(Master):
 
         # TODO: Proper check for ConfigSpace object!
         if configspace is None:
-            raise ValueError("You have to provide a valid ConfigSpace object")
+            raise ValueError('You have to provide a valid ConfigSpace object')
 
         cg = RandomSampling(configspace=configspace)
 

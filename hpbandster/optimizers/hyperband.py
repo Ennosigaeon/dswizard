@@ -31,7 +31,7 @@ class HyperBand(Master):
 
         # TODO: Proper check for ConfigSpace object!
         if configspace is None:
-            raise ValueError("You have to provide a valid ConfigSpace object")
+            raise ValueError('You have to provide a valid ConfigSpace object')
 
         super().__init__(config_generator=DummyStructure(RandomSampling(configspace)), **kwargs)
 

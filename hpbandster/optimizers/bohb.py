@@ -57,7 +57,7 @@ class BOHB(Master):
 
         # TODO: Proper check for ConfigSpace object!
         if configspace is None:
-            raise ValueError("You have to provide a valid ConfigSpace object")
+            raise ValueError('You have to provide a valid ConfigSpace object')
 
         cg = Hyperopt(configspace=configspace,
                       min_points_in_model=min_points_in_model,

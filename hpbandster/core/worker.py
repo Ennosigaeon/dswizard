@@ -5,7 +5,6 @@ import socket
 import threading
 import time
 import traceback
-from typing import Tuple
 
 import Pyro4
 from Pyro4.errors import CommunicationError, NamingError
@@ -48,7 +47,7 @@ class Worker(object):
         self.host = host
         self.nameserver = nameserver
         self.nameserver_port = nameserver_port
-        self.worker_id = "hpbandster.run_{}.worker.{}.{}".format(self.run_id, socket.gethostname(), os.getpid())
+        self.worker_id = 'hpbandster.run_{}.worker.{}.{}'.format(self.run_id, socket.gethostname(), os.getpid())
 
         self.timeout = timeout
         self.timer = None
@@ -88,7 +87,7 @@ class Worker(object):
             except FileNotFoundError:
                 self.logger.warning('config file {} not found (trail {}/{})'.format(fn, i + 1, num_tries))
                 time.sleep(interval)
-        raise RuntimeError("Could not find the nameserver information, aborting!")
+        raise RuntimeError('Could not find the nameserver information, aborting!')
 
     def run(self, background: bool = False) -> None:
         """
@@ -112,7 +111,7 @@ class Worker(object):
         try:
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
                 self.logger.debug('WORKER: Connected to nameserver {}'.format(ns))
-                dispatchers = ns.list(prefix="hpbandster.run_{}.dispatcher".format(self.run_id))
+                dispatchers = ns.list(prefix='hpbandster.run_{}.dispatcher'.format(self.run_id))
         except NamingError:
             if self.thread is None:
                 raise RuntimeError('No nameserver found. Make sure the nameserver is running and '
@@ -170,7 +169,7 @@ class Worker(object):
         """
 
         raise NotImplementedError(
-            "Subclass hpbandster.distributed.worker and overwrite the compute method in your worker script")
+            'Subclass hpbandster.distributed.worker and overwrite the compute method in your worker script')
 
     @Pyro4.expose
     @Pyro4.oneway

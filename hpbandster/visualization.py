@@ -198,7 +198,7 @@ def correlation_across_budgets(results_object, show=False):
     return fig, ax
 
 
-def losses_over_time(runs, get_loss_from_run_fn=lambda r: r.loss, cmap=plt.get_cmap("tab10"), show=False):
+def losses_over_time(runs, get_loss_from_run_fn=lambda r: r.loss, cmap=plt.get_cmap('tab10'), show=False):
     budgets = set([r.budget for r in runs])
 
     data = {}
@@ -289,9 +289,9 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
 
     ax.set_title(title)
 
-    hover_annotation = ax.annotate("BLABLA", xy=(0, 0), xytext=(20, 20), textcoords="offset points",
-                                   bbox=dict(boxstyle="round", fc="w"),
-                                   arrowprops=dict(arrowstyle="->"))
+    hover_annotation = ax.annotate('BLABLA', xy=(0, 0), xytext=(20, 20), textcoords='offset points',
+                                   bbox=dict(boxstyle='round', fc='w'),
+                                   arrowprops=dict(arrowstyle='->'))
     hover_annotation.set_visible(False)
 
     permanent_annotations = {}
@@ -375,9 +375,9 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
                 text = str(config_ids[idx])
 
             permanent_annotations[gid] = ax.annotate(text, copy.deepcopy((xdata[-1], ydata[-1])),
-                                                     xytext=(20, 20), textcoords="offset points",
-                                                     bbox=dict(boxstyle="round", fc="w", linewidth=3),
-                                                     arrowprops=dict(arrowstyle="->"))
+                                                     xytext=(20, 20), textcoords='offset points',
+                                                     bbox=dict(boxstyle='round', fc='w', linewidth=3),
+                                                     arrowprops=dict(arrowstyle='->'))
             permanent_annotations[gid].draggable()
             fig.canvas.draw_idle()
 
@@ -393,7 +393,7 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
                 fig.canvas.draw_idle()
 
     fig.canvas.mpl_connect('pick_event', onpick1)
-    fig.canvas.mpl_connect("motion_notify_event", hover)
+    fig.canvas.mpl_connect('motion_notify_event', hover)
 
     if show:
         plt.show()
