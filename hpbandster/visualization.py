@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sps
 from matplotlib.widgets import CheckButtons, Button
+from typing import List
+
+from core.model import ConfigId
 
 
 def default_tool_tips(result_object, learning_curves, include_run_info=False):
@@ -232,7 +235,9 @@ def losses_over_time(runs, get_loss_from_run_fn=lambda r: r.loss, cmap=plt.get_c
 
 def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, log_x=False, reset_times=False,
                          color_map='Set3', colors_floats=None, title='', show=True):
-    times, losses, config_ids, = [], [], []
+    times = []
+    losses = []
+    config_ids: List[ConfigId] = []
 
     for k, v in learning_curves.items():
         for l in v:
@@ -248,7 +253,7 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
                 pdb.set_trace()
 
     num_curves = len(times)
-    HB_iterations = [id[0] for id in config_ids]
+    HB_iterations = [id.iteration for id in config_ids]
 
     num_iterations = len(set(HB_iterations))
 
@@ -260,7 +265,7 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
     if colors_floats is None:
         color_floats = []
         for i in range(num_curves):
-            seed = 100 * np.abs(config_ids[i][0]) + 10 * config_ids[i][1] + config_ids[i][2]
+            seed = 100 * np.abs(config_ids[i].iteration) + 10 * config_ids[i].budget + config_ids[i].idx
             np.random.seed(seed)
             color_floats.append(np.random.rand())
 

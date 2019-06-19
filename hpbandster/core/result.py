@@ -259,7 +259,7 @@ class Result(object):
         return runs
 
     def get_learning_curves(self, lc_extractor: Callable = extract_HBS_learning_curves,
-                            config_ids=List[ConfigId]) -> dict:
+                            config_ids: List[ConfigId] = None) -> dict:
         """
         extracts all learning curves from all run configurations
         :param lc_extractor: a function to return a list of learning_curves. defaults to

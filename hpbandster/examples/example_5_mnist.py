@@ -30,16 +30,10 @@ parser.add_argument('--run_id', type=str,
 parser.add_argument('--nic_name', type=str, help='Which network interface to use for communication.', default='lo')
 parser.add_argument('--shared_directory', type=str,
                     help='A directory that is accessible for all processes, e.g. a NFS share.', default='.')
-parser.add_argument('--backend',
-                    help='Toggles which worker is used. Choose between a pytorch and a keras implementation.',
-                    choices=['pytorch', 'keras'], default='keras')
 
 args = parser.parse_args()
 
-if args.backend == 'pytorch':
-    from example_5_pytorch_worker import PyTorchWorker as worker
-else:
-    from example_5_keras_worker import KerasWorker as worker
+from example_5_keras_worker import KerasWorker as worker
 
 # Every process has to lookup the hostname
 host = hpns.nic_name_to_host(args.nic_name)

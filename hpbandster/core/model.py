@@ -1,6 +1,7 @@
 import time
 
 from ConfigSpace.configuration_space import Configuration
+from typing import Union
 
 
 class ConfigId(object):
@@ -44,14 +45,18 @@ class ConfigId(object):
 
 class Datum(object):
     def __init__(self,
-                 config: Configuration,
+                 config: Union[dict, Configuration],
                  config_info: dict,
                  results: dict = None,
                  time_stamps: dict = None,
                  exceptions: dict = None,
                  status: str = 'QUEUED',
                  budget: float = 0):
-        self.config = config.get_dictionary()
+
+        if isinstance(config, Configuration):
+            self.config = config.get_dictionary()
+        else:
+            self.config = config
         self.config_info = config_info
         self.results = results if results is not None else {}
         self.time_stamps = time_stamps if time_stamps is not None else {}
