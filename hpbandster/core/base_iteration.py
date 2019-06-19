@@ -117,7 +117,7 @@ class BaseIteration(object):
         d.exceptions[budget] = exception
         self.num_running -= 1
 
-    def get_next_run(self) -> Optional[Tuple[ConfigId, dict, float]]:
+    def get_next_run(self) -> Optional[Tuple[ConfigId, dict, float, dict]]:
         """
         function to return the next configuration and budget to run.
 
@@ -126,18 +126,18 @@ class BaseIteration(object):
 
         If there are empty slots to be filled in the current SH stage (which never happens in the original SH version),
         a new configuration will be sampled and scheduled to run next.
-        :return:
+        :return: Tuple with ConfigId, configuration, budget and configuration_info
         """
 
         if self.is_finished:
             return None
 
-        for k, v in self.data.items():
-            if v.status == 'QUEUED':
-                assert v.budget == self.budgets[self.stage], 'Configuration budget does not align with current stage!'
-                v.status = 'RUNNING'
+        for id, datum in self.data.items():
+            if datum.status == 'QUEUED':
+                assert datum.budget == self.budgets[self.stage], 'Configuration budget does not align with current stage!'
+                datum.status = 'RUNNING'
                 self.num_running += 1
-                return k, v.config, v.budget
+                return id, datum.config, datum.budget, datum.config_info
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_configs[self.stage] < self.num_configs[self.stage]:

@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Tuple, Optional, List, Any
 
-from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
 from hpbandster.core.dispatcher import Dispatcher
 from hpbandster.core.model import ConfigId
@@ -17,7 +17,7 @@ from hpbandster.core.result import Result
 class Master(object):
     def __init__(self,
                  run_id: str,
-                 config_generator: BaseConfigGenerator,
+                 config_generator: BaseStructureGenerator,
                  working_directory: str = '.',
                  ping_interval: int = 60,
                  nameserver: str = '127.0.0.1',
@@ -234,7 +234,7 @@ class Master(object):
                     self.num_running_jobs, self.job_queue_sizes))
                 self.thread_cond.wait()
 
-    def _submit_job(self, config_id: ConfigId, config: dict, budget: float) -> None:
+    def _submit_job(self, config_id: ConfigId, config: dict, budget: float, config_info: dict) -> None:
         """
         protected function to submit a new job to the dispatcher
 
@@ -243,7 +243,7 @@ class Master(object):
         self.logger.debug('HBMASTER: trying submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
             self.logger.debug('HBMASTER: submitting job {} to dispatcher'.format(config_id))
-            self.dispatcher.submit_job(config_id, config=config,
+            self.dispatcher.submit_job(config_id, config=config, config_info=config_info,
                                        budget=budget, working_directory=self.working_directory)
             self.num_running_jobs += 1
             self.logger.debug("HBMASTER: job {} submitted to dispatcher".format(config_id))

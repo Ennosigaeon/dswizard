@@ -4,6 +4,7 @@ from ConfigSpace.configuration_space import ConfigurationSpace
 from hpbandster.core import Master
 from hpbandster.optimizers.config_generators import Hyperopt
 from hpbandster.optimizers.iterations import SuccessiveHalving
+from hpbandster.optimizers.structure_generators.dummy import DummyStructure
 
 
 class BOHB(Master):
@@ -67,7 +68,7 @@ class BOHB(Master):
                       min_bandwidth=min_bandwidth
                       )
 
-        super().__init__(config_generator=cg, **kwargs)
+        super().__init__(config_generator=DummyStructure(cg), **kwargs)
 
         # Hyperband related stuff
         self.eta = eta

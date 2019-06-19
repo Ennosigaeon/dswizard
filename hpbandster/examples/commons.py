@@ -22,6 +22,7 @@ class MyWorker(Worker):
 
     def compute(self,
                 config: dict,
+                config_info: dict,
                 budget: float,
                 **kwargs: dict) -> dict:
         """

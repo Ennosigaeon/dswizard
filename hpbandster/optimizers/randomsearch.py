@@ -4,6 +4,7 @@ from ConfigSpace.configuration_space import ConfigurationSpace
 from hpbandster.core import Master
 from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
+from hpbandster.optimizers.structure_generators.dummy import DummyStructure
 
 
 class RandomSearch(Master):
@@ -32,7 +33,7 @@ class RandomSearch(Master):
 
         cg = RandomSampling(configspace=configspace)
 
-        super().__init__(config_generator=cg, **kwargs)
+        super().__init__(config_generator=DummyStructure(cg), **kwargs)
 
         # Hyperband related stuff
         self.eta = eta

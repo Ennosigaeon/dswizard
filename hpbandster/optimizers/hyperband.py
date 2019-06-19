@@ -4,6 +4,7 @@ from ConfigSpace.configuration_space import ConfigurationSpace
 from hpbandster.core import Master
 from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
+from hpbandster.optimizers.structure_generators.dummy import DummyStructure
 
 
 class HyperBand(Master):
@@ -32,7 +33,7 @@ class HyperBand(Master):
         if configspace is None:
             raise ValueError("You have to provide a valid ConfigSpace object")
 
-        super().__init__(config_generator=RandomSampling(configspace), **kwargs)
+        super().__init__(config_generator=DummyStructure(RandomSampling(configspace)), **kwargs)
 
         # Hyperband related stuff
         self.eta = eta
