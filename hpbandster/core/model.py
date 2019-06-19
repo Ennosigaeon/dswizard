@@ -1,7 +1,8 @@
 import time
+from typing import Union
 
 from ConfigSpace.configuration_space import Configuration
-from typing import Union
+from Pyro4.util import SerializerBase
 
 
 class ConfigId(object):
@@ -41,6 +42,11 @@ class ConfigId(object):
         if not isinstance(other, ConfigId):
             return False
         return self.as_tuple() == other.as_tuple()
+
+
+SerializerBase.register_class_to_dict(ConfigId,
+                                      lambda id: {'__class__': ConfigId.__name__, 'values': list(id.as_tuple())})
+SerializerBase.register_dict_to_class(ConfigId.__name__, lambda name, d: ConfigId(*d['values']))
 
 
 class Datum(object):

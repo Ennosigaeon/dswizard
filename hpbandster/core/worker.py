@@ -174,10 +174,9 @@ class Worker(object):
 
     @Pyro4.expose
     @Pyro4.oneway
-    # TODO pyro4 refuses to receive custom object
     def start_computation(self,
                           callback,
-                          id: Tuple[int, int, int],
+                          id: ConfigId,
                           *args,
                           **kwargs):
         with self.thread_cond:
@@ -187,24 +186,23 @@ class Worker(object):
         if self.timeout is not None and self.timer is not None:
             self.timer.cancel()
 
-        configId = ConfigId(*id)
-        self.logger.info('WORKER: start processing job {}'.format(configId))
+        self.logger.info('WORKER: start processing job {}'.format(id))
         self.logger.debug('WORKER: args: {}'.format(args))
         self.logger.debug('WORKER: kwargs: {}'.format(kwargs))
         result = None
         try:
-            result = {'result': self.compute(*args, config_id=configId, **kwargs),
+            result = {'result': self.compute(*args, config_id=id, **kwargs),
                       'exception': None}
         except Exception as e:
             result = {'result': None,
                       'exception': traceback.format_exc()}
         finally:
-            self.logger.debug('WORKER: done with job {}, trying to register it.'.format(configId))
+            self.logger.debug('WORKER: done with job {}, trying to register it.'.format(id))
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(id, result)
                 self.thread_cond.notify()
-        self.logger.info('WORKER: registered result for job {} with dispatcher'.format(configId))
+        self.logger.info('WORKER: registered result for job {} with dispatcher'.format(id))
         if self.timeout is not None:
             self.timer = threading.Timer(self.timeout, self.shutdown)
             self.timer.daemon = True

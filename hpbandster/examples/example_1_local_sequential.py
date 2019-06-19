@@ -6,6 +6,7 @@ Example 1 - Local and Sequential
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("Pyro4.core").setLevel(logging.DEBUG)
 
 import argparse
 

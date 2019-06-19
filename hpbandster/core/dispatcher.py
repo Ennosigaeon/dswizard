@@ -5,6 +5,7 @@ import time
 from typing import Callable, Tuple, Dict, Set, Optional
 
 import Pyro4
+from Pyro4.errors import ConnectionClosedError
 
 from hpbandster.core.model import ConfigId, Job
 
@@ -16,11 +17,10 @@ class Worker(object):
         self.runs_job: Optional[Job] = None
 
     def is_alive(self) -> bool:
-        # noinspection PyUnresolvedReferences
         try:
             # noinspection PyProtectedMember
             self.proxy._pyroReconnect(1)
-        except Pyro4.errors.ConnectionClosedError:
+        except ConnectionClosedError:
             return False
         return True
 
@@ -202,7 +202,7 @@ class Dispatcher(object):
 
             for crashed_job in crashed_jobs:
                 self.discover_cond.release()
-                self.register_result(crashed_job.id.as_tuple(),
+                self.register_result(crashed_job.id,
                                      {'result': None, 'exception': 'Worker died unexpectedly.'})
                 self.discover_cond.acquire()
 
@@ -243,8 +243,7 @@ class Dispatcher(object):
             job.time_it('started')
             worker.runs_job = job.id
 
-            # TODO pyro4 refuses to send custom object
-            worker.proxy.start_computation(self, job.id.as_tuple(), **job.kwargs)
+            worker.proxy.start_computation(self, job.id, **job.kwargs)
 
             job.worker_name = wn
             self.running_jobs[job.id] = job
@@ -264,14 +263,13 @@ class Dispatcher(object):
     @Pyro4.callback
     @Pyro4.oneway
     # TODO pyro4 refuses to receive custom object
-    def register_result(self, id: Tuple[int, int, int] = None, result: dict = None) -> None:
+    def register_result(self, id: ConfigId = None, result: dict = None) -> None:
         self.logger.debug('DISPATCHER: job {} finished'.format(id))
         with self.runner_cond:
             self.logger.debug('DISPATCHER: register_result: lock acquired')
-            configId = ConfigId(*id)
 
             # fill in missing information
-            job = self.running_jobs[configId]
+            job = self.running_jobs[id]
             job.time_it('finished')
             job.result = result['result']
             job.exception = result['exception']
@@ -280,7 +278,7 @@ class Dispatcher(object):
             self.logger.debug(str(job))
 
             # delete job
-            del self.running_jobs[configId]
+            del self.running_jobs[id]
 
             # label worker as idle again
             try:
