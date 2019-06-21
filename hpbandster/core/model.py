@@ -1,5 +1,5 @@
 import time
-from typing import Union
+from typing import Union, Optional
 
 from ConfigSpace.configuration_space import Configuration
 from Pyro4.util import SerializerBase
@@ -47,6 +47,26 @@ class ConfigId(object):
 SerializerBase.register_class_to_dict(ConfigId,
                                       lambda id: {'__class__': ConfigId.__name__, 'values': list(id.as_tuple())})
 SerializerBase.register_dict_to_class(ConfigId.__name__, lambda name, d: ConfigId(*d['values']))
+
+
+class Result(object):
+
+    def __init__(self, result: Optional[dict], exception: Optional[str]):
+        self.result = result
+        self.exception = exception
+
+    @staticmethod
+    def success(result: dict):
+        return Result(result, None)
+
+    @staticmethod
+    def failure(exception: str):
+        return Result(None, exception)
+
+
+SerializerBase.register_class_to_dict(Result, lambda res: {'__class__': Result.__name__, 'result': res.result,
+                                                           'exception': res.exception})
+SerializerBase.register_dict_to_class(Result.__name__, lambda name, d: Result(d['result'], d['exception']))
 
 
 class Datum(object):

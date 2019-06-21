@@ -9,7 +9,7 @@ import traceback
 import Pyro4
 from Pyro4.errors import CommunicationError, NamingError
 
-from hpbandster.core.model import ConfigId
+from hpbandster.core.model import ConfigId, Result
 
 
 class Worker(object):
@@ -153,7 +153,7 @@ class Worker(object):
                 config_id: ConfigId,
                 config: dict,
                 budget: float,
-                working_directory: str):
+                working_directory: str) -> dict:
         """
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
@@ -177,7 +177,7 @@ class Worker(object):
                           callback,
                           id: ConfigId,
                           *args,
-                          **kwargs):
+                          **kwargs) -> Result:
         with self.thread_cond:
             while self.busy:
                 self.thread_cond.wait()
@@ -190,11 +190,13 @@ class Worker(object):
         self.logger.debug('WORKER: kwargs: {}'.format(kwargs))
         result = None
         try:
-            result = {'result': self.compute(*args, config_id=id, **kwargs),
-                      'exception': None}
+            result = Result.success(
+                self.compute(*args, config_id=id, **kwargs)
+            )
         except Exception as e:
-            result = {'result': None,
-                      'exception': traceback.format_exc()}
+            result = Result.failure(
+                traceback.format_exc()
+            )
         finally:
             self.logger.debug('WORKER: done with job {}, trying to register it.'.format(id))
             with self.thread_cond:

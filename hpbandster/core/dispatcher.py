@@ -2,12 +2,12 @@ import logging
 import queue
 import threading
 import time
-from typing import Callable, Tuple, Dict, Set, Optional
+from typing import Callable, Dict, Set, Optional
 
 import Pyro4
 from Pyro4.errors import ConnectionClosedError
 
-from hpbandster.core.model import ConfigId, Job
+from hpbandster.core.model import ConfigId, Job, Result
 
 
 class Worker(object):
@@ -202,8 +202,7 @@ class Dispatcher(object):
 
             for crashed_job in crashed_jobs:
                 self.discover_cond.release()
-                self.register_result(crashed_job.id,
-                                     {'result': None, 'exception': 'Worker died unexpectedly.'})
+                self.register_result(crashed_job.id, Result.failure('Worker died unexpectedly.'))
                 self.discover_cond.acquire()
 
             self.logger.debug('DISPATCHER: Finished worker discovery')
@@ -262,8 +261,7 @@ class Dispatcher(object):
     @Pyro4.expose
     @Pyro4.callback
     @Pyro4.oneway
-    # TODO pyro4 refuses to receive custom object
-    def register_result(self, id: ConfigId = None, result: dict = None) -> None:
+    def register_result(self, id: ConfigId = None, result: Result = None) -> None:
         self.logger.debug('DISPATCHER: job {} finished'.format(id))
         with self.runner_cond:
             self.logger.debug('DISPATCHER: register_result: lock acquired')
@@ -271,8 +269,8 @@ class Dispatcher(object):
             # fill in missing information
             job = self.running_jobs[id]
             job.time_it('finished')
-            job.result = result['result']
-            job.exception = result['exception']
+            job.result = result.result
+            job.exception = result.exception
 
             self.logger.debug('DISPATCHER: job {} on {} finished'.format(job.id, job.worker_name))
             self.logger.debug(str(job))
