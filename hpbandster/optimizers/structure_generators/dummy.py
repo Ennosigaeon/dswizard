@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from typing import Tuple
 
 from ConfigSpace.configuration_space import Configuration
@@ -13,6 +14,7 @@ class DummyStructure(BaseStructureGenerator):
 
     def get_config(self, budget: float) -> Tuple[Configuration, dict]:
         config, info = self.config_generator.get_config(budget)
-        info['structure'] = ['dummy']
+        structure = OrderedDict()
+        structure['dummy'] = 'dummy'
+        info.structure = structure
         return config, info
-

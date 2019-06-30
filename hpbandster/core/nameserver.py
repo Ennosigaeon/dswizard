@@ -4,6 +4,7 @@ import threading
 from typing import Tuple
 
 import Pyro4.naming
+import Pyro4
 
 
 def nic_name_to_host(nic_name):
@@ -56,6 +57,8 @@ class NameServer(object):
             else:
                 self.host = nic_name_to_host(self.nic_name)
 
+        Pyro4.config.SERIALIZER = 'pickle'
+        Pyro4.config.SERIALIZERS_ACCEPTED = ['json', 'marshal', 'serpent', 'pickle']
         uri, self.pyro_ns, _ = Pyro4.naming.startNS(host=self.host, port=self.port)
 
         self.host, self.port = self.pyro_ns.locationStr.split(':')

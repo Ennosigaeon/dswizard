@@ -1,8 +1,7 @@
 import time
 from typing import Union, Optional
 
-from ConfigSpace.configuration_space import Configuration
-from Pyro4.util import SerializerBase
+from ConfigSpace.configuration_space import Configuration, OrderedDict
 
 
 class ConfigId(object):
@@ -39,14 +38,17 @@ class ConfigId(object):
         return hash(self.as_tuple())
 
     def __eq__(self, other):
-        if not isinstance(other, ConfigId):
-            return False
         return self.as_tuple() == other.as_tuple()
 
 
-SerializerBase.register_class_to_dict(ConfigId,
-                                      lambda id: {'__class__': ConfigId.__name__, 'values': list(id.as_tuple())})
-SerializerBase.register_dict_to_class(ConfigId.__name__, lambda name, d: ConfigId(*d['values']))
+class ConfigInfo(object):
+    def __init__(self, model_based_pick: bool = False, structure: OrderedDict = None):
+        self.model_based_pick = model_based_pick
+
+        if structure is None:
+            structure = OrderedDict()
+            structure['dummy'] = 'dummy'
+        self.structure = structure
 
 
 class Result(object):
@@ -62,11 +64,6 @@ class Result(object):
     @staticmethod
     def failure(exception: str):
         return Result(None, exception)
-
-
-SerializerBase.register_class_to_dict(Result, lambda res: {'__class__': Result.__name__, 'result': res.result,
-                                                           'exception': res.exception})
-SerializerBase.register_dict_to_class(Result.__name__, lambda name, d: Result(d['result'], d['exception']))
 
 
 class Datum(object):

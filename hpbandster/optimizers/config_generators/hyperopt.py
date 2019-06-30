@@ -1,5 +1,5 @@
 import traceback
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -9,7 +9,7 @@ import scipy.stats as sps
 import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
-from hpbandster.core import BaseConfigGenerator, Job
+from hpbandster.core import BaseConfigGenerator, Job, ConfigInfo
 
 
 class Hyperopt(BaseConfigGenerator):
@@ -86,25 +86,17 @@ class Hyperopt(BaseConfigGenerator):
             return -float('inf')
         return max(self.kde_models.keys())
 
-    def get_config(self, budget: float) -> Tuple[Configuration, dict]:
-        """
-        Function to sample a new configuration
-
-        This function is called inside Hyperband to query a new configuration
-        :param budget: the budget for which this configuration is scheduled
-        :return: should return a valid configuration
-        """
-
+    def get_config(self, structure: Dict[str, str], budget: float) -> Tuple[Configuration, ConfigInfo]:
         self.logger.debug('start sampling a new configuration.')
 
         sample: Optional[Configuration] = None
-        info_dict = {}
+        model_based_pick = True
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
         if len(self.kde_models.keys()) == 0 or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
-            info_dict['model_based_pick'] = False
+            model_based_pick = False
 
         best = np.inf
         best_vector = None
@@ -172,7 +164,7 @@ class Hyperopt(BaseConfigGenerator):
                         'Sampling based optimization with {} samples failed -> using random configuration'.format(
                             self.num_samples))
                     sample = self.configspace.sample_configuration()
-                    info_dict['model_based_pick'] = False
+                    model_based_pick = False
                 else:
                     self.logger.debug(
                         'best_vector: {}, {}, {}, {}'.format(best_vector, best, l(best_vector), g(best_vector)))
@@ -191,7 +183,7 @@ class Hyperopt(BaseConfigGenerator):
                             configuration_space=self.configspace,
                             configuration=sample.get_dictionary()
                         )
-                        info_dict['model_based_pick'] = True
+                        model_based_pick = True
 
                     except Exception as e:
                         self.logger.warning(("=" * 50 + "\n") * 3 +
@@ -205,7 +197,7 @@ class Hyperopt(BaseConfigGenerator):
                     'Sampling based optimization with {} samples failed\n {} \nUsing random configuration'.format(
                         self.num_samples, traceback.format_exc()))
                 sample = self.configspace.sample_configuration()
-                info_dict['model_based_pick'] = False
+                model_based_pick = False
 
         try:
             sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
@@ -217,7 +209,9 @@ class Hyperopt(BaseConfigGenerator):
                                 'using random configuration!'.format(e, sample))
             sample = self.configspace.sample_configuration()
         self.logger.debug('done sampling a new configuration.')
-        return sample, info_dict
+        return sample, ConfigInfo(
+            model_based_pick=model_based_pick
+        )
 
     def impute_conditional_data(self, array):
 

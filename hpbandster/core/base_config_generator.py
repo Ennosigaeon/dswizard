@@ -1,9 +1,9 @@
 import logging
-from typing import Tuple
+from typing import Tuple, Dict
 
 from ConfigSpace.configuration_space import Configuration
 
-from hpbandster.core.model import Job
+from hpbandster.core.model import Job, ConfigInfo
 
 
 class BaseConfigGenerator(object):
@@ -23,11 +23,12 @@ class BaseConfigGenerator(object):
         else:
             self.logger = logger
 
-    def get_config(self, budget: float) -> Tuple[Configuration, dict]:
+    def get_config(self, structure: Dict[str, str], budget: float) -> Tuple[Configuration, ConfigInfo]:
         """
         function to sample a new configuration
 
         This function is called inside Hyperband to query a new configuration
+        :param structure: current structure of the pipeline
         :param budget: the budget for which this configuration is scheduled
         :return: must return a valid configuration and a (possibly empty) info dict
         """

@@ -4,7 +4,7 @@ from typing import Tuple
 from ConfigSpace.configuration_space import Configuration
 
 from hpbandster.core import BaseConfigGenerator
-from hpbandster.core.model import Job
+from hpbandster.core.model import Job, ConfigInfo
 
 
 class BaseStructureGenerator(object):
@@ -25,7 +25,7 @@ class BaseStructureGenerator(object):
         else:
             self.logger = logger
 
-    def get_config(self, budget: float) -> Tuple[Configuration, dict]:
+    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         """
         function to sample a new configuration
 

@@ -9,7 +9,7 @@ import traceback
 import Pyro4
 from Pyro4.errors import CommunicationError, NamingError
 
-from hpbandster.core.model import ConfigId, Result
+from hpbandster.core.model import ConfigId, ConfigInfo, Result
 
 
 class Worker(object):
@@ -152,12 +152,14 @@ class Worker(object):
     def compute(self,
                 config_id: ConfigId,
                 config: dict,
+                config_info: ConfigInfo,
                 budget: float,
                 working_directory: str) -> dict:
         """
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
+        :param config_info: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         :param working_directory: a name of a directory that is unique to this configuration. Use this to store
             intermediate results on lower  budgets that can be reused later for a larger budget (for iterative
@@ -194,6 +196,7 @@ class Worker(object):
                 self.compute(*args, config_id=id, **kwargs)
             )
         except Exception as e:
+            self.logger.warning('WORKER: computation failed with \'{}\''.format(str(e)))
             result = Result.failure(
                 traceback.format_exc()
             )

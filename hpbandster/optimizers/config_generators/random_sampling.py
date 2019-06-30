@@ -1,9 +1,9 @@
-from typing import Tuple
+from typing import Tuple, Dict
 
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 
-from hpbandster.core import BaseConfigGenerator
+from hpbandster.core import BaseConfigGenerator, ConfigInfo
 
 
 class RandomSampling(BaseConfigGenerator):
@@ -22,7 +22,7 @@ class RandomSampling(BaseConfigGenerator):
         super().__init__(**kwargs)
         self.configspace = configspace
 
-    def get_config(self, budget: float) -> Tuple[Configuration, dict]:
-        return self.configspace.sample_configuration(), {
-            'model_based_pick': False
-        }
+    def get_config(self, structure: Dict[str, str], budget: float) -> Tuple[Configuration, ConfigInfo]:
+        return self.configspace.sample_configuration(), ConfigInfo(
+            model_based_pick=False
+        )
