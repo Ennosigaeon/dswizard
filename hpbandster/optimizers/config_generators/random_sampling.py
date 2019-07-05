@@ -19,10 +19,9 @@ class RandomSampling(BaseConfigGenerator):
         :param kwargs: see hyperband.core.BaseConfigGenerator for additional arguments
         """
 
-        super().__init__(**kwargs)
-        self.configspace = configspace
+        super().__init__(configspace, **kwargs)
 
-    def get_config(self, structure: Dict[str, str], budget: float) -> Tuple[Configuration, ConfigInfo]:
+    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         return self.configspace.sample_configuration(), ConfigInfo(
             model_based_pick=False
         )

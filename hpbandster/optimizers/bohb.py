@@ -1,15 +1,14 @@
 import numpy as np
-from ConfigSpace.configuration_space import ConfigurationSpace
 
+from core import BaseStructureGenerator
 from hpbandster.core import Master
 from hpbandster.optimizers.config_generators import Hyperopt
 from hpbandster.optimizers.iterations import SuccessiveHalving
-from hpbandster.optimizers.structure_generators.dummy import DummyStructure
 
 
 class BOHB(Master):
     def __init__(self,
-                 configspace: ConfigurationSpace = None,
+                 structure: BaseStructureGenerator = None,
                  eta: float = 3,
                  min_budget: float = 0.01,
                  max_budget: float = 1,
@@ -35,7 +34,7 @@ class BOHB(Master):
               year =         {2018},
             }
 
-        :param configspace: valid representation of the search space
+        :param structure: a method for generating pipeline structures
         :param eta: In each iteration, a complete run of sequential halving is executed. In it, after evaluating each
             configuration on the same subset size, only a fraction of 1/eta of them 'advances' to the next round. Must
             be greater or equal to 2.
@@ -55,11 +54,7 @@ class BOHB(Master):
         :param kwargs: kwargs to be added to the instantiation of each iteration
         """
 
-        # TODO: Proper check for ConfigSpace object!
-        if configspace is None:
-            raise ValueError('You have to provide a valid ConfigSpace object')
-
-        cg = Hyperopt(configspace=configspace,
+        cg = Hyperopt(configspace=structure.configspace,
                       min_points_in_model=min_points_in_model,
                       top_n_percent=top_n_percent,
                       num_samples=num_samples,
@@ -67,8 +62,9 @@ class BOHB(Master):
                       bandwidth_factor=bandwidth_factor,
                       min_bandwidth=min_bandwidth
                       )
+        structure.config_generator = cg
 
-        super().__init__(config_generator=DummyStructure(cg), **kwargs)
+        super().__init__(config_generator=structure, ** kwargs)
 
         # Hyperband related stuff
         self.eta = eta

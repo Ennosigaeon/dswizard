@@ -40,6 +40,9 @@ class ConfigId(object):
     def __eq__(self, other):
         return self.as_tuple() == other.as_tuple()
 
+    def __lt__(self, other):
+        return self.as_tuple() < other.as_tuple()
+
 
 class ConfigInfo(object):
     def __init__(self, model_based_pick: bool = False, structure: OrderedDict = None):

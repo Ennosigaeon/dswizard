@@ -196,7 +196,7 @@ class Worker(object):
                 self.compute(*args, config_id=id, **kwargs)
             )
         except Exception as e:
-            self.logger.warning('WORKER: computation failed with \'{}\''.format(str(e)))
+            self.logger.warning('WORKER: computation failed with \'{}\''.format(traceback.format_exc()))
             result = Result.failure(
                 traceback.format_exc()
             )

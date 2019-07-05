@@ -1,5 +1,5 @@
 import traceback
-from typing import Tuple, Optional, Dict
+from typing import Tuple, Optional
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -37,9 +37,8 @@ class Hyperopt(BaseConfigGenerator):
         :param kwargs:
         """
 
-        super().__init__(**kwargs)
+        super().__init__(configspace, **kwargs)
         self.top_n_percent = top_n_percent
-        self.configspace = configspace
         self.bw_factor = bandwidth_factor
         self.min_bandwidth = min_bandwidth
 
@@ -86,7 +85,7 @@ class Hyperopt(BaseConfigGenerator):
             return -float('inf')
         return max(self.kde_models.keys())
 
-    def get_config(self, structure: Dict[str, str], budget: float) -> Tuple[Configuration, ConfigInfo]:
+    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         self.logger.debug('start sampling a new configuration.')
 
         sample: Optional[Configuration] = None
