@@ -226,6 +226,9 @@ class PreprocessingAlgorithm(EstimatorComponent, ABC):
         """
         return self.preprocessor
 
+    def fit_transform(self, X, y=None):
+        return self.fit(X, y).transform(X)
+
 
 class ComponentChoice(EstimatorComponent):
 

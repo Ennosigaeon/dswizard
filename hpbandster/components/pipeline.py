@@ -14,9 +14,6 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         self.configuration = None
         self.dataset_properties = dataset_properties
 
-    def _validate_steps(self):
-        pass
-
     def fit(self, X, y=None, **fit_params):
         # TODO implement pipeline fitting
         # Was ist mit splits und merge in pipelines?

@@ -115,3 +115,6 @@ class DataPreprocessorChoice(ComponentChoice):
 
     def transform(self, X):
         return self.choice.transform(X)
+
+    def fit_transform(self, X, y=None):
+        return self.choice.fit(X, y).transform(X)
