@@ -53,6 +53,10 @@ class ConfigInfo(object):
             structure['dummy'] = 'dummy'
         self.structure = structure
 
+    def __repr__(self):
+        return str({'model_based_pick': self.model_based_pick,
+                    'structure': self.structure})
+
 
 class Result(object):
 
@@ -91,13 +95,10 @@ class Datum(object):
         self.budget = budget
 
     def __repr__(self):
-        return (
-                '\nconfig:{}\n'.format(self.config) +
-                'config_info:\n{}\n'.format(self.config_info) +
-                'losses:\n'
-                '\t'.join(["{}: {}\t".format(k, v['loss']) for k, v in self.results.items()]) +
-                'time stamps: {}'.format(self.time_stamps)
-        )
+        return str({'config': self.config,
+                    'config_info': self.config_info,
+                    'losses': '\t'.join(["{}: {}\t".format(k, v['loss']) for k, v in self.results.items()]),
+                    'time stamps': self.time_stamps})
 
 
 class Job(object):
@@ -117,7 +118,7 @@ class Job(object):
         self.timestamps[which_time] = time.time()
 
     def __repr__(self):
-        return 'job_id: {}\n' \
-               'kwargs: {}\n' \
-               'result: {}\n' \
-               'exception: {}\n'.format(self.id, self.kwargs, self.result, self.exception)
+        return str({'job_id': self.id,
+                    'kwargs': self.kwargs,
+                    'result': self.result,
+                    'exception': self.exception})

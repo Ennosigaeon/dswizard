@@ -237,7 +237,7 @@ class Dispatcher(object):
             wn = self.idle_workers.pop()
 
             worker = self.worker_pool[wn]
-            self.logger.debug('DISPATCHER: starting job {} on %{}'.format(str(job.id), worker.name))
+            self.logger.debug('DISPATCHER: starting job {} on {}'.format(str(job.id), worker.name))
 
             job.time_it('started')
             worker.runs_job = job.id
