@@ -1,7 +1,7 @@
 import os
 import pickle
 import threading
-from typing import Tuple
+from typing import Tuple, Optional
 
 import Pyro4.naming
 import Pyro4
@@ -25,7 +25,7 @@ class NameServer(object):
                  run_id: str,
                  working_directory: str = None,
                  host: str = None,
-                 port: int = 0,
+                 port: Optional[int] = 0,
                  nic_name: str = None):
         """
 

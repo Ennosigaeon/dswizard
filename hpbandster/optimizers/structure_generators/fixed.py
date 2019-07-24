@@ -14,8 +14,6 @@ class FixedStructure(BaseStructureGenerator):
         :param task: Constant defined in hpbandster.components.constants
         :param config_generator:
         """
-
-        # TODO build configuration space based on pipeline structure
         configspace = ConfigurationSpace()
 
         for step, task in structure.items():
