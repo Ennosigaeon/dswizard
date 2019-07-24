@@ -71,7 +71,7 @@ class Dispatcher(object):
         self.shutdown_all_threads = False
 
         if logger is None:
-            self.logger = logging.getLogger('hpbandster')
+            self.logger = logging.getLogger('Dispatcher')
         else:
             self.logger = logger
 
@@ -92,10 +92,10 @@ class Dispatcher(object):
         with self.discover_cond:
             t1 = threading.Thread(target=self.discover_workers, name='discover_workers')
             t1.start()
-            self.logger.info('DISPATCHER: started the \'discover_worker\' thread')
+            self.logger.info('started the \'discover_worker\' thread')
             t2 = threading.Thread(target=self.job_runner, name='job_runner')
             t2.start()
-            self.logger.info('DISPATCHER: started the \'job_runner\' thread')
+            self.logger.info('started the \'job_runner\' thread')
 
             self.pyro_daemon = Pyro4.core.Daemon(host=self.host)
 
@@ -103,13 +103,13 @@ class Dispatcher(object):
                 uri = self.pyro_daemon.register(self, self.pyro_id)
                 ns.register(self.pyro_id, uri)
 
-            self.logger.info('DISPATCHER: Pyro daemon running on {}'.format(self.pyro_daemon.locationStr))
+            self.logger.info('Pyro daemon running on {}'.format(self.pyro_daemon.locationStr))
 
         self.pyro_daemon.requestLoop()
 
         with self.discover_cond:
             self.shutdown_all_threads = True
-            self.logger.info('DISPATCHER: Dispatcher shutting down')
+            self.logger.info('shutting down')
 
             self.runner_cond.notify_all()
             self.discover_cond.notify_all()
@@ -118,10 +118,10 @@ class Dispatcher(object):
                 ns.remove(self.pyro_id)
 
         t1.join()
-        self.logger.debug('DISPATCHER: \'discover_worker\' thread exited')
+        self.logger.debug('\'discover_worker\' thread exited')
         t2.join()
-        self.logger.debug('DISPATCHER: \'job_runner\' thread exited')
-        self.logger.info('DISPATCHER: shut down complete')
+        self.logger.debug('\'job_runner\' thread exited')
+        self.logger.info('shut down complete')
 
     def shutdown_all_workers(self, rediscover: bool = False) -> None:
         with self.discover_cond:
@@ -142,7 +142,7 @@ class Dispatcher(object):
     @Pyro4.oneway
     def trigger_discover_worker(self) -> None:
         # time.sleep(1)
-        self.logger.info('DISPATCHER: A new worker triggered discover_worker')
+        self.logger.info('A new worker triggered discover_worker')
         with self.discover_cond:
             self.discover_cond.notify()
 
@@ -150,22 +150,22 @@ class Dispatcher(object):
         self.discover_cond.acquire()
 
         while True:
-            self.logger.debug('DISPATCHER: Starting worker discovery')
+            self.logger.debug('Starting worker discovery')
             update = False
 
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
                 worker_names = ns.list(prefix='hpbandster.run_{}.worker.'.format(self.run_id))
-                self.logger.debug('DISPATCHER: Found {} potential workers, {} currently in the pool.'.format(
+                self.logger.debug('Found {} potential workers, {} currently in the pool.'.format(
                     len(worker_names), len(self.worker_pool)))
 
                 for wn, uri in worker_names.items():
                     if wn not in self.worker_pool:
                         w = Worker(wn, uri)
                         if not w.is_alive():
-                            self.logger.debug('DISPATCHER: skipping dead worker, {}'.format(wn))
+                            self.logger.debug('skipping dead worker, {}'.format(wn))
                             continue
                         update = True
-                        self.logger.info('DISPATCHER: discovered new worker, {}'.format(wn))
+                        self.logger.info('discovered new worker, {}'.format(wn))
                         self.worker_pool[wn] = w
 
             # check the current list of workers
@@ -175,7 +175,7 @@ class Dispatcher(object):
             for wn in all_workers:
                 # remove dead entries from the nameserver
                 if not self.worker_pool[wn].is_alive():
-                    self.logger.info('DISPATCHER: removing dead worker, {}'.format(wn))
+                    self.logger.info('removing dead worker, {}'.format(wn))
                     update = True
                     # todo check if there were jobs running on that that need to be rescheduled
 
@@ -205,11 +205,11 @@ class Dispatcher(object):
                 self.register_result(crashed_job.id, Result.failure('Worker died unexpectedly.'))
                 self.discover_cond.acquire()
 
-            self.logger.debug('DISPATCHER: Finished worker discovery')
+            self.logger.debug('Finished worker discovery')
             self.discover_cond.wait(self.ping_interval)
 
             if self.shutdown_all_threads:
-                self.logger.debug('DISPATCHER: discover_workers shutting down')
+                self.logger.debug('discover_workers shutting down')
                 self.runner_cond.notify()
                 self.discover_cond.release()
                 return
@@ -223,12 +223,12 @@ class Dispatcher(object):
         while True:
 
             while self.waiting_jobs.empty() or len(self.idle_workers) == 0:
-                self.logger.debug('DISPATCHER: jobs to submit = {}, number of idle workers = {} -> waiting!'.format(
+                self.logger.debug('jobs to submit = {}, number of idle workers = {} -> waiting!'.format(
                     self.waiting_jobs.qsize(), len(self.idle_workers)))
                 self.runner_cond.wait()
-                self.logger.debug('DISPATCHER: Trying to submit another job.')
+                self.logger.debug('Trying to submit another job.')
                 if self.shutdown_all_threads:
-                    self.logger.debug('DISPATCHER: job_runner shutting down')
+                    self.logger.debug('job_runner shutting down')
                     self.discover_cond.notify()
                     self.runner_cond.release()
                     return
@@ -237,7 +237,7 @@ class Dispatcher(object):
             wn = self.idle_workers.pop()
 
             worker = self.worker_pool[wn]
-            self.logger.debug('DISPATCHER: starting job {} on {}'.format(str(job.id), worker.name))
+            self.logger.debug('starting job {} on {}'.format(str(job.id), worker.name))
 
             job.time_it('started')
             worker.runs_job = job.id
@@ -247,24 +247,24 @@ class Dispatcher(object):
             job.worker_name = wn
             self.running_jobs[job.id] = job
 
-            self.logger.debug('DISPATCHER: job {} dispatched on {}'.format(str(job.id), worker.name))
+            self.logger.debug('job {} dispatched on {}'.format(str(job.id), worker.name))
 
     def submit_job(self, id: ConfigId, **kwargs: dict) -> None:
-        self.logger.debug('DISPATCHER: trying to submit job {}'.format(id))
+        self.logger.debug('trying to submit job {}'.format(id))
         with self.runner_cond:
             job = Job(id, **kwargs)
             job.time_it('submitted')
             self.waiting_jobs.put(job)
-            self.logger.debug('DISPATCHER: trying to notify the job_runner thread.')
+            self.logger.debug('trying to notify the job_runner thread.')
             self.runner_cond.notify()
 
     @Pyro4.expose
     @Pyro4.callback
     @Pyro4.oneway
     def register_result(self, id: ConfigId = None, result: Result = None) -> None:
-        self.logger.debug('DISPATCHER: job {} finished'.format(id))
+        self.logger.debug('job {} finished'.format(id))
         with self.runner_cond:
-            self.logger.debug('DISPATCHER: register_result: lock acquired')
+            self.logger.debug('register_result: lock acquired')
 
             # fill in missing information
             job = self.running_jobs[id]
@@ -272,7 +272,7 @@ class Dispatcher(object):
             job.result = result.result
             job.exception = result.exception
 
-            self.logger.debug('DISPATCHER: job {} on {} finished'.format(job.id, job.worker_name))
+            self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))
             self.logger.debug(str(job))
 
             # delete job

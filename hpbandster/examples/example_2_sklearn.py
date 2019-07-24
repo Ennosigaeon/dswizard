@@ -19,7 +19,7 @@ from hpbandster.workers.SklearnWorker import SklearnWorker
 from optimizers.structure_generators.fixed import FixedStructure
 
 logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S%z',
                     stream=sys.stdout)
 logging.getLogger('Pyro4.core').setLevel(logging.WARNING)

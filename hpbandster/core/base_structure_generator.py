@@ -25,7 +25,7 @@ class BaseStructureGenerator(object):
         self.configspace = configspace
         self.config_generator = None
         if logger is None:
-            self.logger = logging.getLogger('hpbandster')
+            self.logger = logging.getLogger('StructureGenerator')
         else:
             self.logger = logger
 

@@ -58,10 +58,11 @@ class Worker(object):
         self.thread = None
 
         if logger is None:
-            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
             self.logger = logging.getLogger(self.worker_id)
         else:
             self.logger = logger
+
+        self.logger.info('Running on {} with pid {}'.format(socket.gethostname(), os.getpid()))
 
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
@@ -110,7 +111,7 @@ class Worker(object):
 
         try:
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                self.logger.debug('WORKER: Connected to nameserver {}'.format(ns))
+                self.logger.debug('Connected to nameserver {}'.format(ns))
                 dispatchers = ns.list(prefix='hpbandster.run_{}.dispatcher'.format(self.run_id))
         except NamingError:
             if self.thread is None:
@@ -125,18 +126,18 @@ class Worker(object):
 
         for dn, uri in dispatchers.items():
             try:
-                self.logger.debug('WORKER: found dispatcher {}'.format(dn))
+                self.logger.debug('found dispatcher {}'.format(dn))
                 with Pyro4.Proxy(uri) as dispatcher_proxy:
                     dispatcher_proxy.trigger_discover_worker()
 
             except CommunicationError:
-                self.logger.debug('WORKER: Dispatcher did not respond. Waiting for one to initiate contact.')
+                self.logger.debug('Dispatcher did not respond. Waiting for one to initiate contact.')
                 pass
 
         if len(dispatchers) == 0:
-            self.logger.debug('WORKER: No dispatcher found. Waiting for one to initiate contact.')
+            self.logger.debug('No dispatcher found. Waiting for one to initiate contact.')
 
-        self.logger.info('WORKER: start listening for jobs')
+        self.logger.info('start listening for jobs')
 
         self.pyro_daemon = Pyro4.core.Daemon(host=self.host)
 
@@ -187,26 +188,26 @@ class Worker(object):
         if self.timeout is not None and self.timer is not None:
             self.timer.cancel()
 
-        self.logger.info('WORKER: start processing job {}'.format(id))
-        self.logger.debug('WORKER: args: {}'.format(args))
-        self.logger.debug('WORKER: kwargs: {}'.format(kwargs))
+        self.logger.info('start processing job {}'.format(id))
+        self.logger.debug('args: {}'.format(args))
+        self.logger.debug('kwargs: {}'.format(kwargs))
         result = None
         try:
             result = Result.success(
                 self.compute(*args, config_id=id, **kwargs)
             )
         except Exception as e:
-            self.logger.warning('WORKER: computation failed with \'{}\''.format(traceback.format_exc()))
+            self.logger.warning('computation failed with \'{}\''.format(traceback.format_exc()))
             result = Result.failure(
                 traceback.format_exc()
             )
         finally:
-            self.logger.debug('WORKER: done with job {}, trying to register it.'.format(id))
+            self.logger.debug('done with job {}, trying to register it.'.format(id))
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(id, result)
                 self.thread_cond.notify()
-        self.logger.info('WORKER: registered result for job {} with dispatcher'.format(id))
+        self.logger.info('registered result for job {} with dispatcher'.format(id))
         if self.timeout is not None:
             self.timer = threading.Timer(self.timeout, self.shutdown)
             self.timer.daemon = True
@@ -220,7 +221,7 @@ class Worker(object):
     @Pyro4.expose
     @Pyro4.oneway
     def shutdown(self) -> None:
-        self.logger.debug('WORKER: shutting down now!')
+        self.logger.debug('shutting down now!')
         self.pyro_daemon.shutdown()
         if self.thread is not None:
             self.thread.join()

@@ -263,7 +263,7 @@ class Result(object):
         """
         extracts all learning curves from all run configurations
         :param lc_extractor: a function to return a list of learning_curves. defaults to
-            hpbanster.HB_result.extract_HP_learning_curves
+            hpbandster.HB_result.extract_HP_learning_curves
         :param config_ids: if only a subset of the config ids is wanted
         :return: a dictionary with the config_ids as keys and the learning curves as values
         """

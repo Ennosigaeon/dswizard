@@ -19,7 +19,7 @@ class BaseConfigGenerator(object):
         """
 
         if logger is None:
-            self.logger = logging.getLogger('hpbandster')
+            self.logger = logging.getLogger('ConfigGenerator')
         else:
             self.logger = logger
         self.configspace = configspace
