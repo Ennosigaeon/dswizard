@@ -13,7 +13,7 @@ import argparse
 import hpbandster.core.nameserver as hpns
 
 from hpbandster.optimizers import BOHB as BOHB
-from hpbandster.examples.commons import MyWorker
+from examples import MyWorker
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
