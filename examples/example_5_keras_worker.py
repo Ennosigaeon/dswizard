@@ -111,7 +111,7 @@ class KerasWorker(Worker):
 
         self.input_shape = (img_rows, img_cols, 1)
 
-    def compute(self, config, budget, working_directory, *args, **kwargs):
+    def compute(self, config, budget, working_directory, result, *args, **kwargs):
         """
         Simple example for a compute function using a feed forward network.
         It is trained on the MNIST dataset.
@@ -163,15 +163,12 @@ class KerasWorker(Worker):
         test_score = model.evaluate(self.x_test, self.y_test, verbose=0)
 
         # import IPython; IPython.embed()
-        return {
-            'loss': 1 - val_score[1],  # remember: HpBandSter always minimizes!
-            'info': {'test accuracy': test_score[1],
-                     'train accuracy': train_score[1],
-                     'validation accuracy': val_score[1],
-                     'number of parameters': model.count_params(),
-                     }
-
-        }
+        result['loss'] = 1 - val_score[1],  # remember: HpBandSter always minimizes!
+        result['info'] = {'test accuracy': test_score[1],
+                          'train accuracy': train_score[1],
+                          'validation accuracy': val_score[1],
+                          'number of parameters': model.count_params(),
+                          }
 
     @staticmethod
     def get_configspace():
@@ -230,5 +227,6 @@ if __name__ == '__main__':
 
     config = cs.sample_configuration().get_dictionary()
     print(config)
-    res = worker.compute(config=config, budget=1, working_directory='.')
+    res = {}
+    worker.compute(config=config, budget=1, working_directory='.', result=res)
     print(res)

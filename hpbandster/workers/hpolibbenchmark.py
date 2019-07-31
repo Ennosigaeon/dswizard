@@ -26,7 +26,7 @@ class HPOlib2Worker(Worker):
 
         self.measure_test_loss = measure_test_loss
 
-    def compute(self, config, budget, **kwargs):
+    def compute(self, config, budget, result, **kwargs):
 
         if self.config_as_array:
             c = CS.Configuration(self.configspace, values=config)
@@ -38,7 +38,5 @@ class HPOlib2Worker(Worker):
         if self.measure_test_loss:
             del kwargs[self.budget_name]
             res['test_loss'] = self.benchmark.objective_function_test(c, **kwargs)['function_value']
-        return {
-            'loss': res['function_value'],
-            'info': res
-        }
+        result['loss'] = res['function_value']
+        result['info'] = res

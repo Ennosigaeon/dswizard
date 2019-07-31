@@ -1,4 +1,5 @@
 import importlib
+import time
 
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
@@ -34,7 +35,7 @@ class SklearnWorker(Worker):
             self.y_test = y_test
 
     def compute(self, config_id: ConfigId, config: dict, config_info: ConfigInfo, budget: float,
-                working_directory: str) -> dict:
+                working_directory: str, result: dict):
         self.logger.info('Processing configuration {}'.format(config_id))
         # TODO budget missing
 
@@ -45,10 +46,8 @@ class SklearnWorker(Worker):
         y_pred = pipeline.predict(self.X_test)
         res = metrics.accuracy_score(self.y_test, y_pred)
 
-        return {
-            'loss': res,
-            'info': config_info
-        }
+        result['loss'] = res
+        result['info'] = config_info
 
     def create_estimator(self, conf: dict):
         try:

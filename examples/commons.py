@@ -24,6 +24,7 @@ class MyWorker(Worker):
                 config: dict,
                 config_info: dict,
                 budget: float,
+                result: dict,
                 **kwargs: dict) -> dict:
         """
         Simple example for a compute function
@@ -45,10 +46,8 @@ class MyWorker(Worker):
         res = numpy.clip(config['x'] + numpy.random.randn() / budget, config['x'] / 2, 1.5 * config['x'])
         time.sleep(self.sleep_interval)
 
-        return {
-            'loss': float(res),  # this is the a mandatory field to run hyperband
-            'info': res  # can be used for any user-defined information - also mandatory
-        }
+        result['loss'] = float(res),  # this is the a mandatory field to run hyperband
+        result['info'] = res  # can be used for any user-defined information - also mandatory
 
     @staticmethod
     def get_configspace():

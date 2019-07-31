@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import os
 import pickle
 import socket
@@ -10,6 +11,7 @@ import Pyro4
 from Pyro4.errors import CommunicationError, NamingError
 
 from hpbandster.core.model import ConfigId, ConfigInfo, Result
+from util.process import Process
 
 
 class Worker(object):
@@ -66,6 +68,7 @@ class Worker(object):
 
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
+        self.manager = multiprocessing.Manager()
 
     def load_nameserver_credentials(self,
                                     working_directory: str,
@@ -155,7 +158,8 @@ class Worker(object):
                 config: dict,
                 config_info: ConfigInfo,
                 budget: float,
-                working_directory: str) -> dict:
+                working_directory: str,
+                result: dict) -> None:
         """
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
@@ -165,7 +169,7 @@ class Worker(object):
         :param working_directory: a name of a directory that is unique to this configuration. Use this to store
             intermediate results on lower  budgets that can be reused later for a larger budget (for iterative
             algorithms, for example).
-        :return: needs to return a dictionary with two mandatory entries:
+        :param result: contains the return values in a dictionary. Needs to contain two mandatory entries:
                 - 'loss': a numerical value that is MINIMIZED
                 - 'info': This can be pretty much any build in python type, e.g. a dict with lists as value. Due to
                           Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!
@@ -179,6 +183,7 @@ class Worker(object):
     def start_computation(self,
                           callback,
                           id: ConfigId,
+                          timeout: float = None,
                           *args,
                           **kwargs) -> Result:
         with self.thread_cond:
@@ -193,11 +198,28 @@ class Worker(object):
         self.logger.debug('kwargs: {}'.format(kwargs))
         result = None
         try:
-            result = Result.success(
-                self.compute(*args, config_id=id, **kwargs)
-            )
-        except Exception as e:
-            self.logger.warning('computation failed with \'{}\''.format(traceback.format_exc()))
+
+
+            p = Process(target=self.compute, args=args, kwargs={'config_id': id, 'result': d, **kwargs})
+            p.start()
+            p.join(timeout)
+
+            if p.is_alive():
+                self.logger.debug('Abort fitting after timeout')
+                p.terminate()
+                p.join()
+                result = Result.failure('Computation did not finish within {} seconds'.format(timeout))
+
+            if p.exception:
+                error, tb = p.exception
+                result = Result.failure(tb)
+            else:
+                # noinspection PyProtectedMember
+                result = Result.success(d._getvalue())
+
+        except Exception:
+            # Should never occur, just a safety net
+            self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
             result = Result.failure(
                 traceback.format_exc()
             )

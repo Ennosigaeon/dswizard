@@ -14,9 +14,9 @@ import hpbandster.core.nameserver as hpns
 from components.classification import ClassifierChoice
 from components.data_preprocessing import DataPreprocessorChoice
 from components.pipeline import SubPipeline
-from hpbandster.optimizers import BOHB as BOHB
-from hpbandster.workers.SklearnWorker import SklearnWorker
+from optimizers import BOHB
 from optimizers.structure_generators.fixed import FixedStructure
+from workers.sklearn_worker import SklearnWorker
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',

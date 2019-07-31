@@ -24,9 +24,10 @@ class TestWorker(Worker):
         super().__init__(*args, **kwargs)
         self.sleep_duration = sleep_duration
 
-    def compute(self, *args, **kwargs):
+    def compute(self, result, *args, **kwargs):
         time.sleep(self.sleep_duration)
-        return {'loss': 0, 'info': {}}
+        result['loss'] = 0
+        result['info'] = {}
 
 
 class TestWorkers(unittest.TestCase):
