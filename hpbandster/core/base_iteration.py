@@ -156,6 +156,7 @@ class BaseIteration(object):
 
         if self.num_running == 0:
             # at this point a stage is completed
+            self.logger.debug('Stage {} completed'.format(self.stage))
             self.process_results()
             return self.get_next_run()
 
@@ -173,7 +174,7 @@ class BaseIteration(object):
 
     def process_results(self) -> None:
         """
-        function that is called when a stage is completed and needs to be analyzed befor further computations.
+        function that is called when a stage is completed and needs to be analyzed before further computations.
 
         The code here implements the original SH algorithms by advancing the k-best (lowest loss) configurations at the
         current budget. k is defined by the num_configs list (see __init__) and the current stage value.

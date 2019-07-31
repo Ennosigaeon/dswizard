@@ -85,7 +85,7 @@ class Dispatcher(object):
         self.runner_cond = threading.Condition(self.thread_lock)
         self.discover_cond = threading.Condition(self.thread_lock)
 
-        self.pyro_id = 'hpbandster.run_{}.dispatcher'.format(self.run_id)
+        self.pyro_id = '{}.dispatcher'.format(self.run_id)
         self.pyro_daemon = None
 
     def run(self) -> None:
@@ -142,7 +142,7 @@ class Dispatcher(object):
     @Pyro4.oneway
     def trigger_discover_worker(self) -> None:
         # time.sleep(1)
-        self.logger.info('A new worker triggered discover_worker')
+        self.logger.info('A new worker triggered \'discover_worker\'')
         with self.discover_cond:
             self.discover_cond.notify()
 
@@ -154,7 +154,7 @@ class Dispatcher(object):
             update = False
 
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                worker_names = ns.list(prefix='hpbandster.run_{}.worker.'.format(self.run_id))
+                worker_names = ns.list(prefix='{}.worker.'.format(self.run_id))
                 self.logger.debug('Found {} potential workers, {} currently in the pool.'.format(
                     len(worker_names), len(self.worker_pool)))
 
@@ -209,7 +209,7 @@ class Dispatcher(object):
             self.discover_cond.wait(self.ping_interval)
 
             if self.shutdown_all_threads:
-                self.logger.debug('discover_workers shutting down')
+                self.logger.debug('\'discover_worker\' thread shutting down')
                 self.runner_cond.notify()
                 self.discover_cond.release()
                 return
@@ -226,9 +226,8 @@ class Dispatcher(object):
                 self.logger.debug('jobs to submit = {}, number of idle workers = {} -> waiting!'.format(
                     self.waiting_jobs.qsize(), len(self.idle_workers)))
                 self.runner_cond.wait()
-                self.logger.debug('Trying to submit another job.')
                 if self.shutdown_all_threads:
-                    self.logger.debug('job_runner shutting down')
+                    self.logger.info('\'job_runner\' thread shutting down')
                     self.discover_cond.notify()
                     self.runner_cond.release()
                     return
@@ -247,25 +246,18 @@ class Dispatcher(object):
             job.worker_name = wn
             self.running_jobs[job.id] = job
 
-            self.logger.debug('job {} dispatched on {}'.format(str(job.id), worker.name))
-
     def submit_job(self, id: ConfigId, **kwargs: dict) -> None:
-        self.logger.debug('trying to submit job {}'.format(id))
         with self.runner_cond:
             job = Job(id, **kwargs)
             job.time_it('submitted')
             self.waiting_jobs.put(job)
-            self.logger.debug('trying to notify the job_runner thread.')
             self.runner_cond.notify()
 
     @Pyro4.expose
     @Pyro4.callback
     @Pyro4.oneway
     def register_result(self, id: ConfigId = None, result: Result = None) -> None:
-        self.logger.debug('job {} finished'.format(id))
         with self.runner_cond:
-            self.logger.debug('register_result: lock acquired')
-
             # fill in missing information
             job = self.running_jobs[id]
             job.time_it('finished')
@@ -273,7 +265,6 @@ class Dispatcher(object):
             job.exception = result.exception
 
             self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))
-            self.logger.debug(str(job))
 
             # delete job
             del self.running_jobs[id]

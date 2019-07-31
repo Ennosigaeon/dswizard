@@ -1,3 +1,4 @@
+humanize
 Pyro4
 scikit-learn
 numpy

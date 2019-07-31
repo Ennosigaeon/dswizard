@@ -49,7 +49,7 @@ class Worker(object):
         self.host = host
         self.nameserver = nameserver
         self.nameserver_port = nameserver_port
-        self.worker_id = 'hpbandster.run_{}.worker.{}.{}'.format(self.run_id, socket.gethostname(), os.getpid())
+        self.worker_id = '{}.worker.{}'.format(self.run_id, os.getpid())
 
         self.timeout = timeout
         self.timer = None
@@ -115,7 +115,7 @@ class Worker(object):
         try:
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
                 self.logger.debug('Connected to nameserver {}'.format(ns))
-                dispatchers = ns.list(prefix='hpbandster.run_{}.dispatcher'.format(self.run_id))
+                dispatchers = ns.list(prefix='{}.dispatcher'.format(self.run_id))
         except NamingError:
             if self.thread is None:
                 raise RuntimeError('No nameserver found. Make sure the nameserver is running and '
@@ -195,9 +195,11 @@ class Worker(object):
         if self.timeout is not None and self.timer is not None:
             self.timer.cancel()
 
-        self.logger.info('start processing job {}'.format(id))
-        self.logger.debug('args: {}'.format(args))
-        self.logger.debug('kwargs: {}'.format(kwargs))
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug('starting processing job {} with args: {}\tkwargs: {}'.format(id, args, kwargs))
+        else:
+            self.logger.info('start processing job {}'.format(id))
+
         result = None
         try:
             d = self.manager.dict()
@@ -219,6 +221,11 @@ class Worker(object):
                 # noinspection PyProtectedMember
                 result = Result.success(d._getvalue())
 
+                # TODO: In BaseIteration@121 result sometimes does contain an empty result. Could be caused by IPC
+                # problem???
+                if 'loss' not in result.result:
+                    self.logger.warning('Empty result even though computation was successful')
+                    raise KeyError('Result does not contain mandatory \'loss\' key')
         except Exception:
             # Should never occur, just a safety net
             self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
@@ -226,12 +233,11 @@ class Worker(object):
                 traceback.format_exc()
             )
         finally:
-            self.logger.debug('done with job {}, trying to register it.'.format(id))
+            self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(id))
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(id, result)
                 self.thread_cond.notify()
-        self.logger.info('registered result for job {} with dispatcher'.format(id))
         if self.timeout is not None:
             self.timer = threading.Timer(self.timeout, self.shutdown)
             self.timer.daemon = True
@@ -245,7 +251,7 @@ class Worker(object):
     @Pyro4.expose
     @Pyro4.oneway
     def shutdown(self) -> None:
-        self.logger.debug('shutting down now!')
+        self.logger.debug('shutting down')
         self.pyro_daemon.shutdown()
         if self.thread is not None:
             self.thread.join()

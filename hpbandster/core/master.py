@@ -5,6 +5,8 @@ import threading
 import time
 from typing import Tuple, Optional, List, Any
 
+import humanize
+
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
 from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.dispatcher import Dispatcher
@@ -146,7 +148,8 @@ class Master(object):
             self.time_ref = time.time()
             self.config['time_ref'] = self.time_ref
 
-            self.logger.info('starting run at {}'.format(self.time_ref))
+            self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
+                                                                       time.localtime(self.time_ref))))
 
         self.thread_cond.acquire()
         while True:
@@ -162,7 +165,7 @@ class Master(object):
 
             if next_run is not None:
                 # noinspection PyUnboundLocalVariable
-                self.logger.debug('schedule new run for iteration {}'.format(i))
+                self.logger.debug('submitting job {} to dispatcher for iteration {}'.format(next_run[0], i))
                 self._submit_job(*next_run)
                 continue
             else:
@@ -184,17 +187,17 @@ class Master(object):
             i.fix_timestamps(self.time_ref)
 
         ws_data = [i.data for i in self.warmstart_iteration]
+        self.logger.info('Finished run after {}'.format(humanize.naturaldelta(time.time() - self.time_ref)))
 
         return Result([copy.deepcopy(i.data) for i in self.iterations] + ws_data, self.config)
 
     def adjust_queue_size(self, number_of_workers: int = None) -> None:
         self.logger.debug('number of workers changed to {}'.format(number_of_workers))
         with self.thread_cond:
-            self.logger.debug('adjust_queue_size: lock acquired')
             if self.dynamic_queue_size:
                 nw = self.dispatcher.number_of_workers() if number_of_workers is None else number_of_workers
                 self.job_queue_sizes = (self.user_job_queue_sizes[0] + nw, self.user_job_queue_sizes[1] + nw)
-                self.logger.info('adjusted queue size to {}'.format(self.job_queue_sizes))
+                self.logger.debug('adjusted queue size to {}'.format(self.job_queue_sizes))
             self.thread_cond.notify_all()
 
     def job_callback(self, job: Job) -> None:
@@ -207,7 +210,6 @@ class Master(object):
         """
         self.logger.debug('job_callback for {} started'.format(job.id))
         with self.thread_cond:
-            self.logger.debug('job_callback for {} got condition'.format(job.id))
             self.num_running_jobs -= 1
 
             if self.result_logger is not None:
@@ -216,10 +218,8 @@ class Master(object):
             self.config_generator.new_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
-                self.logger.debug('Trying to run another job!')
+                self.logger.debug('Trying to start next job!')
                 self.thread_cond.notify()
-
-        self.logger.debug('job_callback for {} finished'.format(job.id))
 
     def _queue_wait(self) -> None:
         """
@@ -238,9 +238,7 @@ class Master(object):
 
         This function handles the actual submission in a (hopefully) thread save way
         """
-        self.logger.debug('trying submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
-            self.logger.debug('submitting job {} to dispatcher'.format(config_id))
             # noinspection PyTypeChecker
             self.dispatcher.submit_job(config_id,
                                        config=datum.config,
@@ -249,7 +247,6 @@ class Master(object):
                                        timeout=datum.timeout,
                                        working_directory=self.working_directory)
             self.num_running_jobs += 1
-            self.logger.debug('job {} submitted to dispatcher'.format(config_id))
 
     def active_iterations(self) -> List[int]:
         """
