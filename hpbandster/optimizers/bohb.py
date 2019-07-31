@@ -12,6 +12,7 @@ class BOHB(Master):
                  eta: float = 3,
                  min_budget: float = 0.01,
                  max_budget: float = 1,
+                 timeout: float = None,
                  min_points_in_model: int = None,
                  top_n_percent: int = 15,
                  num_samples: int = 64,
@@ -41,6 +42,8 @@ class BOHB(Master):
         :param min_budget: The smallest budget to consider. Needs to be positive!
         :param max_budget: The largest budget to consider. Needs to be larger than min_budget! The budgets will be
          geometrically distributed :math:`a^2 + b^2 = c^2 \sim \eta^k` for :math:`k\in [0, 1, ... , num\_subsets - 1]`.
+        :param timeout: Maximum time in seconds available to evaluate a single configuration. The timout will be
+            automatically adjusted to the current budget.
         :param min_points_in_model: number of observations to start building a KDE. Default 'None' means dim+1, the
             bare minimum.
         :param top_n_percent: percentage ( between 1 and 99, default 15) of the observations that are considered good.
@@ -64,7 +67,7 @@ class BOHB(Master):
                       )
         structure.config_generator = cg
 
-        super().__init__(config_generator=structure, ** kwargs)
+        super().__init__(config_generator=structure, **kwargs)
 
         # Hyperband related stuff
         self.eta = eta
@@ -74,12 +77,14 @@ class BOHB(Master):
         # precompute some HB stuff
         self.max_SH_iter = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
         self.budgets = max_budget * np.power(eta, -np.linspace(self.max_SH_iter - 1, 0, self.max_SH_iter))
+        self.timeout = timeout
 
         self.config.update({
             'eta': eta,
             'min_budget': min_budget,
             'max_budget': max_budget,
             'budgets': self.budgets,
+            'timeout': self.timeout,
             'max_SH_iter': self.max_SH_iter,
             'min_points_in_model': min_points_in_model,
             'top_n_percent': top_n_percent,
@@ -108,4 +113,5 @@ class BOHB(Master):
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
 
         return SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
-                                 config_sampler=self.config_generator.get_config, **iteration_kwargs)
+                                 timeout=self.timeout, config_sampler=self.config_generator.get_config,
+                                 **iteration_kwargs)

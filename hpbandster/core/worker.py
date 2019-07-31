@@ -158,6 +158,7 @@ class Worker(object):
                 config: dict,
                 config_info: ConfigInfo,
                 budget: float,
+                timeout: float,
                 working_directory: str,
                 result: dict) -> None:
         """
@@ -166,6 +167,7 @@ class Worker(object):
         :param config: the actual configuration to be evaluated.
         :param config_info: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
+        :param timeout: an optional evaluation timeout
         :param working_directory: a name of a directory that is unique to this configuration. Use this to store
             intermediate results on lower  budgets that can be reused later for a larger budget (for iterative
             algorithms, for example).
@@ -198,7 +200,7 @@ class Worker(object):
         self.logger.debug('kwargs: {}'.format(kwargs))
         result = None
         try:
-
+            d = self.manager.dict()
 
             p = Process(target=self.compute, args=args, kwargs={'config_id': id, 'result': d, **kwargs})
             p.start()

@@ -5,13 +5,11 @@ import threading
 import time
 from typing import Tuple, Optional, List, Any
 
-from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.dispatcher import Dispatcher
-from hpbandster.core.model import ConfigId
-from hpbandster.core.model import Job
-from hpbandster.core.result import JsonResultLogger
-from hpbandster.core.result import Result
+from hpbandster.core.model import ConfigId, Datum, Job
+from hpbandster.core.result import JsonResultLogger, Result
 
 
 class Master(object):
@@ -234,7 +232,7 @@ class Master(object):
                     self.num_running_jobs, self.job_queue_sizes))
                 self.thread_cond.wait()
 
-    def _submit_job(self, config_id: ConfigId, config: dict, budget: float, config_info: dict) -> None:
+    def _submit_job(self, config_id: ConfigId, datum: Datum) -> None:
         """
         protected function to submit a new job to the dispatcher
 
@@ -243,8 +241,13 @@ class Master(object):
         self.logger.debug('trying submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
             self.logger.debug('submitting job {} to dispatcher'.format(config_id))
-            self.dispatcher.submit_job(config_id, config=config, config_info=config_info,
-                                       budget=budget, working_directory=self.working_directory)
+            # noinspection PyTypeChecker
+            self.dispatcher.submit_job(config_id,
+                                       config=datum.config,
+                                       config_info=datum.config_info,
+                                       budget=datum.budget,
+                                       timeout=datum.timeout,
+                                       working_directory=self.working_directory)
             self.num_running_jobs += 1
             self.logger.debug('job {} submitted to dispatcher'.format(config_id))
 

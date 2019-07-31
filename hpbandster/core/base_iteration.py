@@ -1,6 +1,7 @@
 import logging
-from typing import List, Callable, Tuple, Optional, Dict, Any
+from typing import List, Callable, Tuple, Optional, Dict
 
+import math
 import numpy as np
 from ConfigSpace.configuration_space import Configuration
 
@@ -19,7 +20,8 @@ class BaseIteration(object):
                  HPB_iter: int,
                  num_configs: List[int],
                  budgets: List[float],
-                 config_sampler: Callable[[float], Tuple[Configuration, dict]],
+                 timeout: float = None,
+                 config_sampler: Callable[[float], Tuple[Configuration, dict]] = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
@@ -27,6 +29,7 @@ class BaseIteration(object):
         :param HPB_iter: The current HPBandSter iteration index.
         :param num_configs: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
+        :param timeout: the maximum timeout for evaluating a single configuration
         :param config_sampler: a function that returns a valid configuration. Its only argument should be the budget
             that this config is first scheduled for. This might be used to pick configurations that perform best after
             this particular budget is exhausted to build a better autoML system.
@@ -34,11 +37,12 @@ class BaseIteration(object):
         :param result_logger: a result logger that writes live results to disk
         """
 
-        self.data: Dict[ConfigId, Any] = {}  # this holds all the configs and results of this iteration
+        self.data: Dict[ConfigId, Datum] = {}  # this holds all the configs and results of this iteration
         self.is_finished = False
         self.HPB_iter = HPB_iter
         self.stage = 0  # internal iteration, but different name for clarity
         self.budgets = budgets
+        self.timeout = timeout
         self.num_configs = num_configs
         self.actual_num_configs = [0] * len(num_configs)
         self.config_sampler = config_sampler
@@ -73,7 +77,9 @@ class BaseIteration(object):
 
         config_id = ConfigId(self.HPB_iter, self.stage, self.actual_num_configs[self.stage])
 
-        self.data[config_id] = Datum(config=config, config_info=config_info, budget=self.budgets[self.stage])
+        timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
+        self.data[config_id] = Datum(config=config, config_info=config_info, budget=self.budgets[self.stage],
+                                     timeout=timeout)
 
         self.actual_num_configs[self.stage] += 1
 
@@ -107,7 +113,7 @@ class BaseIteration(object):
         if not skip_sanity_checks:
             assert d.config == config, 'Configurations differ!'
             assert d.status == 'RUNNING', "Configuration wasn't scheduled for a run."
-            assert d.budget == budget, 'Budgets differ ({} != {})!'.format(self.data[config_id]['budget'], budget)
+            assert d.budget == budget, 'Budgets differ ({} != {})!'.format(self.data[config_id].budget, budget)
 
         d.time_stamps[budget] = timestamps
         d.results[budget] = result
@@ -120,7 +126,7 @@ class BaseIteration(object):
         d.exceptions[budget] = exception
         self.num_running -= 1
 
-    def get_next_run(self) -> Optional[Tuple[ConfigId, dict, float, dict]]:
+    def get_next_run(self) -> Optional[Tuple[ConfigId, Datum]]:
         """
         function to return the next configuration and budget to run.
 
@@ -129,7 +135,7 @@ class BaseIteration(object):
 
         If there are empty slots to be filled in the current SH stage (which never happens in the original SH version),
         a new configuration will be sampled and scheduled to run next.
-        :return: Tuple with ConfigId, configuration, budget and configuration_info
+        :return: Tuple with ConfigId and Datum
         """
 
         if self.is_finished:
@@ -137,10 +143,11 @@ class BaseIteration(object):
 
         for id, datum in self.data.items():
             if datum.status == 'QUEUED':
-                assert datum.budget == self.budgets[self.stage], 'Configuration budget does not align with current stage!'
+                assert datum.budget == self.budgets[self.stage],\
+                    'Configuration budget does not align with current stage!'
                 datum.status = 'RUNNING'
                 self.num_running += 1
-                return id, datum.config, datum.budget, datum.config_info
+                return id, datum
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_configs[self.stage] < self.num_configs[self.stage]:
@@ -198,8 +205,10 @@ class BaseIteration(object):
 
         for i, cid in enumerate(config_ids):
             if advance[i]:
-                self.data[cid].status = 'QUEUED'
-                self.data[cid].budget = self.budgets[self.stage]
+                datum = self.data[cid]
+                datum.status = 'QUEUED'
+                datum.budget = self.budgets[self.stage]
+                datum.timeout = math.ceil(datum.budget * self.timeout) if self.timeout is not None else None
                 self.actual_num_configs[self.stage] += 1
             else:
                 self.data[cid].status = 'TERMINATED'

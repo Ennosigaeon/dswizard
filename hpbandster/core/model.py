@@ -81,7 +81,8 @@ class Datum(object):
                  time_stamps: dict = None,
                  exceptions: dict = None,
                  status: str = 'QUEUED',
-                 budget: float = 0):
+                 budget: float = None,
+                 timeout: float = None):
 
         if isinstance(config, Configuration):
             self.config = config.get_dictionary()
@@ -93,6 +94,7 @@ class Datum(object):
         self.exceptions = exceptions if exceptions is not None else {}
         self.status = status
         self.budget = budget
+        self.timeout = timeout
 
     def __repr__(self):
         return str({'config': self.config,
