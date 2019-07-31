@@ -75,8 +75,8 @@ class BOHB(Master):
         self.max_budget = max_budget
 
         # precompute some HB stuff
-        self.max_SH_iter = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
-        self.budgets = max_budget * np.power(eta, -np.linspace(self.max_SH_iter - 1, 0, self.max_SH_iter))
+        self.max_iterations = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
+        self.budgets = max_budget * np.power(eta, -np.linspace(self.max_iterations - 1, 0, self.max_iterations))
         self.timeout = timeout
 
         self.config.update({
@@ -85,7 +85,7 @@ class BOHB(Master):
             'max_budget': max_budget,
             'budgets': self.budgets,
             'timeout': self.timeout,
-            'max_SH_iter': self.max_SH_iter,
+            'max_iterations': self.max_iterations,
             'min_points_in_model': min_points_in_model,
             'top_n_percent': top_n_percent,
             'num_samples': num_samples,
@@ -107,9 +107,9 @@ class BOHB(Master):
         if iteration_kwargs is None:
             iteration_kwargs = {}
         # number of 'SH rungs'
-        s = self.max_SH_iter - 1 - (iteration % self.max_SH_iter)
+        s = self.max_iterations - 1 - (iteration % self.max_iterations)
         # number of configurations in that bracket
-        n0 = int(np.floor(self.max_SH_iter / (s + 1)) * self.eta ** s)
+        n0 = int(np.floor(self.max_iterations / (s + 1)) * self.eta ** s)
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
         self.logger.info('Starting iteration {}'.format(iteration))
 

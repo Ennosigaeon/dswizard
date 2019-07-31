@@ -18,7 +18,6 @@ from examples import MyWorker
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
-parser.add_argument('--n_iterations', type=int, help='Number of iterations performed by the optimizer', default=4)
 args = parser.parse_args()
 
 # Step 1: Start a nameserver
@@ -45,7 +44,7 @@ bohb = BOHB(configspace=w.get_configspace(),
             run_id='example1', nameserver='127.0.0.1',
             min_budget=args.min_budget, max_budget=args.max_budget
             )
-res = bohb.run(n_iterations=args.n_iterations)
+res = bohb.run()
 
 # Step 4: Shutdown
 # After the optimizer run, we must shutdown the master and the nameserver.

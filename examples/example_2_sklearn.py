@@ -27,7 +27,6 @@ logging.getLogger('Pyro4.core').setLevel(logging.WARNING)
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
-parser.add_argument('--n_iterations', type=int, help='Number of iterations performed by the optimizer', default=4)
 parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation', default=None)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 args = parser.parse_args()
@@ -65,7 +64,7 @@ bohb = BOHB(structure=structure_generator,
             max_budget=args.max_budget,
             timeout=args.timeout
             )
-res = bohb.run(n_iterations=args.n_iterations)
+res = bohb.run()
 
 # Shutdown
 bohb.shutdown(shutdown_workers=True)

@@ -66,6 +66,7 @@ class Master(object):
         self.iterations: List[BaseIteration] = []
         self.jobs = []
 
+        self.max_iterations = 0
         self.num_running_jobs = 0
         self.job_queue_sizes = job_queue_sizes
         self.user_job_queue_sizes = job_queue_sizes
@@ -128,10 +129,9 @@ class Master(object):
 
         raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
 
-    def run(self, n_iterations: int = 1, min_n_workers: int = 1, iteration_kwargs: dict = None) -> Result:
+    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> Result:
         """
-        run n_iterations of SuccessiveHalving
-        :param n_iterations: number of iterations to be performed in this run
+        run optimization
         :param min_n_workers: minimum number of workers before starting the run
         :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
         :return:
@@ -151,6 +151,7 @@ class Master(object):
             self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
                                                                        time.localtime(self.time_ref))))
 
+        n_iterations = self.max_iterations
         self.thread_cond.acquire()
         while True:
 

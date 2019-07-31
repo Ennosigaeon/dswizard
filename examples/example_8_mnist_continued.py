@@ -34,7 +34,6 @@ logging.basicConfig(level=logging.DEBUG)
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum number of epochs for training.', default=3)
 parser.add_argument('--max_budget', type=float, help='Maximum number of epochs for training.', default=9)
-parser.add_argument('--n_iterations', type=int, help='Number of iterations performed by the optimizer', default=4)
 parser.add_argument('--worker', help='Flag to turn this into a worker process', action='store_true')
 parser.add_argument('--run_id', type=str,
                     help='A unique run id for this optimization run. An easy option is to use the job id of the clusters scheduler.')
@@ -97,7 +96,7 @@ bohb = BOHB(configspace=worker.get_configspace(),
             min_budget=args.min_budget, max_budget=args.max_budget,
             previous_result=previous_run,  # this is how you tell any optimizer about previous runs
             )
-res = bohb.run(n_iterations=args.n_iterations)
+res = bohb.run()
 
 # store results
 with open(os.path.join(args.shared_directory, 'results.pkl'), 'wb') as fh:
