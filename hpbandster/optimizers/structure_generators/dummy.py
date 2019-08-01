@@ -3,8 +3,9 @@ from typing import Tuple
 
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
-from core import BaseConfigGenerator, ConfigInfo
-from hpbandster.core import BaseStructureGenerator
+from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
+from hpbandster.core.model import ConfigInfo
 
 
 class DummyStructure(BaseStructureGenerator):

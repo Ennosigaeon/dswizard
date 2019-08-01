@@ -1,3 +1,7 @@
+matplotlib
+pandas
+statsmodels
+scipy
 humanize
 Pyro4
 scikit-learn

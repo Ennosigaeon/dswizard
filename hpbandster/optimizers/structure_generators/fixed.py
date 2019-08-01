@@ -11,11 +11,6 @@ from hpbandster.core.model import ConfigInfo
 class FixedStructure(BaseStructureGenerator):
 
     def __init__(self, dataset_properties: dict, structure: Dict[str, Union[ComponentChoice, EstimatorComponent]]):
-        """
-
-        :param task: Constant defined in hpbandster.components.constants
-        :param config_generator:
-        """
         super().__init__()
         self.configspace = ConfigurationSpace()
 

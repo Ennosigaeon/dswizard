@@ -113,5 +113,5 @@ class BOHB(Master):
         self.logger.info('Starting iteration {}'.format(iteration))
 
         return SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
-                                 timeout=self.timeout, config_sampler=self.config_generator.get_config,
+                                 timeout=self.timeout, config_sampler=self.config_generator,
                                  **iteration_kwargs)

@@ -250,6 +250,7 @@ class ComponentChoice(EstimatorComponent):
         self.choice = None
         self.configuration_space_ = None
         self.dataset_properties_ = None
+        self.new_params = None
 
     def get_components(self):
         raise NotImplementedError()

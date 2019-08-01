@@ -79,21 +79,21 @@ class JsonResultLogger(object):
         self.results_fn = os.path.join(directory, 'results.json')
 
         try:
-            with open(self.config_fn, 'x') as fh:
+            with open(self.config_fn, 'x'):
                 pass
         except FileExistsError:
             if overwrite:
-                with open(self.config_fn, 'w') as fh:
+                with open(self.config_fn, 'w'):
                     pass
             else:
                 raise FileExistsError('The file {} already exists.'.format(self.config_fn))
 
         try:
-            with open(self.results_fn, 'x') as fh:
+            with open(self.results_fn, 'x'):
                 pass
         except FileExistsError:
             if overwrite:
-                with open(self.results_fn, 'w') as fh:
+                with open(self.results_fn, 'w'):
                     pass
             else:
                 raise FileExistsError('The file {} already exists.'.format(self.config_fn))
@@ -166,8 +166,8 @@ class Result(object):
                 # only things run for the max budget are considered
                 res = v.results[self.HB_config['max_budget']]
                 if res is not None:
-                    tmp_list.append((res, k))
-            except KeyError as e:
+                    tmp_list.append((res['loss'], k))
+            except KeyError:
                 pass
 
         if len(tmp_list) > 0:
@@ -385,9 +385,6 @@ class Result(object):
 
         id2conf = self.get_id2config_mapping()
 
-        df_x = pd.DataFrame()
-        df_y = pd.DataFrame()
-
         if budgets is None:
             budgets = self.HB_config['budgets']
 
@@ -406,9 +403,6 @@ class Result(object):
 
             all_configs.append(config)
             all_losses.append({'loss': r.loss})
-
-        # df_x = df_x.append(config, ignore_index=True)
-        # df_y = df_y.append({'loss': r.loss}, ignore_index=True)
 
         df_X = pd.DataFrame(all_configs)
         df_y = pd.DataFrame(all_losses)

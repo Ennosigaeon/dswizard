@@ -4,6 +4,7 @@ import ConfigSpace as CS
 import numpy as np
 
 from hpbandster.core.dispatcher import Job
+from hpbandster.core.model import ConfigId
 from hpbandster.optimizers.config_generators.hyperopt import Hyperopt
 
 
@@ -44,13 +45,13 @@ class TestBinaryRssRegressionForest(unittest.TestCase):
             raw_array.append(config.get_array())
             imputed_array = hyperopt.impute_conditional_data(np.array(raw_array))
             self.assertFalse(np.any(np.isnan(imputed_array)))
-            job = Job(i, budget=1, config=config)
+            job = Job(ConfigId(i, i, i), budget=1, config=config)
             job.result = {'loss': np.random.rand(), 'info': {}}
             hyperopt.new_result(job)
 
         for j in range(64):
             conf, info = hyperopt.get_config(1)
-            self.assertTrue(info['model_based_pick'])
+            self.assertTrue(info.model_based_pick)
 
 
 if __name__ == '__main__':
