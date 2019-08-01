@@ -4,8 +4,9 @@ import os
 from typing import Any, List, Dict, Optional, Callable
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
+from ConfigSpace.read_and_write import json as config_json
 
-from hpbandster.core.model import ConfigId, Datum, Job
+from hpbandster.core.model import ConfigId, Datum, Job, ConfigInfo
 
 
 class Run(object):

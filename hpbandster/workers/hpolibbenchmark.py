@@ -1,6 +1,6 @@
 import ConfigSpace as CS
 
-from hpbandster.core import Worker
+from hpbandster.core.worker import Worker
 
 
 class HPOlib2Worker(Worker):

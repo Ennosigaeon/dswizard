@@ -1,7 +1,7 @@
 import numpy as np
 
-from core import BaseStructureGenerator
-from hpbandster.core import Master
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
+from hpbandster.core.master import Master
 from hpbandster.optimizers.config_generators import Hyperopt
 from hpbandster.optimizers.iterations import SuccessiveHalving
 

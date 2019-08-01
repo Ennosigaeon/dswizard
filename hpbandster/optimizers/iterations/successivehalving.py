@@ -1,6 +1,6 @@
 import numpy as np
 
-from hpbandster.core import BaseIteration
+from hpbandster.core.base_iteration import BaseIteration
 
 
 class SuccessiveHalving(BaseIteration):

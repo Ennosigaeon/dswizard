@@ -3,7 +3,7 @@ from typing import Tuple, Optional
 
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
-from hpbandster.core import BaseConfigGenerator
+from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.model import Job, ConfigInfo
 
 

@@ -1,15 +1,17 @@
 import logging
-from typing import List, Callable, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict
 
 import math
 import numpy as np
 from ConfigSpace.configuration_space import Configuration
 
-from hpbandster.core.model import ConfigId, Datum, Job
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
+from hpbandster.core.model import ConfigId, Datum, Job, ConfigInfo
 from hpbandster.core.result import JsonResultLogger
 
 
 class BaseIteration(object):
+
     """
     Base class for various iteration possibilities. This decides what configuration should be run on what budget next.
     Typical choices are e.g. successive halving. Results from runs are processed and (depending on the implementations)

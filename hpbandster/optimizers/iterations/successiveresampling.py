@@ -3,7 +3,7 @@ from typing import List, Callable, Tuple
 import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core import BaseIteration
+from hpbandster.core.base_iteration import BaseIteration
 
 
 class SuccessiveResampling(BaseIteration):

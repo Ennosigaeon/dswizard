@@ -1,12 +1,11 @@
 import importlib
-import time
 
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
 
 from components.pipeline import FlexiblePipeline
 from core.model import ConfigId, ConfigInfo
-from hpbandster.core import Worker
+from hpbandster.core.worker import Worker
 
 
 class SklearnWorker(Worker):

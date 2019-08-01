@@ -9,7 +9,8 @@ import scipy.stats as sps
 import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
-from hpbandster.core import BaseConfigGenerator, Job, ConfigInfo
+from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core.model import Job, ConfigInfo
 
 
 class Hyperopt(BaseConfigGenerator):

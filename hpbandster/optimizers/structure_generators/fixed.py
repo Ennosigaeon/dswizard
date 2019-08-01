@@ -3,7 +3,9 @@ from typing import Tuple, Dict, Union
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
 from hpbandster.components.base import ComponentChoice, EstimatorComponent
-from hpbandster.core import BaseStructureGenerator, ConfigInfo, BaseConfigGenerator
+from hpbandster.core.base_config_generator import BaseConfigGenerator
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
+from hpbandster.core.model import ConfigInfo
 
 
 class FixedStructure(BaseStructureGenerator):

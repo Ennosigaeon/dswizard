@@ -1,6 +1,7 @@
 import numpy as np
 
-from hpbandster.core import Master, BaseStructureGenerator
+from hpbandster.core.master import Master
+from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
