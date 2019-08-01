@@ -1,5 +1,5 @@
 import time
-from typing import Union, Optional
+from typing import Optional
 
 from ConfigSpace.configuration_space import Configuration, OrderedDict
 
@@ -54,8 +54,21 @@ class ConfigInfo(object):
         self.structure = structure
 
     def __repr__(self):
-        return str({'model_based_pick': self.model_based_pick,
-                    'structure': self.structure})
+        return str({
+            'model_based_pick': self.model_based_pick,
+            'structure': self.structure
+        })
+
+    def get_dictionary(self) -> dict:
+        # TODO serialization of structure is missing
+        return {
+            'model_based_pick': self.model_based_pick
+        }
+
+    @staticmethod
+    def from_dictionary(values: dict):
+        # TODO deserialization of structure is missing
+        return ConfigInfo(model_based_pick=values.get('model_based_pick'))
 
 
 class Result(object):
@@ -75,19 +88,15 @@ class Result(object):
 
 class Datum(object):
     def __init__(self,
-                 config: Union[dict, Configuration],
-                 config_info: dict,
+                 config: Configuration,
+                 config_info: ConfigInfo,
                  results: dict = None,
                  time_stamps: dict = None,
                  exceptions: dict = None,
                  status: str = 'QUEUED',
                  budget: float = None,
                  timeout: float = None):
-
-        if isinstance(config, Configuration):
-            self.config = config.get_dictionary()
-        else:
-            self.config = config
+        self.config = config
         self.config_info = config_info
         self.results = results if results is not None else {}
         self.time_stamps = time_stamps if time_stamps is not None else {}

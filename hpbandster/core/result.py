@@ -18,7 +18,7 @@ class Run(object):
                  config_id: ConfigId,
                  budget: float,
                  loss: Optional[float],
-                 info: Any,
+                 info: Optional[ConfigInfo],
                  time_stamps: dict,
                  error_logs: Any):
         self.config_id = config_id
@@ -100,11 +100,13 @@ class JsonResultLogger(object):
 
         self.config_ids = set()
 
-    def new_config(self, config_id: ConfigId, config: Configuration, config_info: dict) -> None:
+    def new_config(self, config_id: ConfigId, config: Configuration, configspace: ConfigurationSpace,
+                   config_info: ConfigInfo) -> None:
         if config_id not in self.config_ids:
             self.config_ids.add(config_id)
             with open(self.config_fn, 'a') as fh:
-                fh.write(json.dumps([config_id.as_tuple(), config.get_dictionary(), config_info]))
+                fh.write(json.dumps([config_id.as_tuple(), config.get_dictionary(), config_json.write(configspace),
+                                     config_info.get_dictionary()]))
                 fh.write('\n')
 
     def __call__(self, job: Job) -> None:
@@ -115,7 +117,8 @@ class JsonResultLogger(object):
                 fh.write(json.dumps([job.id.as_tuple(), job.kwargs['config'], {}]))
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
-            fh.write(json.dumps([job.id.as_tuple(), job.kwargs['budget'], job.timestamps, job.result, job.exception]))
+            fh.write(json.dumps(
+                [job.id.as_tuple(), job.kwargs['budget'], job.timestamps, job.result['loss'], job.exception]))
             fh.write("\n")
 
 
@@ -163,7 +166,7 @@ class Result(object):
                 # only things run for the max budget are considered
                 res = v.results[self.HB_config['max_budget']]
                 if res is not None:
-                    tmp_list.append((res['loss'], k))
+                    tmp_list.append((res, k))
             except KeyError as e:
                 pass
 
@@ -254,7 +257,11 @@ class Result(object):
             if d.results[b] is None:
                 r = Run(config_id, b, None, None, d.time_stamps[b], err_logs)
             else:
-                r = Run(config_id, b, d.results[b]['loss'], d.results[b]['info'], d.time_stamps[b], err_logs)
+                if isinstance(d.results[b], float):
+                    # TODO only necessary while ConfigInfo is not completely serializable
+                    r = Run(config_id, b, d.results[b], None, d.time_stamps[b], err_logs)
+                else:
+                    r = Run(config_id, b, d.results[b]['loss'], d.results[b]['info'], d.time_stamps[b], err_logs)
             runs.append(r)
         runs.sort(key=lambda r: r.budget)
         return runs
@@ -429,11 +436,14 @@ def logged_results_to_HBS_result(directory: str) -> Result:
 
             line = json.loads(line)
 
+            if len(line) == 4:
+                config_id, config, configspace, config_info = line
             if len(line) == 3:
-                config_id, config, config_info = line
-            if len(line) == 2:
-                config_id, config, = line
+                config_id, config, configspace = line
                 config_info = 'N/A'
+
+            configspace = config_json.read(configspace)
+            config = Configuration(configspace, config)
 
             data[ConfigId(*config_id)] = Datum(config=config, config_info=config_info)
 

@@ -62,4 +62,4 @@ class RandomSearch(Master):
         ns = [self.budget_per_iteration // self.max_budget]
 
         return SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=budgets,
-                                 config_sampler=self.config_generator.get_config, **iteration_kwargs)
+                                 config_sampler=self.config_generator, **iteration_kwargs)

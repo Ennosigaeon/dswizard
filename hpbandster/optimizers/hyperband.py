@@ -71,4 +71,4 @@ class HyperBand(Master):
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
 
         return SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
-                                 config_sampler=self.config_generator.get_config, **iteration_kwargs)
+                                 config_sampler=self.config_generator, **iteration_kwargs)

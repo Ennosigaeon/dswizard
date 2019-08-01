@@ -14,7 +14,7 @@ import hpbandster.core.result as hpres
 import hpbandster.visualization as hpvis
 
 # load the example run from the log files
-result = hpres.logged_results_to_HBS_result('example_5_run/')
+result = hpres.logged_results_to_HBS_result('../logs/')
 
 # get all executed runs
 all_runs = result.get_all_runs()

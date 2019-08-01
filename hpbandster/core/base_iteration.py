@@ -7,7 +7,7 @@ from ConfigSpace.configuration_space import Configuration
 
 from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.model import ConfigId, Datum, Job, ConfigInfo
-from hpbandster.core.result import JsonResultLogger
+from hpbandster.core.result import JsonResultLogger, Result
 
 
 class BaseIteration(object):
@@ -23,7 +23,7 @@ class BaseIteration(object):
                  num_configs: List[int],
                  budgets: List[float],
                  timeout: float = None,
-                 config_sampler: Callable[[float], Tuple[Configuration, dict]] = None,
+                 config_sampler: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
@@ -55,19 +55,17 @@ class BaseIteration(object):
             self.logger = logger
         self.result_logger = result_logger
 
-    def add_configuration(self, config: dict = None, config_info: dict = None) -> ConfigId:
+    def add_configuration(self, config: Configuration = None, config_info: ConfigInfo = None) -> ConfigId:
         """
         function to add a new configuration to the current iteration
         :param config: The configuration to add. If None, a configuration is sampled from the config_sampler
         :param config_info: Some information about the configuration that will be stored in the results
         :return: The id of the new configuration
         """
-        # TODO transfer config parameter to ConfigurationSpace
-
         if config_info is None:
-            config_info = {}
+            config_info = ConfigInfo()
         if config is None:
-            config, config_info = self.config_sampler(self.budgets[self.stage])
+            config, config_info = self.config_sampler.get_config(self.budgets[self.stage])
 
         if self.is_finished:
             raise RuntimeError("This HPBandSter iteration is finished, you can't add more configurations!")
@@ -86,7 +84,7 @@ class BaseIteration(object):
         self.actual_num_configs[self.stage] += 1
 
         if self.result_logger is not None:
-            self.result_logger.new_config(config_id, config, config_info)
+            self.result_logger.new_config(config_id, config, self.config_sampler.configspace, config_info)
 
         return config_id
 
@@ -145,7 +143,7 @@ class BaseIteration(object):
 
         for id, datum in self.data.items():
             if datum.status == 'QUEUED':
-                assert datum.budget == self.budgets[self.stage],\
+                assert datum.budget == self.budgets[self.stage], \
                     'Configuration budget does not align with current stage!'
                 datum.status = 'RUNNING'
                 self.num_running += 1
@@ -226,16 +224,16 @@ class BaseIteration(object):
 
 class WarmStartIteration(BaseIteration):
     """
-    iteration that imports a privious Result for warm starting
+    iteration that imports a previous Result for warm starting
     """
 
-    def __init__(self, Result, config_generator):
+    def __init__(self, result: Result, config_generator: BaseStructureGenerator):
 
         self.is_finished = False
         self.stage = 0
 
-        id2conf = Result.get_id2config_mapping()
-        delta_t = - max(map(lambda r: r.time_stamps['finished'], Result.get_all_runs()))
+        id2conf = result.get_id2config_mapping()
+        delta_t = - max(map(lambda r: r.time_stamps['finished'], result.get_all_runs()))
 
         # noinspection PyTypeChecker
         super().__init__(-1, [len(id2conf)], [None], None)
@@ -243,8 +241,7 @@ class WarmStartIteration(BaseIteration):
         for i, id in enumerate(id2conf):
             new_id = self.add_configuration(config=id2conf[id]['config'], config_info=id2conf[id]['config_info'])
 
-            for r in Result.get_runs_by_id(id):
-
+            for r in result.get_runs_by_id(id):
                 j = Job(new_id, config=id2conf[id]['config'], budget=r.budget)
 
                 j.result = {'loss': r.loss, 'info': r.info}

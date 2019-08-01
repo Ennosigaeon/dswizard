@@ -34,7 +34,7 @@ class SklearnWorker(Worker):
             self.y_test = y_test
 
     def compute(self, config_id: ConfigId, config: dict, config_info: ConfigInfo, budget: float,
-                working_directory: str, result: dict):
+                working_directory: str, result: dict, **kwargs):
         # TODO budget missing
 
         pipeline = FlexiblePipeline(config_info.structure, self.dataset_properties)

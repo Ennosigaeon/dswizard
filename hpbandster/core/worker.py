@@ -195,10 +195,7 @@ class Worker(object):
         if self.timeout is not None and self.timer is not None:
             self.timer.cancel()
 
-        if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug('starting processing job {} with args: {}\tkwargs: {}'.format(id, args, kwargs))
-        else:
-            self.logger.info('start processing job {}'.format(id))
+        self.logger.info('start processing job {}'.format(id))
 
         result = None
         try:

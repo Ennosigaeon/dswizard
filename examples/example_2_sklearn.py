@@ -14,6 +14,7 @@ import hpbandster.core.nameserver as hpns
 from components.classification import ClassifierChoice
 from components.data_preprocessing import DataPreprocessorChoice
 from components.pipeline import SubPipeline
+from core.result import JsonResultLogger
 from optimizers import BOHB
 from optimizers.structure_generators.fixed import FixedStructure
 from workers.sklearn_worker import SklearnWorker
@@ -29,6 +30,7 @@ parser.add_argument('--min_budget', type=float, help='Minimum budget used during
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
 parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation', default=None)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
+parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='../logs/')
 args = parser.parse_args()
 
 # Start Nameserver
@@ -58,11 +60,13 @@ steps['step_0'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_p
 steps['step_1'] = ClassifierChoice()
 structure_generator = FixedStructure(dataset_properties, steps)
 
+result_logger = JsonResultLogger(directory=args.log_dir, overwrite=True)
 bohb = BOHB(structure=structure_generator,
             run_id=args.run_id, nameserver='127.0.0.1',
             min_budget=args.min_budget,
             max_budget=args.max_budget,
-            timeout=args.timeout
+            timeout=args.timeout,
+            result_logger=result_logger
             )
 res = bohb.run()
 
