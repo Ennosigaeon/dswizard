@@ -57,15 +57,14 @@ class BOHB(Master):
         :param kwargs: kwargs to be added to the instantiation of each iteration
         """
 
-        cg = Hyperopt(configspace=structure.configspace,
-                      min_points_in_model=min_points_in_model,
+        cg = Hyperopt(min_points_in_model=min_points_in_model,
                       top_n_percent=top_n_percent,
                       num_samples=num_samples,
                       random_fraction=random_fraction,
                       bandwidth_factor=bandwidth_factor,
                       min_bandwidth=min_bandwidth
                       )
-        structure.config_generator = cg
+        structure.set_config_generator(cg)
 
         super().__init__(config_generator=structure, **kwargs)
 

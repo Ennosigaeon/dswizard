@@ -3,7 +3,7 @@ from typing import Tuple, Dict, Union
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
 from hpbandster.components.base import ComponentChoice, EstimatorComponent
-from hpbandster.core import BaseStructureGenerator, ConfigInfo
+from hpbandster.core import BaseStructureGenerator, ConfigInfo, BaseConfigGenerator
 
 
 class FixedStructure(BaseStructureGenerator):
@@ -14,7 +14,8 @@ class FixedStructure(BaseStructureGenerator):
         :param task: Constant defined in hpbandster.components.constants
         :param config_generator:
         """
-        configspace = ConfigurationSpace()
+        super().__init__()
+        self.configspace = ConfigurationSpace()
 
         for step, task in structure.items():
             if isinstance(task, ComponentChoice):
@@ -23,10 +24,12 @@ class FixedStructure(BaseStructureGenerator):
                 cs = task.get_hyperparameter_search_space(dataset_properties=dataset_properties)
             else:
                 raise ValueError('Unable to handle type {}'.format(type(task)))
-            configspace.add_configuration_space(step, cs)
+            self.configspace.add_configuration_space(step, cs)
         self.structure = structure
 
-        super().__init__(configspace)
+    def set_config_generator(self, config_generator: BaseConfigGenerator):
+        super().set_config_generator(config_generator)
+        config_generator.set_config_space(self.configspace)
 
     def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         config, info = self.config_generator.get_config(budget)

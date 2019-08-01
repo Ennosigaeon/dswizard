@@ -14,7 +14,6 @@ from hpbandster.core import BaseConfigGenerator, Job, ConfigInfo
 
 class Hyperopt(BaseConfigGenerator):
     def __init__(self,
-                 configspace: ConfigurationSpace,
                  min_points_in_model=None,
                  top_n_percent: int = 15,
                  num_samples: int = 64,
@@ -25,7 +24,6 @@ class Hyperopt(BaseConfigGenerator):
         """
         Fits for each given budget a kernel density estimator on the best N percent of the evaluated configurations on
         this budget.
-        :param configspace: Configuration space object
         :param min_points_in_model: Determines the percentile of configurations that will be used as training data for
             the kernel density estimator, e.g if set to 10 the 10% best configurations will be considered for training.
         :param top_n_percent: minimum number of datapoints needed to fit a model
@@ -37,13 +35,34 @@ class Hyperopt(BaseConfigGenerator):
         :param kwargs:
         """
 
-        super().__init__(configspace, **kwargs)
+        super().__init__(**kwargs)
         self.top_n_percent = top_n_percent
         self.bw_factor = bandwidth_factor
         self.min_bandwidth = min_bandwidth
 
         self.min_points_in_model = min_points_in_model
-        if min_points_in_model is None:
+
+        self.num_samples = num_samples
+        self.random_fraction = random_fraction
+
+        self.kde_vartypes = ""
+        self.vartypes = []
+
+        # store precomputed probabilities for the categorical parameters
+        self.cat_probs = []
+
+        self.configs = dict()
+        self.losses = dict()
+        self.good_config_rankings = dict()
+        self.kde_models = dict()
+
+    def set_config_space(self, configspace: ConfigurationSpace):
+        super().set_config_space(configspace)
+
+        # TODO What happens is set_config_space and get_config are called alternating??? Clean up missing!!!
+        # kde_vartypes, vartypes, cat_probs, configs, losses, good_config_rankings, kde_models
+
+        if self.min_points_in_model is None:
             self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
 
         if self.min_points_in_model < len(self.configspace.get_hyperparameters()) + 1:
@@ -51,15 +70,7 @@ class Hyperopt(BaseConfigGenerator):
                 len(self.configspace.get_hyperparameters()) + 1))
             self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
 
-        self.num_samples = num_samples
-        self.random_fraction = random_fraction
-
-        hps = self.configspace.get_hyperparameters()
-
-        self.kde_vartypes = ""
-        self.vartypes = []
-
-        for h in hps:
+        for h in self.configspace.get_hyperparameters():
             if hasattr(h, 'sequence'):
                 raise RuntimeError('This version on BOHB does not support ordinal hyperparameters. '
                                    'Please encode {} as an integer parameter!'.format(h.name))
@@ -72,20 +83,15 @@ class Hyperopt(BaseConfigGenerator):
 
         self.vartypes = np.array(self.vartypes, dtype=int)
 
-        # store precomputed probabilities for the categorical parameters
-        self.cat_probs = []
-
-        self.configs = dict()
-        self.losses = dict()
-        self.good_config_rankings = dict()
-        self.kde_models = dict()
-
     def largest_budget_with_model(self) -> float:
         if len(self.kde_models) == 0:
             return -float('inf')
         return max(self.kde_models.keys())
 
     def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
+        if self.configspace is None:
+            raise ValueError('No configuration space provided. Call set_config_space(ConfigurationSpace) first.')
+
         self.logger.debug('start sampling a new configuration.')
 
         sample: Optional[Configuration] = None

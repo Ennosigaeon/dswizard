@@ -1,8 +1,9 @@
 import logging
-from typing import Tuple
+from typing import Tuple, Optional
 
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
+from hpbandster.core import BaseConfigGenerator
 from hpbandster.core.model import Job, ConfigInfo
 
 
@@ -13,21 +14,25 @@ class BaseStructureGenerator(object):
     complex empirical prediction models for promising structures.
     """
 
-    def __init__(self, configspace: ConfigurationSpace, logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger = None):
         """
         :param logger: for some debug output
         """
-
-        # TODO: Proper check for ConfigSpace object!
-        if configspace is None:
-            raise ValueError('You have to provide a valid ConfigSpace object')
-
-        self.configspace = configspace
-        self.config_generator = None
+        self.configspace: Optional[ConfigurationSpace] = None
+        self.config_generator: Optional[BaseConfigGenerator] = None
         if logger is None:
             self.logger = logging.getLogger('StructureGenerator')
         else:
             self.logger = logger
+
+    def set_config_generator(self, config_generator: BaseConfigGenerator) -> None:
+        """
+        function to set the ConfigGenerator used in this StructureGenerator. The StructureGenerator is responsible for
+        providing a suited ConfigurationSpace for the ConfigGenerator.
+
+        :param config_generator:
+        """
+        self.config_generator = config_generator
 
     def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         """

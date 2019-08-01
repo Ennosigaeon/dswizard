@@ -1,15 +1,13 @@
 import numpy as np
-from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core import Master
+from hpbandster.core import Master, BaseStructureGenerator
 from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
-from hpbandster.optimizers.structure_generators.dummy import DummyStructure
 
 
 class RandomSearch(Master):
     def __init__(self,
-                 configspace: ConfigurationSpace = None,
+                 structure: BaseStructureGenerator = None,
                  eta: float = 3,
                  min_budget: float = 1,
                  max_budget: float = 1,
@@ -18,7 +16,7 @@ class RandomSearch(Master):
         """
         Implements a random search across the search space for comparison. Candidates are sampled at random and run on
         the maximum budget.
-        :param configspace: valid representation of the search space
+        :param structure: a method for generating pipeline structures
         :param eta: In each iteration, a complete run of sequential halving is executed. In it, after evaluating each
             configuration on the same subset size, only a fraction of 1/eta of them 'advances' to the next round. Must
             be greater or equal to 2.
@@ -26,14 +24,8 @@ class RandomSearch(Master):
         :param max_budget: budget for the evaluation
         :param kwargs:
         """
-
-        # TODO: Proper check for ConfigSpace object!
-        if configspace is None:
-            raise ValueError('You have to provide a valid ConfigSpace object')
-
-        cg = RandomSampling(configspace=configspace)
-
-        super().__init__(config_generator=DummyStructure(cg), **kwargs)
+        structure.set_config_generator(RandomSampling())
+        super().__init__(config_generator=structure, **kwargs)
 
         # Hyperband related stuff
         self.eta = eta
