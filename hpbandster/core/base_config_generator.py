@@ -1,9 +1,9 @@
 import logging
-from typing import Tuple, Optional
+from typing import Tuple
 
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
-from hpbandster.core.model import Job, ConfigInfo
+from hpbandster.core.model import Job, ConfigInfo, Structure
 
 
 class BaseConfigGenerator(object):
@@ -13,27 +13,22 @@ class BaseConfigGenerator(object):
     configurations.
     """
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self,
+                 configspace: ConfigurationSpace,
+                 structure: Structure = None,
+                 logger: logging.Logger = None):
         """
         :param logger: for some debug output
         """
+        if configspace is None:
+            raise ValueError('You have to provide a valid ConfigSpace object')
 
         if logger is None:
             self.logger = logging.getLogger('ConfigGenerator')
         else:
             self.logger = logger
-        self.configspace: Optional[ConfigurationSpace] = None
-
-    def set_config_space(self, configspace: ConfigurationSpace) -> None:
-        """
-        set the ConfigurationSpace
-
-        :param configspace:
-        """
-        if configspace is None:
-            raise ValueError('You have to provide a valid ConfigSpace object')
-
-        self.configspace = configspace
+        self.configspace: ConfigurationSpace = configspace
+        self.structure = structure
 
     def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         """

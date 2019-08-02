@@ -7,8 +7,8 @@ from typing import Tuple, Optional, List, Any
 
 import humanize
 
+from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
-from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.dispatcher import Dispatcher
 from hpbandster.core.model import ConfigId, Datum, Job
 from hpbandster.core.result import JsonResultLogger, Result
@@ -17,7 +17,7 @@ from hpbandster.core.result import JsonResultLogger, Result
 class Master(object):
     def __init__(self,
                  run_id: str,
-                 config_generator: BaseStructureGenerator,
+                 config_generator: BaseConfigGenerator,
                  working_directory: str = '.',
                  ping_interval: int = 60,
                  nameserver: str = '127.0.0.1',

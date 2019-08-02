@@ -1,16 +1,15 @@
-from typing import Tuple, Dict, Union
+from typing import Tuple
 
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.components.base import ComponentChoice, EstimatorComponent
-from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.base_structure_generator import BaseStructureGenerator
-from hpbandster.core.model import ConfigInfo
+from hpbandster.core.model import Structure
 
 
 class FixedStructure(BaseStructureGenerator):
 
-    def __init__(self, dataset_properties: dict, structure: Dict[str, Union[ComponentChoice, EstimatorComponent]]):
+    def __init__(self, dataset_properties: dict, structure: Structure):
         super().__init__()
         self.configspace = ConfigurationSpace()
 
@@ -24,12 +23,5 @@ class FixedStructure(BaseStructureGenerator):
             self.configspace.add_configuration_space(step, cs)
         self.structure = structure
 
-    def set_config_generator(self, config_generator: BaseConfigGenerator):
-        super().set_config_generator(config_generator)
-        config_generator.set_config_space(self.configspace)
-
-    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
-        config, info = self.config_generator.get_config(budget)
-
-        info.structure = self.structure
-        return config, info
+    def get_config_space(self) -> Tuple[ConfigurationSpace, Structure]:
+        return self.configspace, self.structure

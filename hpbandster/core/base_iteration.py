@@ -5,13 +5,12 @@ import math
 import numpy as np
 from ConfigSpace.configuration_space import Configuration
 
-from hpbandster.core.base_structure_generator import BaseStructureGenerator
+from hpbandster.core.base_config_generator import BaseConfigGenerator
 from hpbandster.core.model import ConfigId, Datum, Job, ConfigInfo
 from hpbandster.core.result import JsonResultLogger, Result
 
 
 class BaseIteration(object):
-
     """
     Base class for various iteration possibilities. This decides what configuration should be run on what budget next.
     Typical choices are e.g. successive halving. Results from runs are processed and (depending on the implementations)
@@ -23,7 +22,7 @@ class BaseIteration(object):
                  num_configs: List[int],
                  budgets: List[float],
                  timeout: float = None,
-                 config_sampler: BaseStructureGenerator = None,
+                 config_sampler: BaseConfigGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
@@ -227,7 +226,7 @@ class WarmStartIteration(BaseIteration):
     iteration that imports a previous Result for warm starting
     """
 
-    def __init__(self, result: Result, config_generator: BaseStructureGenerator):
+    def __init__(self, result: Result, config_generator: BaseConfigGenerator):
 
         self.is_finished = False
         self.stage = 0

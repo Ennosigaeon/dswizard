@@ -1,7 +1,11 @@
 import time
-from typing import Optional
+from typing import Optional, Dict, Union
 
 from ConfigSpace.configuration_space import Configuration, OrderedDict
+
+from hpbandster.components.base import ComponentChoice, EstimatorComponent
+
+Structure = Dict[str, Union[ComponentChoice, EstimatorComponent]]
 
 
 class ConfigId(object):
@@ -45,12 +49,11 @@ class ConfigId(object):
 
 
 class ConfigInfo(object):
-    def __init__(self, model_based_pick: bool = False, structure: OrderedDict = None):
+    def __init__(self, model_based_pick: bool = False, structure: Structure = None):
         self.model_based_pick = model_based_pick
 
         if structure is None:
             structure = OrderedDict()
-            structure['dummy'] = 'dummy'
         self.structure = structure
 
     def __repr__(self):

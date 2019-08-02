@@ -1,14 +1,16 @@
 import numpy as np
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from hpbandster.core.master import Master
-from hpbandster.core.base_structure_generator import BaseStructureGenerator
+from hpbandster.core.model import Structure
 from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
 class HyperBand(Master):
     def __init__(self,
-                 structure: BaseStructureGenerator = None,
+                 configspace: ConfigurationSpace = None,
+                 structure: Structure = None,
                  eta: float = 3,
                  min_budget: float = 0.01,
                  max_budget: float = 1,
@@ -19,7 +21,8 @@ class HyperBand(Master):
         running them for a specific budget. The approach is iterative, promising candidates are run for a longer time,
         increasing the fidelity for their performance. While this is a very efficient racing approach, random sampling
         makes no use of the knowledge gained about the candidates during optimization.
-        :param structure: a method for generating pipeline structures
+        :param configspace: valid representation of the search space
+        :param structure: optional structure associated with the ConfigurationSpace
         :param eta: In each iteration, a complete run of sequential halving is executed. In it, after evaluating each
             configuration on the same subset size, only a fraction of 1/eta of them 'advances' to the next round.
             Must be greater or equal to 2.
@@ -30,8 +33,13 @@ class HyperBand(Master):
             automatically adjusted to the current budget.
         :param kwargs:
         """
-        structure.set_config_generator(RandomSampling())
-        super().__init__(config_generator=structure, **kwargs)
+
+        # TODO: Proper check for ConfigSpace object!
+        if configspace is None:
+            raise ValueError('You have to provide a valid ConfigSpace object')
+
+        cg = RandomSampling(configspace=configspace, structure=structure)
+        super().__init__(config_generator=cg, **kwargs)
 
         # Hyperband related stuff
         self.eta = eta

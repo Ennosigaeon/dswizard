@@ -1,4 +1,4 @@
-from typing import Dict, Union, List
+from typing import Dict, List
 
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
@@ -6,11 +6,12 @@ from sklearn.base import BaseEstimator
 from sklearn.pipeline import Pipeline
 
 from hpbandster.components.base import ComponentChoice, EstimatorComponent
+from hpbandster.core.model import Structure
 
 
 class FlexiblePipeline(Pipeline, BaseEstimator):
 
-    def __init__(self, steps: Dict[str, Union[ComponentChoice, EstimatorComponent]], dataset_properties: dict):
+    def __init__(self, steps: Structure, dataset_properties: dict):
         super().__init__(list(steps.items()))
         self.steps_ = steps
         self.configuration = None
@@ -66,7 +67,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
 class SubPipeline(EstimatorComponent):
 
-    def __init__(self, sub_wfs: List[Dict[str, Union[ComponentChoice, EstimatorComponent]]],
+    def __init__(self, sub_wfs: List[Structure],
                  dataset_properties: dict = None):
         self.dataset_properties = dataset_properties
         self.pipelines: Dict[str, FlexiblePipeline] = {}

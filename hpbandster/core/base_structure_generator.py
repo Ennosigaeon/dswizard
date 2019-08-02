@@ -1,10 +1,10 @@
 import logging
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+from ConfigSpace.configuration_space import ConfigurationSpace
 
+from hpbandster.core.model import Structure
 from hpbandster.core.base_config_generator import BaseConfigGenerator
-from hpbandster.core.model import Job, ConfigInfo
 
 
 class BaseStructureGenerator(object):
@@ -25,45 +25,10 @@ class BaseStructureGenerator(object):
         else:
             self.logger = logger
 
-    def set_config_generator(self, config_generator: BaseConfigGenerator) -> None:
+    def get_config_space(self) -> Tuple[ConfigurationSpace, Structure]:
         """
-        function to set the ConfigGenerator used in this StructureGenerator. The StructureGenerator is responsible for
-        providing a suited ConfigurationSpace for the ConfigGenerator.
-
-        :param config_generator:
-        """
-        self.config_generator = config_generator
-
-    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
-        """
-        function to sample a new configuration
-
-        This function is called inside Hyperband to query a new configuration
-        :param budget: the budget for which this configuration is scheduled
-        :return: must return a valid configuration and a (possibly empty) info dict
-        """
-
-        raise NotImplementedError('This function needs to be overwritten in {}.'.format(self.__class__.__name__))
-
-    def new_result(self, job: Job, update_model: bool = True) -> None:
-        """
-        registers finished runs
-
-        Every time a run has finished, this function should be called to register it with the result logger. If
-        overwritten, make sure to call this method from the base class to ensure proper logging.
-
-        :param job: contains all necessary information about the job
-        :param update_model: determines whether a model inside the config_generator should be updated
-        :return:
-        """
-
-        if job.exception is not None:
-            self.logger.warning('job {} failed with exception\n{}'.format(job.id, job.exception))
-
-    def get_config_space(self) -> ConfigurationSpace:
-        """
-        get the ConfigurationSpace for this specific pipeline
+        Sample a ConfigurationSpace and according Structure tuple
 
         :return:
         """
-        raise self.configspace
+        raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))

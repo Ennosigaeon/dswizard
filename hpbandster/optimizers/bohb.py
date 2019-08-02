@@ -1,14 +1,16 @@
 import numpy as np
+from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core.base_structure_generator import BaseStructureGenerator
 from hpbandster.core.master import Master
+from hpbandster.core.model import Structure
 from hpbandster.optimizers.config_generators import Hyperopt
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
 class BOHB(Master):
     def __init__(self,
-                 structure: BaseStructureGenerator = None,
+                 configspace: ConfigurationSpace = None,
+                 structure: Structure = None,
                  eta: float = 3,
                  min_budget: float = 0.01,
                  max_budget: float = 1,
@@ -35,7 +37,8 @@ class BOHB(Master):
               year =         {2018},
             }
 
-        :param structure: a method for generating pipeline structures
+        :param configspace: valid representation of the search space
+        :param structure: optional structure associated with the ConfigurationSpace
         :param eta: In each iteration, a complete run of sequential halving is executed. In it, after evaluating each
             configuration on the same subset size, only a fraction of 1/eta of them 'advances' to the next round. Must
             be greater or equal to 2.
@@ -57,16 +60,22 @@ class BOHB(Master):
         :param kwargs: kwargs to be added to the instantiation of each iteration
         """
 
-        cg = Hyperopt(min_points_in_model=min_points_in_model,
-                      top_n_percent=top_n_percent,
-                      num_samples=num_samples,
-                      random_fraction=random_fraction,
-                      bandwidth_factor=bandwidth_factor,
-                      min_bandwidth=min_bandwidth
-                      )
-        structure.set_config_generator(cg)
+        # TODO: Proper check for ConfigSpace object!
+        if configspace is None:
+            raise ValueError('You have to provide a valid ConfigSpace object')
 
-        super().__init__(config_generator=structure, **kwargs)
+        cg = Hyperopt(
+            configspace=configspace,
+            structure=structure,
+            min_points_in_model=min_points_in_model,
+            top_n_percent=top_n_percent,
+            num_samples=num_samples,
+            random_fraction=random_fraction,
+            bandwidth_factor=bandwidth_factor,
+            min_bandwidth=min_bandwidth
+        )
+
+        super().__init__(config_generator=cg, **kwargs)
 
         # Hyperband related stuff
         self.eta = eta

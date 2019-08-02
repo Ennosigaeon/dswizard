@@ -60,13 +60,14 @@ steps['step_0'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_p
 steps['step_1'] = ClassifierChoice()
 structure_generator = FixedStructure(dataset_properties, steps)
 
-result_logger = JsonResultLogger(directory=args.log_dir, overwrite=True)
-bohb = BOHB(structure=structure_generator,
+configspace, structure = structure_generator.get_config_space()
+bohb = BOHB(configspace=configspace,
+            structure=structure,
             run_id=args.run_id, nameserver='127.0.0.1',
             min_budget=args.min_budget,
             max_budget=args.max_budget,
             timeout=args.timeout,
-            result_logger=result_logger
+            result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True)
             )
 res = bohb.run()
 
