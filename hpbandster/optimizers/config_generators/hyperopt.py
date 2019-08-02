@@ -49,16 +49,16 @@ class Hyperopt(BaseConfigGenerator):
         if min_points_in_model is None:
             self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
 
+        if self.min_points_in_model < len(self.configspace.get_hyperparameters()) + 1:
+            self.logger.warning('Invalid min_points_in_model value. Setting it to {}'.format(
+                len(self.configspace.get_hyperparameters()) + 1))
+            self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
+
         self.num_samples = num_samples
         self.random_fraction = random_fraction
 
         self.kde_vartypes = ""
         self.vartypes = []
-
-        if self.min_points_in_model < len(self.configspace.get_hyperparameters()) + 1:
-            self.logger.warning('Invalid min_points_in_model value. Setting it to {}'.format(
-                len(self.configspace.get_hyperparameters()) + 1))
-            self.min_points_in_model = len(self.configspace.get_hyperparameters()) + 1
 
         for h in self.configspace.get_hyperparameters():
             if hasattr(h, 'sequence'):
@@ -309,7 +309,7 @@ class Hyperopt(BaseConfigGenerator):
         idx = np.argsort(train_losses)
 
         train_data_good = self.impute_conditional_data(train_configs[idx[:n_good]])
-        train_data_bad = self.impute_conditional_data(train_configs[idx[n_good:n_good + n_bad]])
+        train_data_bad = self.impute_conditional_data(train_configs[idx[-n_bad:]])
 
         if train_data_good.shape[0] <= train_data_good.shape[1]:
             return
@@ -335,5 +335,5 @@ class Hyperopt(BaseConfigGenerator):
 
         # update probabilities for the categorical parameters for later sampling
         self.logger.debug(
-            'done building a new model for budget {} based on {}/{} split\nBest loss for this budget:{}\n\n\n\n'.format(
+            'done building a new model for budget {} based on {}/{} split. Best loss for this budget:{}'.format(
                 budget, n_good, n_bad, np.min(train_losses)))
