@@ -1,13 +1,13 @@
 import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core.master import Master
+from core.base_hpo import HPO
 from hpbandster.core.model import Structure
 from hpbandster.optimizers.config_generators import Hyperopt
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
-class BOHB(Master):
+class BOHB(HPO):
     def __init__(self,
                  configspace: ConfigurationSpace = None,
                  structure: Structure = None,
@@ -20,8 +20,7 @@ class BOHB(Master):
                  num_samples: int = 64,
                  random_fraction: float = 1 / 3,
                  bandwidth_factor: float = 3,
-                 min_bandwidth: float = 1e-3,
-                 **kwargs):
+                 min_bandwidth: float = 1e-3):
         """
         BOHB performs robust and efficient hyperparameter optimization at scale by combining the speed of Hyperband
         searches with the guidance and guarantees of convergence of Bayesian Optimization. Instead of sampling new
@@ -57,7 +56,6 @@ class BOHB(Master):
             'widened' KDE where the bandwidth is multiplied by this factor (default: 3)
         :param min_bandwidth: to keep diversity, even when all (good) samples have the same value for one of the
             parameters, a minimum bandwidth (Default: 1e-3) is used instead of zero.
-        :param kwargs: kwargs to be added to the instantiation of each iteration
         """
 
         # TODO: Proper check for ConfigSpace object!
@@ -75,7 +73,7 @@ class BOHB(Master):
             min_bandwidth=min_bandwidth
         )
 
-        super().__init__(config_generator=cg, **kwargs)
+        super().__init__(cg)
 
         # Hyperband related stuff
         self.eta = eta
@@ -119,7 +117,6 @@ class BOHB(Master):
         # number of configurations in that bracket
         n0 = int(np.floor(self.max_iterations / (s + 1)) * self.eta ** s)
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
-        self.logger.info('Starting iteration {}'.format(iteration))
 
         return SuccessiveHalving(HPB_iter=iteration, num_configs=ns, budgets=self.budgets[(-s - 1):],
                                  timeout=self.timeout, config_sampler=self.config_generator,

@@ -14,8 +14,9 @@ import hpbandster.core.nameserver as hpns
 from components.classification import ClassifierChoice
 from components.data_preprocessing import DataPreprocessorChoice
 from components.pipeline import SubPipeline
+from core.master import Master
 from core.result import JsonResultLogger
-from optimizers import BOHB
+from optimizers.hpo.bohb import BOHB
 from optimizers.structure_generators.fixed import FixedStructure
 from workers.sklearn_worker import SklearnWorker
 
@@ -63,16 +64,21 @@ structure_generator = FixedStructure(dataset_properties, steps)
 configspace, structure = structure_generator.get_config_space()
 bohb = BOHB(configspace=configspace,
             structure=structure,
-            run_id=args.run_id, nameserver='127.0.0.1',
             min_budget=args.min_budget,
             max_budget=args.max_budget,
             timeout=args.timeout,
-            result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True)
             )
-res = bohb.run()
+
+master = Master(
+    hpo_procedure=bohb,
+    run_id=args.run_id,
+    nameserver='127.0.0.1',
+    result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True)
+)
+res = master.run()
 
 # Shutdown
-bohb.shutdown(shutdown_workers=True)
+master.shutdown(shutdown_workers=True)
 NS.shutdown()
 
 # Analysis

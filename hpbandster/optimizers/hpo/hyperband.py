@@ -1,21 +1,20 @@
 import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from hpbandster.core.master import Master
+from core.base_hpo import HPO
 from hpbandster.core.model import Structure
 from hpbandster.optimizers.config_generators import RandomSampling
 from hpbandster.optimizers.iterations import SuccessiveHalving
 
 
-class HyperBand(Master):
+class HyperBand(HPO):
     def __init__(self,
                  configspace: ConfigurationSpace = None,
                  structure: Structure = None,
                  eta: float = 3,
                  min_budget: float = 0.01,
                  max_budget: float = 1,
-                 timeout: float = None,
-                 **kwargs):
+                 timeout: float = None):
         """
         Hyperband implements hyperparameter optimization by sampling candidates at random and "trying" them first,
         running them for a specific budget. The approach is iterative, promising candidates are run for a longer time,
@@ -31,7 +30,6 @@ class HyperBand(Master):
             geometrically distributed $\sim \eta^k$ for $k\in [0, 1, ... , num_subsets - 1]$.
         :param timeout: Maximum time in seconds available to evaluate a single configuration. The timout will be
             automatically adjusted to the current budget.
-        :param kwargs:
         """
 
         # TODO: Proper check for ConfigSpace object!
@@ -39,7 +37,7 @@ class HyperBand(Master):
             raise ValueError('You have to provide a valid ConfigSpace object')
 
         cg = RandomSampling(configspace=configspace, structure=structure)
-        super().__init__(config_generator=cg, **kwargs)
+        super().__init__(cg)
 
         # Hyperband related stuff
         self.eta = eta

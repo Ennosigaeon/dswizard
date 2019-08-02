@@ -3,12 +3,12 @@ import logging
 import os
 import threading
 import time
-from typing import Tuple, Optional, List, Any
+from typing import Tuple, Optional, Any
 
 import humanize
 
-from hpbandster.core.base_config_generator import BaseConfigGenerator
-from hpbandster.core.base_iteration import WarmStartIteration, BaseIteration
+from core.base_hpo import HPO
+from hpbandster.core.base_iteration import WarmStartIteration
 from hpbandster.core.dispatcher import Dispatcher
 from hpbandster.core.model import ConfigId, Datum, Job
 from hpbandster.core.result import JsonResultLogger, Result
@@ -17,7 +17,7 @@ from hpbandster.core.result import JsonResultLogger, Result
 class Master(object):
     def __init__(self,
                  run_id: str,
-                 config_generator: BaseConfigGenerator,
+                 hpo_procedure: HPO,
                  working_directory: str = '.',
                  ping_interval: int = 60,
                  nameserver: str = '127.0.0.1',
@@ -26,8 +26,7 @@ class Master(object):
                  job_queue_sizes: Tuple[int, int] = (-1, 0),
                  dynamic_queue_size: bool = True,
                  logger: logging.Logger = None,
-                 result_logger: JsonResultLogger = None,
-                 previous_result: Any = None,
+                 result_logger: JsonResultLogger = None
                  ):
         """
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
@@ -35,7 +34,7 @@ class Master(object):
         budget when.
         :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
             multiple concurrent runs to separate them
-        :param config_generator: An object that can generate new configurations and registers results of executed runs
+        :param hpo_procedure: A hyperparameter optimization procedure
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
         :param ping_interval: number of seconds between pings to discover new nodes. Default is 60 seconds.
         :param nameserver: address of the Pyro4 nameserver
@@ -47,7 +46,6 @@ class Master(object):
             If true (default), the job_queue_sizes are relative to the current number of workers.
         :param logger: the logger to output some (more or less meaningful) information
         :param result_logger: a result logger that writes live results to disk
-        :param previous_result: previous run to warmstart the run
         """
 
         self.working_directory = working_directory
@@ -60,13 +58,11 @@ class Master(object):
 
         self.result_logger = result_logger
 
-        self.config_generator = config_generator
         self.time_ref: Optional[float] = None
 
-        self.iterations: List[BaseIteration] = []
+        self.hpo: HPO = hpo_procedure
         self.jobs = []
 
-        self.max_iterations = 0
         self.num_running_jobs = 0
         self.job_queue_sizes = job_queue_sizes
         self.user_job_queue_sizes = job_queue_sizes
@@ -74,12 +70,6 @@ class Master(object):
 
         if job_queue_sizes[0] >= job_queue_sizes[1]:
             raise ValueError('The queue size range needs to be (min, max) with min<max!')
-
-        if previous_result is None:
-            self.warmstart_iteration = []
-
-        else:
-            self.warmstart_iteration = [WarmStartIteration(previous_result, self.config_generator)]
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
@@ -117,23 +107,12 @@ class Master(object):
 
         self.logger.debug('Enough workers to start this run!')
 
-    def get_next_iteration(self, iteration: int, iteration_kwargs: dict) -> BaseIteration:
-        """
-        instantiates the next iteration
-
-        Overwrite this to change the iterations for different optimizers
-        :param iteration: the index of the iteration to be instantiated
-        :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
-        :return: a valid HB iteration object
-        """
-
-        raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
-
-    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> Result:
+    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None, previous_result: Any = None) -> Result:
         """
         run optimization
         :param min_n_workers: minimum number of workers before starting the run
         :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
+        :param previous_result: previous run to warmstart the run
         :return:
         """
 
@@ -151,46 +130,26 @@ class Master(object):
             self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
                                                                        time.localtime(self.time_ref))))
 
-        n_iterations = self.max_iterations
-        self.thread_cond.acquire()
-        while True:
+        if previous_result is not None:
+            ws = WarmStartIteration(previous_result, self.hpo.config_generator)
+            ws.fix_timestamps(self.time_ref)
+            ws_data = ws.data
+        else:
+            ws_data = []
 
+        self.thread_cond.acquire()
+        for config_id, datum in self.hpo.get_runs(iteration_kwargs):
+            # Wait for available worker
             self._queue_wait()
 
-            next_run = None
-            # find a new run to schedule
-            for i in self.active_iterations():
-                next_run = self.iterations[i].get_next_run()
-                if next_run is not None:
-                    break
-
-            if next_run is not None:
-                # noinspection PyUnboundLocalVariable
-                self.logger.debug('submitting job {} to dispatcher for iteration {}'.format(next_run[0], i))
-                self._submit_job(*next_run)
-                continue
-            else:
-                if n_iterations > 0:  # we might be able to start the next iteration
-                    self.iterations.append(self.get_next_iteration(len(self.iterations), iteration_kwargs))
-                    n_iterations -= 1
-                    continue
-
-            # at this point there is no immediate run that can be scheduled,
-            # so wait for some job to finish if there are active iterations
-            if self.active_iterations():
-                self.thread_cond.wait()
-            else:
-                break
+            self.logger.debug('submitting job {} to dispatcher'.format(config_id))
+            self._submit_job(config_id, datum)
 
         self.thread_cond.release()
-
-        for i in self.warmstart_iteration:
-            i.fix_timestamps(self.time_ref)
-
-        ws_data = [i.data for i in self.warmstart_iteration]
         self.logger.info('Finished run after {}'.format(humanize.naturaldelta(time.time() - self.time_ref)))
 
-        return Result([copy.deepcopy(i.data) for i in self.iterations] + ws_data, self.config)
+        return Result([copy.deepcopy(i.data) for i in self.hpo.iterations] + ws_data,
+                      {**self.config, **self.hpo.config})
 
     def adjust_queue_size(self, number_of_workers: int = None) -> None:
         self.logger.debug('number of workers changed to {}'.format(number_of_workers))
@@ -215,8 +174,7 @@ class Master(object):
 
             if self.result_logger is not None:
                 self.result_logger(job)
-            self.iterations[job.id.iteration].register_result(job)
-            self.config_generator.new_result(job)
+            self.hpo.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')
@@ -248,11 +206,3 @@ class Master(object):
                                        timeout=datum.timeout,
                                        working_directory=self.working_directory)
             self.num_running_jobs += 1
-
-    def active_iterations(self) -> List[int]:
-        """
-        function to find active (not marked as finished) iterations
-        :return: all active iteration indices (empty if there are none)
-        """
-
-        return list(filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))))

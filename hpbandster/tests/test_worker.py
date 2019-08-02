@@ -7,10 +7,10 @@ import ConfigSpace as CS
 
 import hpbandster.core.nameserver as hpn
 from hpbandster.core.worker import Worker
-from hpbandster.optimizers.bohb import BOHB
-from hpbandster.optimizers.hyperband import HyperBand
+from optimizers.hpo.bohb import BOHB
+from optimizers.hpo.hyperband import HyperBand
 # from hpbandster.optimizers.lcnet import LCNet
-from hpbandster.optimizers.randomsearch import RandomSearch
+from optimizers.hpo.randomsearch import RandomSearch
 
 logging.basicConfig(level=logging.WARNING)
 
