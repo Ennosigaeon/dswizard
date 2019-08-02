@@ -118,7 +118,8 @@ class JsonResultLogger(object):
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
             fh.write(json.dumps(
-                [job.id.as_tuple(), job.kwargs['budget'], job.timestamps, job.result['loss'], job.exception]))
+                [job.id.as_tuple(), job.kwargs['budget'], job.timestamps,
+                 job.result['loss'] if job.result is not None else None, job.exception]))
             fh.write("\n")
 
 
