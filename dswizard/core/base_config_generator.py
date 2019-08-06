@@ -6,7 +6,7 @@ from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 from dswizard.core.model import Job, ConfigInfo, Structure
 
 
-class BaseConfigGenerator(object):
+class BaseConfigGenerator:
     """
     The config generator determines how new configurations are sampled. This can take very different levels of
     complexity, from random sampling to the construction of complex empirical prediction models for promising

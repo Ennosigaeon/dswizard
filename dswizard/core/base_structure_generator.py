@@ -7,7 +7,7 @@ from dswizard.core.model import Structure
 from dswizard.core.base_config_generator import BaseConfigGenerator
 
 
-class BaseStructureGenerator(object):
+class BaseStructureGenerator:
     """
     The structure generator determines a pipeline structure before sampling new configurations. This can take very
     different levels of complexity, from dummy pipelines, static pipelines, random sampling to the construction of

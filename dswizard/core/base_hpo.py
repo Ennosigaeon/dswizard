@@ -6,7 +6,7 @@ from dswizard.core.base_iteration import BaseIteration
 from dswizard.core.model import ConfigId, Datum, Job
 
 
-class HPO(object):
+class HPO:
 
     def __init__(self, config_generator: BaseConfigGenerator = None, logger: logging.Logger = None):
         self.config_generator = config_generator

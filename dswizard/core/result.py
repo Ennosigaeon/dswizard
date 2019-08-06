@@ -9,7 +9,7 @@ from ConfigSpace.read_and_write import json as config_json
 from dswizard.core.model import ConfigId, Datum, Job, ConfigInfo
 
 
-class Run(object):
+class Run:
     """
     Not a proper class, more a 'struct' to bundle important information about a particular run
     """
@@ -58,7 +58,7 @@ def extract_HBS_learning_curves(runs):
     return [lc, ]
 
 
-class JsonResultLogger(object):
+class JsonResultLogger:
     def __init__(self, directory: str, overwrite: bool = False):
         """
         convenience logger for 'semi-live-results'
@@ -123,7 +123,7 @@ class JsonResultLogger(object):
             fh.write("\n")
 
 
-class Result(object):
+class Result:
     """
     Object returned by the HB_master.run function
 

@@ -8,7 +8,7 @@ from dswizard.components.base import ComponentChoice, EstimatorComponent
 Structure = Dict[str, Union[ComponentChoice, EstimatorComponent]]
 
 
-class ConfigId(object):
+class ConfigId:
     """
     a triplet of ints that uniquely identifies a configuration. the convention is id = (iteration, budget index,
     running index)
@@ -48,7 +48,7 @@ class ConfigId(object):
         return self.as_tuple() < other.as_tuple()
 
 
-class ConfigInfo(object):
+class ConfigInfo:
     def __init__(self, model_based_pick: bool = False, structure: Structure = None):
         self.model_based_pick = model_based_pick
 
@@ -74,7 +74,7 @@ class ConfigInfo(object):
         return ConfigInfo(model_based_pick=values.get('model_based_pick'))
 
 
-class Result(object):
+class Result:
 
     def __init__(self, result: Optional[dict], exception: Optional[str]):
         self.result = result
@@ -89,7 +89,7 @@ class Result(object):
         return Result(None, exception)
 
 
-class Datum(object):
+class Datum:
     def __init__(self,
                  config: Configuration,
                  config_info: ConfigInfo,
@@ -115,7 +115,7 @@ class Datum(object):
                     'time stamps': self.time_stamps})
 
 
-class Job(object):
+class Job:
     def __init__(self, id: ConfigId, **kwargs):
         self.id: ConfigId = id
 

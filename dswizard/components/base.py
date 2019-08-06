@@ -31,7 +31,7 @@ def find_components(package: str, directory: str, base_class: Type) -> Dict[str,
     return components
 
 
-class MetaData(object):
+class MetaData:
     @staticmethod
     def get_properties(dataset_properties=None):
         """Get the properties of the underlying algorithm.
@@ -73,7 +73,7 @@ class MetaData(object):
         return cls.__name__
 
 
-class PredictionMixin(object):
+class PredictionMixin:
 
     def predict(self, X):
         """The predict function calls the predict function of the

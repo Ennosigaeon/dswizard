@@ -14,7 +14,7 @@ from dswizard.core.model import ConfigId, Datum, Job
 from dswizard.core.result import JsonResultLogger, Result
 
 
-class Master(object):
+class Master:
     def __init__(self,
                  run_id: str,
                  hpo_procedure: HPO,

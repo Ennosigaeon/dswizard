@@ -10,7 +10,7 @@ from dswizard.core.model import ConfigId, Datum, Job, ConfigInfo
 from dswizard.core.result import JsonResultLogger, Result
 
 
-class BaseIteration(object):
+class BaseIteration:
     """
     Base class for various iteration possibilities. This decides what configuration should be run on what budget next.
     Typical choices are e.g. successive halving. Results from runs are processed and (depending on the implementations)

@@ -10,7 +10,7 @@ from Pyro4.errors import ConnectionClosedError
 from dswizard.core.model import ConfigId, Job, Result
 
 
-class Worker(object):
+class Worker:
     def __init__(self, name: str, uri: str):
         self.name = name
         self.proxy = Pyro4.Proxy(uri)
@@ -34,7 +34,7 @@ class Worker(object):
         return self.name
 
 
-class Dispatcher(object):
+class Dispatcher:
     """
     The dispatcher is responsible for assigning tasks to free workers, report results back to the master and
     communicate to the nameserver.

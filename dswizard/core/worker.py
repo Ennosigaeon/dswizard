@@ -14,7 +14,7 @@ from dswizard.core.model import ConfigId, ConfigInfo, Result
 from dswizard.util.process import Process
 
 
-class Worker(object):
+class Worker:
     """
     The worker is responsible for evaluating a single configuration on a single budget at a time. Communication to the
     individual workers goes via the nameserver, management of the worker-pool and job scheduling is done by the

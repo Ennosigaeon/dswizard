@@ -58,7 +58,7 @@ class TestWorkers(unittest.TestCase):
 
     @unittest.skipIf(rapid_development, "test skipped to accelerate developing new tests")
     def test_Timeout(self):
-        class dummy_callback(object):
+        class dummy_callback:
             def register_result(self, *args, **kwargs):
                 pass
 
