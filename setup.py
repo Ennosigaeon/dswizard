@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='hpbandster',
-    version='0.7.4',
-    description='HyPerBAND on STERoids, a distributed Hyperband implementation with lots of room for improvement',
-    author='Stefan Falkner',
-    author_email='sfalkner@cs.uni-freiburg.de',
-    url="https://github.com/automl/HpBandSter",
+    name='dswizard',
+    version='0.1.0',
+    description='DataScience Wizard for automatic assembly of machine learning pipelines',
+    author='Marc Zoeller',
+    author_email='m.zoeller@usu.de',
+    url="https://gitlab.usu-research.ml/research/automl/hpbandster",
     license='BSD 3-Clause License',
     classifiers=['Development Status :: 4 - Beta'],
     packages=find_packages(),

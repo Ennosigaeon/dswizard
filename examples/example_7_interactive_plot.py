@@ -14,8 +14,8 @@ results.  Please refer to the documentation of the visualization submodule to se
 options.
 """
 
-import hpbandster.core.result as hpres
-import hpbandster.visualization as hpvis
+import dswizard.core.result as hpres
+import dswizard.visualization as hpvis
 
 # load the example run from the log files
 result = hpres.logged_results_to_HBS_result('example_5_run/')

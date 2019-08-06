@@ -10,7 +10,7 @@ import time
 import ConfigSpace as CS
 import numpy
 
-from hpbandster.core.worker import Worker
+from dswizard.core.worker import Worker
 
 
 class MyWorker(Worker):

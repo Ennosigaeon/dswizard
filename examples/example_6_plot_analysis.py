@@ -10,8 +10,8 @@ More advanced analysis plots provide some insights into a run and the problem.
 
 import matplotlib.pyplot as plt
 
-import hpbandster.core.result as hpres
-import hpbandster.visualization as hpvis
+import dswizard.core.result as hpres
+import dswizard.visualization as hpvis
 
 # load the example run from the log files
 result = hpres.logged_results_to_HBS_result('../logs/')

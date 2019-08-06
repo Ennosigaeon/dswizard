@@ -25,9 +25,9 @@ import logging
 import os
 import pickle
 
-import hpbandster.core.nameserver as hpns
-import hpbandster.core.result as hpres
-from hpbandster.optimizers import BOHB
+import dswizard.core.nameserver as hpns
+import dswizard.core.result as hpres
+from dswizard.optimizers import BOHB
 
 logging.basicConfig(level=logging.DEBUG)
 

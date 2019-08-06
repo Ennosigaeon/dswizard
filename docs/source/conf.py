@@ -19,9 +19,9 @@ sys.path.insert(0, os.path.abspath('../..'))
 import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
-import hpbandster
+import dswizard
 
-project = 'hpbandster'
+project = 'dswizard'
 copyright = '2018, Stefan Falkner'
 author = 'Stefan Falkner'
 
@@ -61,7 +61,7 @@ from sphinx_gallery.sorting import ExampleTitleSortKey
 # with a relative path from the conf.py file location:
 sphinx_gallery_conf = {
                         # path to your examples scripts
-                        'examples_dirs': '../../hpbandster/examples',
+                        'examples_dirs': '../../dswizard/examples',
                         # path where to save gallery generated examples
                         'gallery_dirs': 'auto_examples',
                         # ignore files with this pattern.
@@ -160,7 +160,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'HpBandSter.tex', 'HpBandSter Documentation',
+    (master_doc, 'dswizard.tex', 'dswizard Documentation',
      'Stefan Falkner', 'manual'),
 ]
 
@@ -170,7 +170,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'hpbandster', 'HpBandSter Documentation',
+    (master_doc, 'dswizard', 'dswizard Documentation',
      [author], 1)
 ]
 
@@ -181,8 +181,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'HpBandSter', 'HpBandSter Documentation',
-     author, 'HpBandSter', 'One line description of project.',
+    (master_doc, 'dswizard', 'dswizard Documentation',
+     author, 'dswizard', 'One line description of project.',
      'Miscellaneous'),
 ]
 

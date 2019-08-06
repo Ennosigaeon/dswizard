@@ -1,2 +1,0 @@
-from hpbandster.workers.hpolibbenchmark import HPOlib2Worker
-from hpbandster.workers.sklearn_worker import SklearnWorker

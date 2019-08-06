@@ -10,9 +10,9 @@ logging.getLogger('Pyro4.core').setLevel(logging.DEBUG)
 
 import argparse
 
-import hpbandster.core.nameserver as hpns
+import dswizard.core.nameserver as hpns
 
-from hpbandster.optimizers import BOHB as BOHB
+from dswizard.optimizers import BOHB as BOHB
 from examples import MyWorker
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
@@ -24,7 +24,7 @@ args = parser.parse_args()
 # Every run needs a nameserver. It could be a 'static' server with a
 # permanent address, but here it will be started for the local machine with the default port.
 # The nameserver manages the concurrent running workers across all possible threads or clusternodes.
-# Note the run_id argument. This uniquely identifies a run of any HpBandSter optimizer.
+# Note the run_id argument. This uniquely identifies a run of any optimizer.
 NS = hpns.NameServer(run_id='example1', host='127.0.0.1', port=None)
 NS.start()
 
@@ -52,7 +52,7 @@ bohb.shutdown(shutdown_workers=True)
 NS.shutdown()
 
 # Step 5: Analysis
-# Each optimizer returns a hpbandster.core.result.Result object.
+# Each optimizer returns a dswizard.core.result.Result object.
 # It holds informations about the optimization run like the incumbent (=best) configuration.
 # For further details about the Result object, see its documentation.
 # Here we simply print out the best config and some statistics about the performed runs.

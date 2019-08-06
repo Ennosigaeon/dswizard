@@ -2,9 +2,8 @@
 Worker for Example 5 - Keras
 ============================
 
-In this example implements a small CNN in Keras to train it on MNIST.
-The configuration space shows the most common types of hyperparameters and
-even contains conditional dependencies.
+In this example implements a small CNN in Keras to train it on MNIST. The configuration space shows the most common
+types of hyperparameters and even contains conditional dependencies.
 
 We'll optimise the following hyperparameters:
 
@@ -37,14 +36,12 @@ We'll optimise the following hyperparameters:
 | in fully connected layer|                |                 | integer values         |
 +-------------------------+----------------+-----------------+------------------------+
 
-Please refer to the compute method below to see how those are defined using the
-ConfigSpace package.
-	  
-The network does not achieve stellar performance when a random configuration is samples,
-but a few iterations should yield an accuracy of >90%. To speed up training, only
-8192 images are used for training, 1024 for validation.
-The purpose is not to achieve state of the art on MNIST, but to show how to use
-Keras inside HpBandSter, and to demonstrate a more complicated search space.
+Please refer to the compute method below to see how those are defined using the ConfigSpace package.
+
+The network does not achieve stellar performance when a random configuration is sampled, but a few iterations should
+yield an accuracy of >90%. To speed up training, only 8192 images are used for training, 1024 for validation. The
+purpose is not to achieve state of the art on MNIST, but to show how to use Keras inside this framework, and to
+demonstrate a more complicated search space.
 """
 
 try:
@@ -68,7 +65,7 @@ import logging
 import ConfigSpace as CS
 import ConfigSpace.hyperparameters as CSH
 
-from hpbandster.core.worker import Worker
+from dswizard.core.worker import Worker
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -163,7 +160,7 @@ class KerasWorker(Worker):
         test_score = model.evaluate(self.x_test, self.y_test, verbose=0)
 
         # import IPython; IPython.embed()
-        result['loss'] = 1 - val_score[1],  # remember: HpBandSter always minimizes!
+        result['loss'] = 1 - val_score[1],
         result['info'] = {'test accuracy': test_score[1],
                           'train accuracy': train_score[1],
                           'validation accuracy': val_score[1],

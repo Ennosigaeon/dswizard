@@ -10,15 +10,15 @@ from collections import OrderedDict
 
 from sklearn import datasets
 
-import hpbandster.core.nameserver as hpns
-from components.classification import ClassifierChoice
-from components.data_preprocessing import DataPreprocessorChoice
-from components.pipeline import SubPipeline
-from core.master import Master
-from core.result import JsonResultLogger
-from optimizers.hpo.bohb import BOHB
-from optimizers.structure_generators.fixed import FixedStructure
-from workers.sklearn_worker import SklearnWorker
+import dswizard.core.nameserver as hpns
+from dswizard.components.classification import ClassifierChoice
+from dswizard.components.data_preprocessing import DataPreprocessorChoice
+from dswizard.components.pipeline import SubPipeline
+from dswizard.core.master import Master
+from dswizard.core.result import JsonResultLogger
+from dswizard.optimizers.hpo import BOHB
+from dswizard.optimizers.structure_generators.fixed import FixedStructure
+from dswizard.workers.sklearn_worker import SklearnWorker
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
