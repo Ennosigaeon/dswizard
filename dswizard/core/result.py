@@ -114,11 +114,11 @@ class JsonResultLogger:
             # should never happen! TODO: log warning here!
             self.config_ids.add(job.id)
             with open(self.config_fn, 'a') as fh:
-                fh.write(json.dumps([job.id.as_tuple(), job.kwargs['config'], {}]))
+                fh.write(json.dumps([job.id.as_tuple(), job.config, {}]))
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
             fh.write(json.dumps(
-                [job.id.as_tuple(), job.kwargs['budget'], job.timestamps,
+                [job.id.as_tuple(), job.budget, job.timestamps,
                  job.result['loss'] if job.result is not None else None, job.exception]))
             fh.write("\n")
 

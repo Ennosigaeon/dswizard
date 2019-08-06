@@ -23,7 +23,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         super().fit(X, y, **fit_params)
 
-    def set_hyperparameters(self, configuration: dict, init_params=None):
+    def set_hyperparameters(self, configuration: Configuration, init_params=None):
         self.configuration = configuration
 
         for node_idx, (node_name, node) in enumerate(self.steps):

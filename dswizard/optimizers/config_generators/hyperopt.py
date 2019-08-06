@@ -270,7 +270,7 @@ class Hyperopt(BaseConfigGenerator):
             # Note that this means losses of minus infinity will count as bad!
             loss = job.result['loss'] if np.isfinite(job.result['loss']) else np.inf
 
-        budget = job.kwargs['budget']
+        budget = job.budget
 
         if budget not in self.configs.keys():
             self.configs[budget] = []
@@ -282,7 +282,7 @@ class Hyperopt(BaseConfigGenerator):
 
         # We want to get a numerical representation of the configuration in the original space
 
-        conf = ConfigSpace.Configuration(self.configspace, job.kwargs['config'])
+        conf = ConfigSpace.Configuration(self.configspace, job.config)
         self.configs[budget].append(conf.get_array())
         self.losses[budget].append(loss)
 

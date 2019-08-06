@@ -1,5 +1,6 @@
 import importlib
 
+from ConfigSpace import Configuration
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
 
@@ -33,11 +34,11 @@ class SklearnWorker(Worker):
             self.y = y
             self.y_test = y_test
 
-    def compute(self, config_id: ConfigId, config: dict, config_info: ConfigInfo, budget: float,
+    def compute(self, config_id: ConfigId, config: Configuration, info: ConfigInfo, budget: float,
                 working_directory: str, result: dict, **kwargs):
         # TODO budget missing
 
-        pipeline = FlexiblePipeline(config_info.structure, self.dataset_properties)
+        pipeline = FlexiblePipeline(info.structure, self.dataset_properties)
         pipeline.set_hyperparameters(config)
         pipeline.fit(self.X, self.y)
 
@@ -45,7 +46,7 @@ class SklearnWorker(Worker):
         res = metrics.accuracy_score(self.y_test, y_pred)
 
         result['loss'] = res
-        result['info'] = config_info
+        result['info'] = info
 
     def create_estimator(self, conf: dict):
         try:

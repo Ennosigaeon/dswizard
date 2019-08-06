@@ -116,8 +116,12 @@ class Datum:
 
 
 class Job:
-    def __init__(self, id: ConfigId, **kwargs):
+    def __init__(self, id: ConfigId, config: Configuration, info: ConfigInfo, budget: float, timout: float, **kwargs):
         self.id: ConfigId = id
+        self.config = config
+        self.info = info
+        self.budget = budget
+        self.timeout = timout
 
         self.kwargs = kwargs
 

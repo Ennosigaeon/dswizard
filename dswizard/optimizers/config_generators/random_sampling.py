@@ -1,22 +1,15 @@
 from typing import Tuple
 
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+from ConfigSpace.configuration_space import Configuration
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import ConfigInfo, Structure
+from dswizard.core.model import ConfigInfo
 
 
 class RandomSampling(BaseConfigGenerator):
     """
     class to implement random sampling from a ConfigSpace
     """
-
-    def __init__(self, configspace: ConfigurationSpace, structure: Structure, **kwargs):
-        """
-        :param kwargs: see hyperband.core.BaseConfigGenerator for additional arguments
-        """
-
-        super().__init__(configspace, structure, **kwargs)
 
     def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
         if self.configspace is None:

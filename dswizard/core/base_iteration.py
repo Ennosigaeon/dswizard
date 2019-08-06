@@ -101,8 +101,8 @@ class BaseIteration:
             raise RuntimeError("This HB iteration is finished, you can't register more results!")
 
         config_id = job.id
-        config = job.kwargs['config']
-        budget = job.kwargs['budget']
+        config = job.config
+        budget = job.budget
         timestamps = job.timestamps
         result = job.result
         exception = job.exception
@@ -241,7 +241,7 @@ class WarmStartIteration(BaseIteration):
             new_id = self.add_configuration(config=id2conf[id]['config'], config_info=id2conf[id]['config_info'])
 
             for r in result.get_runs_by_id(id):
-                j = Job(new_id, config=id2conf[id]['config'], budget=r.budget)
+                j = Job(new_id, config=id2conf[id]['config'], info=None, budget=r.budget, timout=None)
 
                 j.result = {'loss': r.loss, 'info': r.info}
                 j.error_logs = r.error_logs
