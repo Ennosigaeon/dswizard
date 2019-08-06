@@ -23,8 +23,8 @@ class TestWorker(Worker):
 
     def compute(self, result, *args, **kwargs):
         time.sleep(self.sleep_duration)
-        result['loss'] = 0
-        result['info'] = {}
+        result.loss = 0
+        result.info = {}
 
 
 class TestWorkers(unittest.TestCase):

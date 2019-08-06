@@ -4,7 +4,7 @@ import ConfigSpace as CS
 import numpy as np
 
 from dswizard.core.dispatcher import Job
-from dswizard.core.model import ConfigId
+from dswizard.core.model import ConfigId, Result, ConfigInfo
 from dswizard.optimizers.config_generators import Hyperopt
 
 
@@ -46,7 +46,7 @@ class TestBinaryRssRegressionForest(unittest.TestCase):
             imputed_array = hyperopt.impute_conditional_data(np.array(raw_array))
             self.assertFalse(np.any(np.isnan(imputed_array)))
             job = Job(ConfigId(i, i, i), budget=1, config=config)
-            job.result = {'loss': np.random.rand(), 'info': {}}
+            job.result = Result(loss=np.random.rand(), info=ConfigInfo())
             hyperopt.new_result(job)
 
         for j in range(64):

@@ -209,7 +209,7 @@ class Worker:
                 self.logger.debug('Abort fitting after timeout')
                 p.terminate()
                 p.join()
-                result = Result.failure('Computation did not finish within {} seconds'.format(timeout))
+                result = Result.timeout(timeout)
 
             if p.exception:
                 error, tb = p.exception
@@ -220,7 +220,7 @@ class Worker:
 
                 # TODO: In BaseIteration@121 result sometimes does contain an empty result. Could be caused by IPC
                 # problem???
-                if 'loss' not in result.result:
+                if result.loss is None:
                     self.logger.warning('Empty result even though computation was successful')
                     raise KeyError('Result does not contain mandatory \'loss\' key')
         except Exception:

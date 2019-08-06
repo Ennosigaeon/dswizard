@@ -16,7 +16,7 @@ class TestResult(unittest.TestCase):
         self.assertEqual(run_obj.config_id, 1)
         self.assertEqual(run_obj.budget, 2)
         self.assertListEqual(run_obj.loss, [3, 1])
-        self.assertListEqual(run_obj.info['loss'], [3, 1])
+        self.assertListEqual(run_obj.info.loss, [3, 1])
         self.assertDictEqual(run_obj.time_stamps, {'submitted': 0, 'started': 10})
 
 

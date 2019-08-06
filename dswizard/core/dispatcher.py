@@ -268,7 +268,7 @@ class Dispatcher:
             # fill in missing information
             job = self.running_jobs[id]
             job.time_it('finished')
-            job.result = result.result
+            job.result = result
             job.exception = result.exception
 
             self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))

@@ -1,4 +1,5 @@
 import importlib
+import time
 
 from ConfigSpace import Configuration
 from sklearn import metrics
@@ -38,6 +39,7 @@ class SklearnWorker(Worker):
                 working_directory: str, result: dict, **kwargs):
         # TODO budget missing
 
+        start = time.time()
         pipeline = FlexiblePipeline(info.structure, self.dataset_properties)
         pipeline.set_hyperparameters(config)
         pipeline.fit(self.X, self.y)
@@ -47,6 +49,7 @@ class SklearnWorker(Worker):
 
         result['loss'] = res
         result['info'] = info
+        result['time'] = time.time() - start
 
     def create_estimator(self, conf: dict):
         try:

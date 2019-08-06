@@ -5,6 +5,7 @@ import math
 import numpy as np
 from ConfigSpace.configuration_space import Configuration
 
+from dswizard.core import model
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import ConfigId, Datum, Job, ConfigInfo
 from dswizard.core.result import JsonResultLogger, Result
@@ -117,7 +118,7 @@ class BaseIteration:
         d.time_stamps[budget] = timestamps
         d.results[budget] = result
 
-        if (job.result is not None) and np.isfinite(result['loss']):
+        if job.result.loss is not None and np.isfinite(result.loss):
             d.status = 'REVIEW'
         else:
             d.status = 'CRASHED'
@@ -194,7 +195,7 @@ class BaseIteration:
             raise RuntimeError('Not all configurations have the same budget!')
         budget = self.budgets[self.stage - 1]
 
-        losses = np.array([self.data[cid].results[budget]['loss'] for cid in config_ids])
+        losses = np.array([self.data[cid].results[budget].loss for cid in config_ids])
 
         advance = self._advance_to_next_stage(losses)
 
@@ -243,7 +244,7 @@ class WarmStartIteration(BaseIteration):
             for r in result.get_runs_by_id(id):
                 j = Job(new_id, config=id2conf[id]['config'], info=None, budget=r.budget, timout=None)
 
-                j.result = {'loss': r.loss, 'info': r.info}
+                j.result = model.Result(loss=r.loss, info=r.info)
                 j.error_logs = r.error_logs
 
                 for k, v in r.time_stamps.items():

@@ -119,7 +119,7 @@ class JsonResultLogger:
         with open(self.results_fn, 'a') as fh:
             fh.write(json.dumps(
                 [job.id.as_tuple(), job.budget, job.timestamps,
-                 job.result['loss'] if job.result is not None else None, job.exception]))
+                 job.result.loss if job.result is not None else None, job.exception]))
             fh.write("\n")
 
 
@@ -167,7 +167,7 @@ class Result:
                 # only things run for the max budget are considered
                 res = v.results[self.HB_config['max_budget']]
                 if res is not None:
-                    tmp_list.append((res['loss'], k))
+                    tmp_list.append((res.loss, k))
             except KeyError:
                 pass
 
@@ -262,7 +262,7 @@ class Result:
                     # TODO only necessary while ConfigInfo is not completely serializable
                     r = Run(config_id, b, d.results[b], None, d.time_stamps[b], err_logs)
                 else:
-                    r = Run(config_id, b, d.results[b]['loss'], d.results[b]['info'], d.time_stamps[b], err_logs)
+                    r = Run(config_id, b, d.results[b].loss, d.results[b].info, d.time_stamps[b], err_logs)
             runs.append(r)
         runs.sort(key=lambda r: r.budget)
         return runs

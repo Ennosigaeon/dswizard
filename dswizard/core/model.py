@@ -2,6 +2,7 @@ import time
 from typing import Optional, Dict, Union
 
 from ConfigSpace.configuration_space import Configuration, OrderedDict
+from smac.tae.execute_ta_run import StatusType
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
 
@@ -76,17 +77,35 @@ class ConfigInfo:
 
 class Result:
 
-    def __init__(self, result: Optional[dict], exception: Optional[str]):
-        self.result = result
+    def __init__(self, status: Optional[StatusType] = None,
+                 loss: Optional[float] = None,
+                 info: Optional[ConfigInfo] = None,
+                 time: Optional[float] = None,
+                 exception: Optional[str] = None):
+        # self.result = {
+        #     'loss': loss,
+        #     'info': info,
+        #     'time': time,
+        #     'status': status
+        # }
+        self.status = status
+        self.loss = loss
+        self.info = info
+        self.time = time
         self.exception = exception
 
     @staticmethod
     def success(result: dict):
-        return Result(result, None)
+        return Result(StatusType.SUCCESS, **result, exception=None)
 
     @staticmethod
     def failure(exception: str):
-        return Result(None, exception)
+        return Result(StatusType.CRASHED, loss=None, info=None, time=None, exception=exception)
+
+    @staticmethod
+    def timeout(timeout: float):
+        return Result(StatusType.TIMEOUT, loss=None, info=None, time=None,
+                      exception='Computation did not finish within {} seconds'.format(timeout))
 
 
 class Datum:
@@ -111,7 +130,7 @@ class Datum:
     def __repr__(self):
         return str({'config': self.config,
                     'config_info': self.config_info,
-                    'losses': '\t'.join(["{}: {}\t".format(k, v['loss']) for k, v in self.results.items()]),
+                    'losses': '\t'.join(["{}: {}\t".format(k, v.loss) for k, v in self.results.items()]),
                     'time stamps': self.time_stamps})
 
 
@@ -127,7 +146,7 @@ class Job:
 
         self.timestamps = {}
 
-        self.result = None
+        self.result: Result = None
         self.exception = None
 
         self.worker_name = None
