@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Callable
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.base_iteration import BaseIteration
@@ -44,12 +44,17 @@ class HPO:
         self.iterations[job.id.iteration].register_result(job)
         self.config_generator.new_result(job)
 
-    def get_runs(self, iteration_kwargs: dict = None) -> Optional[Tuple[ConfigId, Datum]]:
+    def optimize(self, starter: Callable[[ConfigId, Datum], None], iteration_kwargs: dict):
         """
-        Generator for obtaining all runs in this racing procedure.
+        Optimize all hyperparameters
+        :param starter:
         :param iteration_kwargs:
         :return:
         """
+        for id, datum in self._get_next_datum(iteration_kwargs):
+            starter(id, datum)
+
+    def _get_next_datum(self, iteration_kwargs: dict = None) -> Optional[Tuple[ConfigId, Datum]]:
         n_iterations = self.max_iterations
         while True:
             next_run = None

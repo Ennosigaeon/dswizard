@@ -138,12 +138,10 @@ class Master:
             ws_data = []
 
         self.thread_cond.acquire()
-        for config_id, datum in self.hpo.get_runs(iteration_kwargs):
-            # Wait for available worker
-            self._queue_wait()
+        self._queue_wait()
 
-            self.logger.debug('submitting job {} to dispatcher'.format(config_id))
-            self._submit_job(config_id, datum)
+        # Main hyperparamter optimization logic
+        self.hpo.optimize(self._submit_job, iteration_kwargs)
 
         self.thread_cond.release()
         self.logger.info('Finished run after {}'.format(humanize.naturaldelta(time.time() - self.time_ref)))
@@ -197,6 +195,7 @@ class Master:
 
         This function handles the actual submission in a (hopefully) thread save way
         """
+        self.logger.debug('submitting job {} to dispatcher'.format(config_id))
         with self.thread_cond:
             # noinspection PyTypeChecker
             self.dispatcher.submit_job(config_id,
@@ -206,3 +205,4 @@ class Master:
                                        timeout=datum.timeout,
                                        working_directory=self.working_directory)
             self.num_running_jobs += 1
+        self._queue_wait()

@@ -13,7 +13,8 @@ class RandomSearch(HPO):
                  structure: Structure = None,
                  eta: float = 3,
                  min_budget: float = 1,
-                 max_budget: float = 1):
+                 max_budget: float = 1,
+                 timeout: float = None):
         """
         Implements a random search across the search space for comparison. Candidates are sampled at random and run on
         the maximum budget.
@@ -31,6 +32,7 @@ class RandomSearch(HPO):
 
         self.max_budget = max_budget
         self.max_iterations = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
+        self.timeout = timeout
 
         budgets = max_budget * np.power(eta, -np.linspace(self.max_iterations - 1, 0, self.max_iterations))
         self.budget_per_iteration = sum([b * eta ** i for i, b in enumerate(budgets[::-1])])
