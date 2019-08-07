@@ -123,7 +123,7 @@ class JsonResultLogger:
             fh.write("\n")
 
 
-class Result:
+class RunHistory:
     """
     Object returned by the HB_master.run function
 
@@ -411,7 +411,7 @@ class Result:
         return df_X, df_y
 
 
-def logged_results_to_HBS_result(directory: str) -> Result:
+def logged_results_to_runhistory(directory: str) -> RunHistory:
     """
     function to import logged 'live-results' and return a HB_result object
 
@@ -466,4 +466,4 @@ def logged_results_to_HBS_result(directory: str) -> Result:
         'max_SH_iter': len(budget_set),
         'time_ref': time_ref
     }
-    return Result([data], HB_config)
+    return RunHistory([data], HB_config)

@@ -4,7 +4,7 @@ import unittest
 
 import ConfigSpace as CS
 
-from dswizard.core.result import Run, extract_HBS_learning_curves, JsonResultLogger
+from dswizard.core.runhistory import Run, extract_HBS_learning_curves, JsonResultLogger
 
 
 class TestResult(unittest.TestCase):

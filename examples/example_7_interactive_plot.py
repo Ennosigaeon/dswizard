@@ -14,11 +14,11 @@ results.  Please refer to the documentation of the visualization submodule to se
 options.
 """
 
-import dswizard.core.result as hpres
+import dswizard.core.runhistory as hpres
 import dswizard.visualization as hpvis
 
 # load the example run from the log files
-result = hpres.logged_results_to_HBS_result('example_5_run/')
+result = hpres.logged_results_to_runhistory('example_5_run/')
 
 # get all executed runs
 all_runs = result.get_all_runs()

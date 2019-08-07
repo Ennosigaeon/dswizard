@@ -11,7 +11,7 @@ from dswizard.core.base_hpo import HPO
 from dswizard.core.base_iteration import WarmStartIteration
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.model import ConfigId, Datum, Job
-from dswizard.core.result import JsonResultLogger, Result
+from dswizard.core.runhistory import JsonResultLogger, RunHistory
 
 
 class Master:
@@ -107,7 +107,7 @@ class Master:
 
         self.logger.debug('Enough workers to start this run!')
 
-    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None, previous_result: Any = None) -> Result:
+    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None, previous_result: Any = None) -> RunHistory:
         """
         run optimization
         :param min_n_workers: minimum number of workers before starting the run
@@ -148,8 +148,8 @@ class Master:
         self.thread_cond.release()
         self.logger.info('Finished run after {}'.format(humanize.naturaldelta(time.time() - self.time_ref)))
 
-        return Result([copy.deepcopy(i.data) for i in self.hpo.iterations] + ws_data,
-                      {**self.config, **self.hpo.config})
+        return RunHistory([copy.deepcopy(i.data) for i in self.hpo.iterations] + ws_data,
+                          {**self.config, **self.hpo.config})
 
     def adjust_queue_size(self, number_of_workers: int = None) -> None:
         self.logger.debug('number of workers changed to {}'.format(number_of_workers))

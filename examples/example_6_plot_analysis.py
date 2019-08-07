@@ -10,11 +10,11 @@ More advanced analysis plots provide some insights into a run and the problem.
 
 import matplotlib.pyplot as plt
 
-import dswizard.core.result as hpres
+import dswizard.core.runhistory as hpres
 import dswizard.visualization as hpvis
 
 # load the example run from the log files
-result = hpres.logged_results_to_HBS_result('../logs/')
+result = hpres.logged_results_to_runhistory('../logs/')
 
 # get all executed runs
 all_runs = result.get_all_runs()

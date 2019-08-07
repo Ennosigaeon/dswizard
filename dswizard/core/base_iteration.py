@@ -8,7 +8,7 @@ from ConfigSpace.configuration_space import Configuration
 from dswizard.core import model
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import ConfigId, Datum, Job, ConfigInfo
-from dswizard.core.result import JsonResultLogger, Result
+from dswizard.core.runhistory import JsonResultLogger, RunHistory
 
 
 class BaseIteration:
@@ -227,7 +227,7 @@ class WarmStartIteration(BaseIteration):
     iteration that imports a previous Result for warm starting
     """
 
-    def __init__(self, result: Result, config_generator: BaseConfigGenerator):
+    def __init__(self, result: RunHistory, config_generator: BaseConfigGenerator):
 
         self.is_finished = False
         self.stage = 0

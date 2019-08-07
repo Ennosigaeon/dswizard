@@ -15,7 +15,7 @@ import os
 import pickle
 
 import dswizard.core.nameserver as hpns
-import dswizard.core.result as hpres
+import dswizard.core.runhistory as hpres
 from dswizard.optimizers import BOHB
 
 logging.basicConfig(level=logging.DEBUG)

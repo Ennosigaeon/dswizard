@@ -15,7 +15,7 @@ from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
 from dswizard.core.master import Master
-from dswizard.core.result import JsonResultLogger
+from dswizard.core.runhistory import JsonResultLogger
 from dswizard.optimizers.hpo import BOHB
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker

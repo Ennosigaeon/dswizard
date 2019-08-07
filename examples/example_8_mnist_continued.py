@@ -26,7 +26,7 @@ import os
 import pickle
 
 import dswizard.core.nameserver as hpns
-import dswizard.core.result as hpres
+import dswizard.core.runhistory as hpres
 from dswizard.optimizers import BOHB
 
 logging.basicConfig(level=logging.DEBUG)
@@ -84,7 +84,7 @@ w.run(background=True)
 # Let us load the old run now to use its results to warmstart a new run with slightly
 # different budgets in terms of datapoints and epochs.
 # Note that the search space has to be identical though!
-previous_run = hpres.logged_results_to_HBS_result(args.previous_run_dir)
+previous_run = hpres.logged_results_to_runhistory(args.previous_run_dir)
 
 # Run an optimizer
 bohb = BOHB(configspace=worker.get_configspace(),
