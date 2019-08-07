@@ -1,6 +1,7 @@
 import importlib
 import time
 
+import math
 from ConfigSpace import Configuration
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
@@ -37,12 +38,16 @@ class SklearnWorker(Worker):
 
     def compute(self, config_id: ConfigId, config: Configuration, info: ConfigInfo, budget: float,
                 working_directory: str, result: dict, **kwargs):
-        # TODO budget missing
+
+        # Only use budget-percent
+        n = math.ceil(len(self.X) * budget)
+        X = self.X[:n]
+        y = self.y[:n]
 
         start = time.time()
         pipeline = FlexiblePipeline(info.structure, self.dataset_properties)
         pipeline.set_hyperparameters(config)
-        pipeline.fit(self.X, self.y)
+        pipeline.fit(X, y)
 
         y_pred = pipeline.predict(self.X_test)
         accuracy = metrics.accuracy_score(self.y_test, y_pred)

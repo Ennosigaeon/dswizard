@@ -85,7 +85,7 @@ NS.shutdown()
 id2config = res.get_id2config_mapping()
 incumbent = id2config[res.get_incumbent_id()]
 
-print('Best found configuration: {} with loss {}'.format(incumbent.config, incumbent.budget))
+print('Best found configuration: {} with loss {}'.format(incumbent.config, incumbent.get_result().loss))
 print('A total of {} unique configurations where sampled.'.format(len(id2config.keys())))
 print('A total of {} runs where executed.'.format(len(res.get_all_runs())))
 print('Total budget corresponds to {:.1f} full function evaluations.'.format(

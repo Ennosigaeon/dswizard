@@ -100,11 +100,11 @@ class Result:
 
     @staticmethod
     def failure(exception: str):
-        return Result(StatusType.CRASHED, loss=None, info=None, time=None, exception=exception)
+        return Result(StatusType.CRASHED, loss=1, info=None, time=None, exception=exception)
 
     @staticmethod
     def timeout(timeout: float):
-        return Result(StatusType.TIMEOUT, loss=None, info=None, time=None,
+        return Result(StatusType.TIMEOUT, loss=1, info=None, time=None,
                       exception='Computation did not finish within {} seconds'.format(timeout))
 
 
@@ -120,7 +120,7 @@ class Datum:
                  timeout: float = None):
         self.config = config
         self.config_info = config_info
-        self.results = results if results is not None else {}
+        self.results: Dict[float, Result] = results if results is not None else {}
         self.time_stamps = time_stamps if time_stamps is not None else {}
         self.exceptions = exceptions if exceptions is not None else {}
         self.status = status
@@ -132,6 +132,11 @@ class Datum:
                     'config_info': self.config_info,
                     'losses': '\t'.join(["{}: {}\t".format(k, v.loss) for k, v in self.results.items()]),
                     'time stamps': self.time_stamps})
+
+    def get_result(self, budget: float = None) -> Result:
+        if budget is None:
+            budget = max(self.results.keys())
+        return self.results[budget]
 
 
 class Job:
