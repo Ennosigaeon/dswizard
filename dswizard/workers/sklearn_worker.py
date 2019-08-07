@@ -45,9 +45,9 @@ class SklearnWorker(Worker):
         pipeline.fit(self.X, self.y)
 
         y_pred = pipeline.predict(self.X_test)
-        res = metrics.accuracy_score(self.y_test, y_pred)
+        accuracy = metrics.accuracy_score(self.y_test, y_pred)
 
-        result['loss'] = res
+        result['loss'] = 1 - accuracy
         result['info'] = info
         result['time'] = time.time() - start
 

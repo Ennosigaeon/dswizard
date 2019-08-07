@@ -171,10 +171,10 @@ class Worker:
         :param working_directory: a name of a directory that is unique to this configuration. Use this to store
             intermediate results on lower  budgets that can be reused later for a larger budget (for iterative
             algorithms, for example).
-        :param result: contains the return values in a dictionary. Needs to contain two mandatory entries:
+        :param result: contains the return values in a dictionary. Needs to contain three mandatory entries:
                 - 'loss': a numerical value that is MINIMIZED
-                - 'info': This can be pretty much any build in python type, e.g. a dict with lists as value. Due to
-                          Pyro4 handling the remote function calls, 3rd party types like numpy arrays are not supported!
+                - 'info': a ConfigInfo object
+                - 'time': the required evaluation time
         """
 
         raise NotImplementedError(
