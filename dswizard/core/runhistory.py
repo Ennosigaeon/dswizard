@@ -308,19 +308,11 @@ class RunHistory:
 
         return all_runs
 
-    def get_id2config_mapping(self) -> Dict[ConfigId, dict]:
+    def get_id2config_mapping(self) -> Dict[ConfigId, Datum]:
         """
         returns a dict where the keys are the config_ids and the values are the actual configurations
         """
-        new_dict = {}
-        for k, v in self.data.items():
-            new_dict[k] = {}
-            new_dict[k]['config'] = copy.deepcopy(v.config)
-            try:
-                new_dict[k]['config_info'] = copy.deepcopy(v.config_info)
-            except KeyError:
-                pass
-        return new_dict
+        return copy.deepcopy(self.data)
 
     def num_iterations(self) -> int:
         return max([k.iteration for k in self.data.keys()]) + 1
@@ -363,7 +355,7 @@ class RunHistory:
             else:
                 y.append(loss_fn(r))
 
-            config = id2conf[r.config_id]['config']
+            config = id2conf[r.config_id].config
             if len(budgets) > 1:
                 config['budget'] = r.budget
 
@@ -398,7 +390,7 @@ class RunHistory:
         for r in all_runs:
             if r.loss is None:
                 continue
-            config = id2conf[r.config_id]['config']
+            config = id2conf[r.config_id].config
             if len(budgets) > 1:
                 config['budget'] = r.budget
 

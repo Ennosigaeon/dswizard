@@ -62,7 +62,7 @@ incumbent = res.get_incumbent_id()
 
 all_runs = res.get_all_runs()
 
-print('Best found configuration:', id2config[incumbent]['config'])
+print('Best found configuration:', id2config[incumbent].config)
 print('A total of %i unique configurations where sampled.' % len(id2config.keys()))
 print('A total of %i runs where executed.' % len(res.get_all_runs()))
 print('Total budget corresponds to %.1f full function evaluations.'%(sum([r.budget for r in all_runs])/args.max_budget))

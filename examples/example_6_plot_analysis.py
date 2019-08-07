@@ -32,7 +32,7 @@ inc_run = inc_runs[-1]
 # We have access to all information: the config, the loss observed during
 # optimization, and all the additional information
 inc_loss = inc_run.loss
-inc_config = id2conf[inc_id]['config']
+inc_config = id2conf[inc_id].config
 inc_test_loss = inc_run.info['test accuracy']
 
 print('Best found configuration:')

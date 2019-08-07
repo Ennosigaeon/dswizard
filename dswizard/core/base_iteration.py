@@ -239,10 +239,10 @@ class WarmStartIteration(BaseIteration):
         super().__init__(-1, [len(id2conf)], [None], None)
 
         for i, id in enumerate(id2conf):
-            new_id = self.add_configuration(config=id2conf[id]['config'], config_info=id2conf[id]['config_info'])
+            new_id = self.add_configuration(config=id2conf[id].config, config_info=id2conf[id].config_info)
 
             for r in result.get_runs_by_id(id):
-                j = Job(new_id, config=id2conf[id]['config'], info=None, budget=r.budget, timout=None)
+                j = Job(new_id, config=id2conf[id].config, info=None, budget=r.budget, timout=None)
 
                 j.result = model.Result(loss=r.loss, info=r.info)
                 j.error_logs = r.error_logs
