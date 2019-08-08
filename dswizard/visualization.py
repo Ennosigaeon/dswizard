@@ -1,12 +1,12 @@
 import copy
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as sps
 from matplotlib.widgets import CheckButtons, Button
-from typing import List
 
-from dswizard.core.model import ConfigId
+from dswizard.core.model import CandidateId
 
 
 def default_tool_tips(result_object, learning_curves, include_run_info=False):
@@ -237,7 +237,7 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
                          color_map='Set3', colors_floats=None, title='', show=True):
     times = []
     losses = []
-    config_ids: List[ConfigId] = []
+    config_ids: List[CandidateId] = []
 
     for k, v in learning_curves.items():
         for l in v:
@@ -265,7 +265,7 @@ def interactive_HBS_plot(learning_curves, tool_tip_strings=None, log_y=False, lo
     if colors_floats is None:
         color_floats = []
         for i in range(num_curves):
-            seed = 100 * np.abs(config_ids[i].iteration) + 10 * config_ids[i].budget + config_ids[i].idx
+            seed = 100 * np.abs(config_ids[i].iteration) + config_ids[i].structure
             np.random.seed(seed)
             color_floats.append(np.random.rand())
 

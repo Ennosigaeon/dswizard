@@ -246,9 +246,9 @@ class Hyperopt(BaseConfigGenerator):
             return_array[i, :] = datum
         return return_array
 
-    def new_result(self,
-                   job: Job,
-                   update_model: bool = True) -> None:
+    def register_result(self,
+                        job: Job,
+                        update_model: bool = True) -> None:
         """
         function to register finished runs
 
@@ -259,7 +259,7 @@ class Hyperopt(BaseConfigGenerator):
         :return:
         """
 
-        super().new_result(job)
+        super().register_result(job)
 
         if job.result is None:
             # One could skip crashed results, but we decided to

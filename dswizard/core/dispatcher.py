@@ -8,7 +8,7 @@ import Pyro4
 from ConfigSpace import Configuration
 from Pyro4.errors import ConnectionClosedError
 
-from dswizard.core.model import ConfigId, Job, Result, ConfigInfo
+from dswizard.core.model import CandidateId, Result, Job, Structure
 
 
 class Worker:
@@ -79,7 +79,7 @@ class Dispatcher:
         self.worker_pool: Dict[str, Worker] = {}
 
         self.waiting_jobs: queue.Queue[Job] = queue.Queue()
-        self.running_jobs: Dict[ConfigId, Job] = {}
+        self.running_jobs: Dict[CandidateId, Job] = {}
         self.idle_workers: Set[str] = set()
 
         self.thread_lock = threading.Lock()
@@ -239,37 +239,38 @@ class Dispatcher:
             worker = self.worker_pool[wn]
             self.logger.debug('starting job {} on {}'.format(str(job.id), worker.name))
 
-            job.time_it('started')
+            job.time_started = time.time()
             worker.runs_job = job.id
 
-            worker.proxy.start_computation(self, job.id, config=job.config, info=job.info, budget=job.budget, **job.kwargs)
+            worker.proxy.start_computation(self, job.id, config=job.config, structure=job.structure, budget=job.budget,
+                                           **job.kwargs)
 
             job.worker_name = wn
             self.running_jobs[job.id] = job
 
-    def submit_job(self, id: ConfigId,
+    def submit_job(self,
+                   id: CandidateId,
                    config: Configuration,
-                   config_info: ConfigInfo,
+                   structure: Structure,
                    budget: float,
                    timeout: float,
                    **kwargs
                    ) -> None:
         with self.runner_cond:
-            job = Job(id, config, config_info, budget, timeout, **kwargs)
-            job.time_it('submitted')
+            job = Job(id, config, structure, budget, timeout, **kwargs)
+            job.time_submitted = time.time()
             self.waiting_jobs.put(job)
             self.runner_cond.notify()
 
     @Pyro4.expose
     @Pyro4.callback
     @Pyro4.oneway
-    def register_result(self, id: ConfigId = None, result: Result = None) -> None:
+    def register_result(self, id: CandidateId = None, result: Result = None) -> None:
         with self.runner_cond:
             # fill in missing information
             job = self.running_jobs[id]
-            job.time_it('finished')
+            job.time_finished = time.time()
             job.result = result
-            job.exception = result.exception
 
             self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))
 

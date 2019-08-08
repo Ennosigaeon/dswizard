@@ -7,7 +7,7 @@ from sklearn import metrics
 from sklearn.model_selection import train_test_split
 
 from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.model import ConfigId, ConfigInfo
+from dswizard.core.model import CandidateId, Structure
 from dswizard.core.worker import Worker
 
 
@@ -36,16 +36,20 @@ class SklearnWorker(Worker):
             self.y = y
             self.y_test = y_test
 
-    def compute(self, config_id: ConfigId, config: Configuration, info: ConfigInfo, budget: float,
+    def compute(self, config_id: CandidateId, config: Configuration, structure: Structure, budget: float,
                 working_directory: str, result: dict, **kwargs):
 
         # Only use budget-percent
         n = math.ceil(len(self.X) * budget)
+
+        # TODO for iris dataset not reasonable
+        n = len(self.X)
+
         X = self.X[:n]
         y = self.y[:n]
 
         start = time.time()
-        pipeline = FlexiblePipeline(info.structure, self.dataset_properties)
+        pipeline = FlexiblePipeline(structure, self.dataset_properties)
         pipeline.set_hyperparameters(config)
         pipeline.fit(X, y)
 
@@ -53,7 +57,7 @@ class SklearnWorker(Worker):
         accuracy = metrics.accuracy_score(self.y_test, y_pred)
 
         result['loss'] = 1 - accuracy
-        result['info'] = info
+        result['config'] = config
         result['time'] = time.time() - start
 
     def create_estimator(self, conf: dict):

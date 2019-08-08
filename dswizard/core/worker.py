@@ -8,9 +8,11 @@ import time
 import traceback
 
 import Pyro4
+from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 
-from dswizard.core.model import ConfigId, ConfigInfo, Result
+from dswizard.core.dispatcher import Dispatcher
+from dswizard.core.model import CandidateId, Result, Structure
 from dswizard.util.process import Process
 
 
@@ -154,9 +156,9 @@ class Worker:
             ns.remove(self.worker_id)
 
     def compute(self,
-                config_id: ConfigId,
-                config: dict,
-                config_info: ConfigInfo,
+                config_id: CandidateId,
+                config: Configuration,
+                structure: Structure,
                 budget: float,
                 timeout: float,
                 working_directory: str,
@@ -165,7 +167,7 @@ class Worker:
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
-        :param config_info: Additional information about the sampled configuration like pipeline structure.
+        :param structure: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         :param timeout: an optional evaluation timeout
         :param working_directory: a name of a directory that is unique to this configuration. Use this to store
@@ -183,8 +185,8 @@ class Worker:
     @Pyro4.expose
     @Pyro4.oneway
     def start_computation(self,
-                          callback,
-                          id: ConfigId,
+                          callback: Dispatcher,
+                          id: CandidateId,
                           timeout: float = None,
                           *args,
                           **kwargs) -> Result:
@@ -215,7 +217,7 @@ class Worker:
                 error, tb = p.exception
                 result = Result.failure(tb)
             else:
-                # noinspection PyProtectedMember
+                # noinspection PyProtectedMember,PyUnresolvedReferences
                 result = Result.success(d._getvalue())
 
                 # TODO: In BaseIteration@121 result sometimes does contain an empty result. Could be caused by IPC

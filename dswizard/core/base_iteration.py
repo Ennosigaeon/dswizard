@@ -1,17 +1,16 @@
+import abc
 import logging
-from typing import List, Tuple, Optional, Dict
+from typing import List, Optional, Dict
 
 import math
 import numpy as np
-from ConfigSpace.configuration_space import Configuration
 
-from dswizard.core import model
-from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import ConfigId, Datum, Job, ConfigInfo
-from dswizard.core.runhistory import JsonResultLogger, RunHistory
+from dswizard.core.base_structure_generator import BaseStructureGenerator
+from dswizard.core.model import CandidateId, CandidateStructure
+from dswizard.core.runhistory import JsonResultLogger
 
 
-class BaseIteration:
+class BaseIteration(abc.ABC):
     """
     Base class for various iteration possibilities. This decides what configuration should be run on what budget next.
     Typical choices are e.g. successive halving. Results from runs are processed and (depending on the implementations)
@@ -19,35 +18,35 @@ class BaseIteration:
     """
 
     def __init__(self,
-                 HPB_iter: int,
-                 num_configs: List[int],
+                 iteration: int,
+                 num_candidates: List[int],
                  budgets: List[float],
                  timeout: float = None,
-                 config_sampler: BaseConfigGenerator = None,
+                 sampler: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
 
-        :param HPB_iter: The current Hyperband iteration index.
-        :param num_configs: the number of configurations in each stage of SH
+        :param iteration: The current Hyperband iteration index.
+        :param num_candidates: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
         :param timeout: the maximum timeout for evaluating a single configuration
-        :param config_sampler: a function that returns a valid configuration. Its only argument should be the budget
+        :param sampler: a function that returns a valid configuration. Its only argument should be the budget
             that this config is first scheduled for. This might be used to pick configurations that perform best after
             this particular budget is exhausted to build a better autoML system.
         :param logger: a logger
         :param result_logger: a result logger that writes live results to disk
         """
 
-        self.data: Dict[ConfigId, Datum] = {}  # this holds all the configs and results of this iteration
+        self.data: Dict[CandidateId, CandidateStructure] = {}  # this holds all the candidates of this iteration
         self.is_finished = False
-        self.HPB_iter = HPB_iter
+        self.iteration = iteration
         self.stage = 0  # internal iteration, but different name for clarity
         self.budgets = budgets
         self.timeout = timeout
-        self.num_configs = num_configs
-        self.actual_num_configs = [0] * len(num_configs)
-        self.config_sampler = config_sampler
+        self.num_candidates = num_candidates
+        self.actual_num_candidates = [0] * len(num_candidates)
+        self.sampler = sampler
         self.num_running = 0
         if logger is None:
             self.logger = logging.getLogger('Iteration')
@@ -55,78 +54,50 @@ class BaseIteration:
             self.logger = logger
         self.result_logger = result_logger
 
-    def add_configuration(self, config: Configuration = None, config_info: ConfigInfo = None) -> ConfigId:
+    def add_candidate(self, candidate: CandidateStructure = None) -> CandidateId:
         """
         function to add a new configuration to the current iteration
-        :param config: The configuration to add. If None, a configuration is sampled from the config_sampler
-        :param config_info: Some information about the configuration that will be stored in the results
+        :param candidate: The configuration to add. If None, a configuration is sampled from the config_sampler
         :return: The id of the new configuration
         """
-        if config_info is None:
-            config_info = ConfigInfo()
-        if config is None:
-            config, config_info = self.config_sampler.get_config(self.budgets[self.stage])
+        if candidate is None:
+            candidate = self.sampler.get_candidate(self.budgets[self.stage])
 
         if self.is_finished:
             raise RuntimeError("This iteration is finished, you can't add more configurations!")
 
-        if self.actual_num_configs[self.stage] == self.num_configs[self.stage]:
-            raise RuntimeError(
-                "Can't add another configuration to stage {} in iteration {}.".format(self.stage,
-                                                                                                 self.HPB_iter))
+        if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
+            raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
+                                                                                                 self.iteration))
 
-        config_id = ConfigId(self.HPB_iter, self.stage, self.actual_num_configs[self.stage])
-
+        candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
+        candidate.id = candidate_id
         timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
-        self.data[config_id] = Datum(config=config, config_info=config_info, budget=self.budgets[self.stage],
-                                     timeout=timeout)
+        candidate.timeout = timeout
 
-        self.actual_num_configs[self.stage] += 1
+        self.data[candidate_id] = candidate
+        self.actual_num_candidates[self.stage] += 1
 
         if self.result_logger is not None:
-            self.result_logger.new_config(config_id, config, self.config_sampler.configspace, config_info)
+            self.result_logger.new_structure(candidate)
 
-        return config_id
+        return candidate_id
 
-    def register_result(self, job: Job, skip_sanity_checks: bool = False) -> None:
+    def register_result(self, cs: CandidateStructure) -> None:
         """
         function to register the result of a job
 
         This function is called from HB_master, don't call this from your script.
-        :param job: Finished job
-        :param skip_sanity_checks: Basic sanity checks for passed job
+        :param cs: Finished CandidateStructure
         :return:
         """
 
         if self.is_finished:
             raise RuntimeError("This HB iteration is finished, you can't register more results!")
-
-        config_id = job.id
-        config = job.config
-        budget = job.budget
-        timestamps = job.timestamps
-        result = job.result
-        exception = job.exception
-
-        d = self.data[config_id]
-
-        if not skip_sanity_checks:
-            assert d.config == config, 'Configurations differ!'
-            assert d.status == 'RUNNING', "Configuration wasn't scheduled for a run."
-            assert d.budget == budget, 'Budgets differ ({} != {})!'.format(self.data[config_id].budget, budget)
-
-        d.time_stamps[budget] = timestamps
-        d.results[budget] = result
-
-        if job.result.loss is not None and np.isfinite(result.loss):
-            d.status = 'REVIEW'
-        else:
-            d.status = 'CRASHED'
-
-        d.exceptions[budget] = exception
+        cs.status = 'REVIEW'
         self.num_running -= 1
 
-    def get_next_run(self) -> Optional[Tuple[ConfigId, Datum]]:
+    def get_next_candidate(self) -> Optional[CandidateStructure]:
         """
         function to return the next configuration and budget to run.
 
@@ -141,27 +112,28 @@ class BaseIteration:
         if self.is_finished:
             return None
 
-        for id, datum in self.data.items():
-            if datum.status == 'QUEUED':
-                assert datum.budget == self.budgets[self.stage], \
+        for candidate in self.data.values():
+            if candidate.status == 'QUEUED':
+                assert candidate.budget == self.budgets[self.stage], \
                     'Configuration budget does not align with current stage!'
-                datum.status = 'RUNNING'
+                candidate.status = 'RUNNING'
                 self.num_running += 1
-                return id, datum
+                return candidate
 
         # check if there are still slots to fill in the current stage and return that
-        if self.actual_num_configs[self.stage] < self.num_configs[self.stage]:
-            self.add_configuration()
-            return self.get_next_run()
+        if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
+            self.add_candidate()
+            return self.get_next_candidate()
 
         if self.num_running == 0:
             # at this point a stage is completed
             self.logger.debug('Stage {} completed'.format(self.stage))
-            self.process_results()
-            return self.get_next_run()
+            self._process_results()
+            return self.get_next_candidate()
 
         return None
 
+    @abc.abstractmethod
     def _advance_to_next_stage(self, losses: np.ndarray) -> np.ndarray:
         """
         Function that implements the strategy to advance configs within this iteration
@@ -172,7 +144,7 @@ class BaseIteration:
         """
         raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))
 
-    def process_results(self) -> None:
+    def _process_results(self) -> None:
         """
         function that is called when a stage is completed and needs to be analyzed before further computations.
 
@@ -183,34 +155,30 @@ class BaseIteration:
         """
         self.stage += 1
 
-        # collect all config_ids that need to be compared
-        config_ids = list(filter(lambda cid: self.data[cid].status == 'REVIEW', self.data.keys()))
+        # collect all candidate_ids that need to be compared
+        candidate_ids = list(filter(lambda cid: self.data[cid].status == 'REVIEW', self.data.keys()))
 
-        if self.stage >= len(self.num_configs):
+        if self.stage >= len(self.num_candidates):
             self.finish_up()
             return
 
-        budgets = [self.data[cid].budget for cid in config_ids]
+        budgets = [self.data[cid].budget for cid in candidate_ids]
         if len(set(budgets)) > 1:
             raise RuntimeError('Not all configurations have the same budget!')
         budget = self.budgets[self.stage - 1]
 
-        losses = np.array([self.data[cid].results[budget].loss for cid in config_ids])
-
+        losses = np.array([self.data[cid].get_incumbent(budget).loss for cid in candidate_ids])
         advance = self._advance_to_next_stage(losses)
 
-        for i, a in enumerate(advance):
-            if a:
-                self.logger.debug(
-                    'Advancing config {} to next budget {}'.format(config_ids[i], self.budgets[self.stage]))
-
-        for i, cid in enumerate(config_ids):
+        for i, cid in enumerate(candidate_ids):
             if advance[i]:
-                datum = self.data[cid]
-                datum.status = 'QUEUED'
-                datum.budget = self.budgets[self.stage]
-                datum.timeout = math.ceil(datum.budget * self.timeout) if self.timeout is not None else None
-                self.actual_num_configs[self.stage] += 1
+                self.logger.debug('Advancing candidate {} to next budget {}'.format(cid, self.budgets[self.stage]))
+
+                candidate = self.data[cid]
+                candidate.status = 'QUEUED'
+                candidate.budget = self.budgets[self.stage]
+                candidate.timeout = math.ceil(candidate.budget * self.timeout) if self.timeout is not None else None
+                self.actual_num_candidates[self.stage] += 1
             else:
                 self.data[cid].status = 'TERMINATED'
 
@@ -220,54 +188,3 @@ class BaseIteration:
         for k, v in self.data.items():
             assert v.status in ['TERMINATED', 'REVIEW', 'CRASHED'], 'Configuration has not finshed yet!'
             v.status = 'COMPLETED'
-
-
-class WarmStartIteration(BaseIteration):
-    """
-    iteration that imports a previous Result for warm starting
-    """
-
-    def __init__(self, result: RunHistory, config_generator: BaseConfigGenerator):
-
-        self.is_finished = False
-        self.stage = 0
-
-        id2conf = result.get_id2config_mapping()
-        delta_t = - max(map(lambda r: r.time_stamps['finished'], result.get_all_runs()))
-
-        # noinspection PyTypeChecker
-        super().__init__(-1, [len(id2conf)], [None], None)
-
-        for i, id in enumerate(id2conf):
-            new_id = self.add_configuration(config=id2conf[id].config, config_info=id2conf[id].config_info)
-
-            for r in result.get_runs_by_id(id):
-                j = Job(new_id, config=id2conf[id].config, info=None, budget=r.budget, timout=None)
-
-                j.result = model.Result(loss=r.loss, info=r.info)
-                j.error_logs = r.error_logs
-
-                for k, v in r.time_stamps.items():
-                    j.timestamps[k] = v + delta_t
-
-                self.register_result(j, skip_sanity_checks=True)
-
-                config_generator.new_result(j, update_model=(i == len(id2conf) - 1))
-
-        # mark as finished, as no more runs should be executed from these runs
-        self.is_finished = True
-
-    def fix_timestamps(self, time_ref):
-        """
-        manipulates internal time stamps such that the last run ends at time 0
-        :param time_ref:
-        :return:
-        """
-
-        for k, v in self.data.items():
-            for kk, vv in v.time_stamps.items():
-                for kkk, vvv in vv.items():
-                    self.data[k].time_stamps[kk][kkk] += time_ref
-
-    def _advance_to_next_stage(self, losses):
-        pass

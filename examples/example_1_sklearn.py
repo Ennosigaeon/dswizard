@@ -16,7 +16,8 @@ from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
 from dswizard.core.master import Master
 from dswizard.core.runhistory import JsonResultLogger
-from dswizard.optimizers.hpo import BOHB
+from dswizard.optimizers.bandit_learners import GenericBanditLearner
+from dswizard.optimizers.config_generators import RandomSampling
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
 
@@ -61,16 +62,20 @@ steps['step_0'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_p
 steps['step_1'] = ClassifierChoice()
 structure_generator = FixedStructure(dataset_properties, steps)
 
-configspace, structure = structure_generator.get_config_space()
-bohb = BOHB(configspace=configspace,
-            structure=structure,
-            min_budget=args.min_budget,
-            max_budget=args.max_budget,
-            timeout=args.timeout,
-            )
+configspace = structure_generator.configspace
+structure = structure_generator.configspace
+config_generator = RandomSampling(configspace=configspace,
+                                  structure=structure
+                                  )
+
+bandit = GenericBanditLearner(structure_generator,
+                              config_generator,
+                              min_budget=args.min_budget,
+                              max_budget=args.max_budget,
+                              timeout=args.timeout)
 
 master = Master(
-    hpo_procedure=bohb,
+    bandit_learner=bandit,
     run_id=args.run_id,
     nameserver='127.0.0.1',
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True)
@@ -85,8 +90,7 @@ NS.shutdown()
 id2config = res.get_id2config_mapping()
 incumbent = id2config[res.get_incumbent_id()]
 
-print('Best found configuration: {} with loss {}'.format(incumbent.config, incumbent.get_result().loss))
+print('Best found configuration: {} with loss {}'.format(incumbent.get_incumbent().config,
+                                                         incumbent.get_incumbent().loss))
 print('A total of {} unique configurations where sampled.'.format(len(id2config.keys())))
 print('A total of {} runs where executed.'.format(len(res.get_all_runs())))
-print('Total budget corresponds to {:.1f} full function evaluations.'.format(
-    sum([r.budget for r in res.get_all_runs()]) / args.max_budget))

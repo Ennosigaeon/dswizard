@@ -1,10 +1,8 @@
-from typing import Tuple
-
 from ConfigSpace.configuration_space import ConfigurationSpace
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.model import Structure
+from dswizard.core.model import Structure, CandidateStructure
 
 
 class FixedStructure(BaseStructureGenerator):
@@ -23,5 +21,5 @@ class FixedStructure(BaseStructureGenerator):
             self.configspace.add_configuration_space(step, cs)
         self.structure = structure
 
-    def get_config_space(self) -> Tuple[ConfigurationSpace, Structure]:
-        return self.configspace, self.structure
+    def get_candidate(self, budget: float = None) -> CandidateStructure:
+        return CandidateStructure(self.configspace, self.structure, budget)

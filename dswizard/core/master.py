@@ -3,21 +3,21 @@ import logging
 import os
 import threading
 import time
-from typing import Tuple, Optional, Any
+from typing import Tuple, Optional
 
 import humanize
+from ConfigSpace import Configuration
 
-from dswizard.core.base_hpo import HPO
-from dswizard.core.base_iteration import WarmStartIteration
+from dswizard.core.base_bandit_learner import BanditLearner
 from dswizard.core.dispatcher import Dispatcher
-from dswizard.core.model import ConfigId, Datum, Job
+from dswizard.core.model import CandidateId, Structure, Job
 from dswizard.core.runhistory import JsonResultLogger, RunHistory
 
 
 class Master:
     def __init__(self,
                  run_id: str,
-                 hpo_procedure: HPO,
+                 bandit_learner: BanditLearner,
                  working_directory: str = '.',
                  ping_interval: int = 60,
                  nameserver: str = '127.0.0.1',
@@ -34,7 +34,7 @@ class Master:
         budget when.
         :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
             multiple concurrent runs to separate them
-        :param hpo_procedure: A hyperparameter optimization procedure
+        :param bandit_learner: A hyperparameter optimization procedure
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
         :param ping_interval: number of seconds between pings to discover new nodes. Default is 60 seconds.
         :param nameserver: address of the Pyro4 nameserver
@@ -60,7 +60,7 @@ class Master:
 
         self.time_ref: Optional[float] = None
 
-        self.hpo: HPO = hpo_procedure
+        self.bandit_learner: BanditLearner = bandit_learner
         self.jobs = []
 
         self.num_running_jobs = 0
@@ -107,12 +107,11 @@ class Master:
 
         self.logger.debug('Enough workers to start this run!')
 
-    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None, previous_result: Any = None) -> RunHistory:
+    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
         """
         run optimization
         :param min_n_workers: minimum number of workers before starting the run
         :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
-        :param previous_result: previous run to warmstart the run
         :return:
         """
 
@@ -130,24 +129,24 @@ class Master:
             self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
                                                                        time.localtime(self.time_ref))))
 
-        if previous_result is not None:
-            ws = WarmStartIteration(previous_result, self.hpo.config_generator)
-            ws.fix_timestamps(self.time_ref)
-            ws_data = ws.data
-        else:
-            ws_data = []
-
         self.thread_cond.acquire()
         self._queue_wait()
 
+        # while time_limit is not exhausted:
+        #   structure, budget = structure_generator.get_next_structure()
+        #   configspace = structure.configspace
+        #
+        #   incumbent, loss = bandit_learners.optimize(configspace, structure)
+        #   Update score of selected structure with loss
+
         # Main hyperparamter optimization logic
-        self.hpo.optimize(self._submit_job, iteration_kwargs)
+        self.bandit_learner.optimize(self._submit_job, iteration_kwargs)
 
         self.thread_cond.release()
         self.logger.info('Finished run after {}'.format(humanize.naturaldelta(time.time() - self.time_ref)))
 
-        return RunHistory([copy.deepcopy(i.data) for i in self.hpo.iterations] + ws_data,
-                          {**self.config, **self.hpo.config})
+        return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
+                          {**self.config, **self.bandit_learner.config})
 
     def adjust_queue_size(self, number_of_workers: int = None) -> None:
         self.logger.debug('number of workers changed to {}'.format(number_of_workers))
@@ -171,8 +170,9 @@ class Master:
             self.num_running_jobs -= 1
 
             if self.result_logger is not None:
-                self.result_logger(job)
-            self.hpo.register_result(job)
+                self.result_logger.log_evaluated_config(job)
+
+            self.bandit_learner.config_generator.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')
@@ -189,20 +189,25 @@ class Master:
                     self.num_running_jobs, self.job_queue_sizes))
                 self.thread_cond.wait()
 
-    def _submit_job(self, config_id: ConfigId, datum: Datum) -> None:
+    def _submit_job(self,
+                    id: CandidateId,
+                    config: Configuration,
+                    structure: Structure,
+                    budget: float,
+                    timeout: float) -> None:
         """
         protected function to submit a new job to the dispatcher
 
         This function handles the actual submission in a (hopefully) thread save way
         """
-        self.logger.debug('submitting job {} to dispatcher'.format(config_id))
+        self.logger.debug('submitting job {} to dispatcher'.format(id))
         with self.thread_cond:
             # noinspection PyTypeChecker
-            self.dispatcher.submit_job(config_id,
-                                       config=datum.config,
-                                       config_info=datum.config_info,
-                                       budget=datum.budget,
-                                       timeout=datum.timeout,
+            self.dispatcher.submit_job(id,
+                                       config=config,
+                                       structure=structure,
+                                       budget=budget,
+                                       timeout=timeout,
                                        working_directory=self.working_directory)
             self.num_running_jobs += 1
         self._queue_wait()
