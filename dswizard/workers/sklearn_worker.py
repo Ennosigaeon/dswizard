@@ -1,5 +1,4 @@
 import importlib
-import time
 
 import math
 from ConfigSpace import Configuration
@@ -36,9 +35,11 @@ class SklearnWorker(Worker):
             self.y = y
             self.y_test = y_test
 
-    def compute(self, config_id: CandidateId, config: Configuration, structure: Structure, budget: float,
-                working_directory: str, result: dict, **kwargs):
-
+    def compute(self,
+                config_id: CandidateId,
+                config: Configuration,
+                structure: Structure,
+                budget: float):
         # Only use budget-percent
         n = math.ceil(len(self.X) * budget)
 
@@ -48,7 +49,6 @@ class SklearnWorker(Worker):
         X = self.X[:n]
         y = self.y[:n]
 
-        start = time.time()
         pipeline = FlexiblePipeline(structure, self.dataset_properties)
         pipeline.set_hyperparameters(config)
         pipeline.fit(X, y)
@@ -56,9 +56,7 @@ class SklearnWorker(Worker):
         y_pred = pipeline.predict(self.X_test)
         accuracy = metrics.accuracy_score(self.y_test, y_pred)
 
-        result['loss'] = 1 - accuracy
-        result['config'] = config
-        result['time'] = time.time() - start
+        return 1 - accuracy
 
     def create_estimator(self, conf: dict):
         try:

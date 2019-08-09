@@ -44,4 +44,4 @@ class SMAC(BaseConfigGenerator):
 
     def register_result(self, job: Job, update_model: bool = True) -> None:
         super().register_result(job, update_model)
-        self.smac.solver.runhistory.add(job.config, job.result.loss, job.result.time, job.result.status, str(job.id))
+        self.smac.solver.runhistory.add(job.config, job.result.loss, job.result.runtime, job.result.status, str(job.id))

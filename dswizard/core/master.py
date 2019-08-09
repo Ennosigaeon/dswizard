@@ -207,7 +207,6 @@ class Master:
                                        config=config,
                                        structure=structure,
                                        budget=budget,
-                                       timeout=timeout,
-                                       working_directory=self.working_directory)
+                                       timeout=timeout)
             self.num_running_jobs += 1
         self._queue_wait()

@@ -65,9 +65,9 @@ class JsonResultLogger:
                 fh.write(json.dumps([job.id.as_tuple(), job.config, {}]))
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
-            fh.write(json.dumps(
-                [job.id.as_tuple(), job.budget, job.result.as_dict() if job.result is not None else None,
-                 job.result.exception]))
+            fh.write(
+                json.dumps([job.id.as_tuple(), job.budget, job.result.as_dict() if job.result is not None else None])
+            )
             fh.write("\n")
 
 
@@ -192,7 +192,7 @@ def logged_results_to_runhistory(directory: str) -> RunHistory:
 
             if result is not None:
                 res = Result(result.get('status'), Configuration(data[id].configspace, result.get('config')),
-                             result.get('loss'), result.get('time'), result.get('exception'))
+                             result.get('loss'), result.get('runtime'))
                 data[id].add_result(budget, res)
                 budget_set.add(budget)
 

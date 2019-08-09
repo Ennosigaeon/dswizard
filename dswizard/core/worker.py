@@ -1,3 +1,4 @@
+import abc
 import logging
 import multiprocessing
 import os
@@ -8,15 +9,16 @@ import time
 import traceback
 
 import Pyro4
+import pynisher
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
+from smac.tae.execute_ta_run import StatusType
 
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.model import CandidateId, Result, Structure
-from dswizard.util.process import Process
 
 
-class Worker:
+class Worker(abc.ABC):
     """
     The worker is responsible for evaluating a single configuration on a single budget at a time. Communication to the
     individual workers goes via the nameserver, management of the worker-pool and job scheduling is done by the
@@ -155,41 +157,31 @@ class Worker:
         with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
             ns.remove(self.worker_id)
 
+    @abc.abstractmethod
     def compute(self,
                 config_id: CandidateId,
                 config: Configuration,
                 structure: Structure,
-                budget: float,
-                timeout: float,
-                working_directory: str,
-                result: dict) -> None:
+                budget: float
+                ) -> float:
         """
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
         :param structure: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
-        :param timeout: an optional evaluation timeout
-        :param working_directory: a name of a directory that is unique to this configuration. Use this to store
-            intermediate results on lower  budgets that can be reused later for a larger budget (for iterative
-            algorithms, for example).
-        :param result: contains the return values in a dictionary. Needs to contain three mandatory entries:
-                - 'loss': a numerical value that is MINIMIZED
-                - 'info': a ConfigInfo object
-                - 'time': the required evaluation time
         """
-
-        raise NotImplementedError(
-            'Subclass dswizard.distributed.worker and overwrite the compute method in your worker script')
+        pass
 
     @Pyro4.expose
     @Pyro4.oneway
     def start_computation(self,
                           callback: Dispatcher,
                           id: CandidateId,
-                          timeout: float = None,
-                          *args,
-                          **kwargs) -> Result:
+                          config: Configuration,
+                          structure: Structure,
+                          budget: float,
+                          timeout: float = None) -> Result:
         with self.thread_cond:
             while self.busy:
                 self.thread_cond.wait()
@@ -201,36 +193,30 @@ class Worker:
 
         result = None
         try:
-            d = self.manager.dict()
+            wrapper = pynisher.enforce_limits(wall_time_in_s=timeout)(self.compute)
+            c = wrapper(id, config, structure, budget)
 
-            p = Process(target=self.compute, args=args, kwargs={'config_id': id, 'result': d, **kwargs})
-            p.start()
-            p.join(timeout)
-
-            if p.is_alive():
-                self.logger.debug('Abort fitting after timeout')
-                p.terminate()
-                p.join()
-                result = Result.timeout(timeout)
-
-            if p.exception:
-                error, tb = p.exception
-                result = Result.failure(tb)
+            if wrapper.exit_status is pynisher.TimeoutException:
+                status = StatusType.TIMEOUT
+                cost = 1
+            elif wrapper.exit_status is pynisher.MemorylimitException:
+                status = StatusType.MEMOUT
+                cost = 1
+            elif wrapper.exit_status == 0 and c is not None:
+                status = StatusType.SUCCESS
+                cost = c
             else:
-                # noinspection PyProtectedMember,PyUnresolvedReferences
-                result = Result.success(d._getvalue())
+                status = StatusType.CRASHED
+                cost = 1
 
-                # TODO: In BaseIteration@121 result sometimes does contain an empty result. Could be caused by IPC
-                # problem???
-                if result.loss is None:
-                    self.logger.warning('Empty result even though computation was successful')
-                    raise KeyError('Result does not contain mandatory \'loss\' key')
+            runtime = float(wrapper.wall_clock_time)
+            result = Result(status, config, cost, runtime)
+        except KeyboardInterrupt:
+            raise
         except Exception:
             # Should never occur, just a safety net
             self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
-            result = Result.failure(
-                traceback.format_exc()
-            )
+            result = Result(StatusType.CRASHED, config, 1, None)
         finally:
             self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(id))
             with self.thread_cond:

@@ -90,34 +90,18 @@ class Result:
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
                  loss: Optional[float] = None,
-                 time: Optional[float] = None,
-                 exception: Optional[str] = None):
+                 runtime: Optional[float] = None):
         self.status = status
         self.config = config
         self.loss = loss
-        self.time = time
-        self.exception = exception
-
-    @staticmethod
-    def success(result: dict):
-        return Result(StatusType.SUCCESS, **result, exception=None)
-
-    @staticmethod
-    def failure(exception: str):
-        return Result(StatusType.CRASHED, loss=1, time=None, exception=exception)
-
-    @staticmethod
-    def timeout(timeout: float):
-        return Result(StatusType.TIMEOUT, loss=1, time=None,
-                      exception='Computation did not finish within {} seconds'.format(timeout))
+        self.runtime = runtime
 
     def as_dict(self):
         return {
             'status': str(self.status),
-            'config': self.config.get_dictionary(),
             'loss': self.loss,
-            'time': self.time,
-            'exception': self.exception
+            'runtime': self.runtime,
+            'config': self.config.get_dictionary()
         }
 
     @staticmethod

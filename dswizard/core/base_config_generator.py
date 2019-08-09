@@ -3,6 +3,7 @@ import logging
 from typing import Callable
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
+from smac.tae.execute_ta_run import StatusType
 
 from dswizard.core.model import Job, Structure, CandidateStructure, CandidateId
 
@@ -49,6 +50,6 @@ class BaseConfigGenerator(abc.ABC):
         :return:
         """
 
-        if job.result.exception is not None:
-            self.logger.warning('job {} failed with exception\n{}'.format(job.id, job.result.exception))
+        if job.result.status is not StatusType.SUCCESS:
+            self.logger.warning('job {} failed with \n{}'.format(job.id, job.result.status))
         self.cs.add_result(job.budget, job.result)
