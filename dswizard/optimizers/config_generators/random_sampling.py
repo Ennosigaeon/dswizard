@@ -12,14 +12,14 @@ class RandomSampling(BaseConfigGenerator):
     """
 
     def optimize(self,
-                 starter: Callable[[CandidateId, Configuration, Structure, float, float], None],
+                 starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
                  candidate: CandidateStructure,
                  iterations: int = 5):
         self.cs = candidate
         for i in range(iterations):
             config = self._get_config()
             config_id = candidate.id.with_config(i)
-            starter(config_id, config, candidate.structure, candidate.budget, candidate.timeout)
+            starter(config_id, config, candidate)
 
     def _get_config(self) -> Configuration:
         if self.configspace is None:

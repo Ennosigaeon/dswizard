@@ -10,7 +10,7 @@ from ConfigSpace import Configuration
 
 from dswizard.core.base_bandit_learner import BanditLearner
 from dswizard.core.dispatcher import Dispatcher
-from dswizard.core.model import CandidateId, Structure, Job
+from dswizard.core.model import CandidateId, Job, CandidateStructure
 from dswizard.core.runhistory import JsonResultLogger, RunHistory
 
 
@@ -192,9 +192,7 @@ class Master:
     def _submit_job(self,
                     id: CandidateId,
                     config: Configuration,
-                    structure: Structure,
-                    budget: float,
-                    timeout: float) -> None:
+                    cs: CandidateStructure) -> None:
         """
         protected function to submit a new job to the dispatcher
 
@@ -205,8 +203,9 @@ class Master:
             # noinspection PyTypeChecker
             self.dispatcher.submit_job(id,
                                        config=config,
-                                       structure=structure,
-                                       budget=budget,
-                                       timeout=timeout)
+                                       configspace=cs.configspace,
+                                       structure=cs.structure,
+                                       budget=cs.budget,
+                                       timeout=cs.timeout)
             self.num_running_jobs += 1
         self._queue_wait()

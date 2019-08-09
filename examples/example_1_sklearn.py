@@ -17,7 +17,6 @@ from dswizard.components.pipeline import SubPipeline
 from dswizard.core.master import Master
 from dswizard.core.runhistory import JsonResultLogger
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
-from dswizard.optimizers.config_generators import RandomSampling
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
 
@@ -62,14 +61,7 @@ steps['step_0'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_p
 steps['step_1'] = ClassifierChoice()
 structure_generator = FixedStructure(dataset_properties, steps)
 
-configspace = structure_generator.configspace
-structure = structure_generator.configspace
-config_generator = RandomSampling(configspace=configspace,
-                                  structure=structure
-                                  )
-
 bandit = GenericBanditLearner(structure_generator,
-                              config_generator,
                               min_budget=args.min_budget,
                               max_budget=args.max_budget,
                               timeout=args.timeout)

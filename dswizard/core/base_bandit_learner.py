@@ -1,23 +1,22 @@
 import abc
 import logging
-from typing import List, Callable, Optional
+from typing import List, Callable, Optional, Tuple
 
 from ConfigSpace import Configuration
 
-from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.base_iteration import BaseIteration
 from dswizard.core.base_structure_generator import BaseStructureGenerator
+from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.model import CandidateStructure, CandidateId, Structure
+from dswizard.optimizers.config_generators import RandomSampling
 
 
 class BanditLearner(abc.ABC):
 
     def __init__(self,
                  structure_generator: BaseStructureGenerator = None,
-                 config_generator: BaseConfigGenerator = None,
                  logger: logging.Logger = None):
         self.structure_generator = structure_generator
-        self.config_generator = config_generator
 
         if logger is None:
             self.logger = logging.getLogger('Racing')
@@ -27,6 +26,7 @@ class BanditLearner(abc.ABC):
         self.iterations: List[BaseIteration] = []
         self.config = {}
         self.max_iterations = 0
+        self.config_generator = ConfigGeneratorCache(RandomSampling, {})
 
     def _get_next_iteration(self, iteration: int, iteration_kwargs: dict) -> BaseIteration:
         """
@@ -40,7 +40,7 @@ class BanditLearner(abc.ABC):
 
         raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
 
-    def optimize(self, starter: Callable[[CandidateId, Configuration, Structure, float, float], None],
+    def optimize(self, starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
                  iteration_kwargs: dict) -> None:
         """
         Optimize all hyperparameters
@@ -50,12 +50,13 @@ class BanditLearner(abc.ABC):
         """
         # noinspection PyTypeChecker
         for candidate, iteration in self._get_next_structure(iteration_kwargs):
-            self.config_generator.optimize(starter, candidate)
+            cg = self.config_generator.get(candidate.configspace, candidate.structure)
+            cg.optimize(starter, candidate)
 
             self.iterations[iteration].register_result(candidate)
             self.structure_generator.new_result(candidate)
 
-    def _get_next_structure(self, iteration_kwargs: dict = None) -> Optional[CandidateStructure]:
+    def _get_next_structure(self, iteration_kwargs: dict = None) -> Optional[Tuple[CandidateStructure, int]]:
         n_iterations = self.max_iterations
         while True:
             next_candidate = None

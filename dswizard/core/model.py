@@ -172,12 +172,16 @@ class Job:
     def __init__(self,
                  candidate_id: CandidateId,
                  config: Configuration,
+                 configspace: ConfigurationSpace,
                  structure: Structure,
                  budget: float,
                  timout: float,
                  **kwargs):
         self.id = candidate_id
         self.config = config
+
+        # TODO configspace only added as a temporary workaround. Structure should be sufficient
+        self.configspace = configspace
         self.structure = structure
         self.budget = budget
         self.timeout = timout

@@ -5,7 +5,7 @@ import time
 from typing import Callable, Dict, Set, Optional
 
 import Pyro4
-from ConfigSpace import Configuration
+from ConfigSpace import Configuration, ConfigurationSpace
 from Pyro4.errors import ConnectionClosedError
 
 from dswizard.core.model import CandidateId, Result, Job, Structure
@@ -251,13 +251,14 @@ class Dispatcher:
     def submit_job(self,
                    id: CandidateId,
                    config: Configuration,
+                   configspace: ConfigurationSpace,
                    structure: Structure,
                    budget: float,
                    timeout: float,
                    **kwargs
                    ) -> None:
         with self.runner_cond:
-            job = Job(id, config, structure, budget, timeout, **kwargs)
+            job = Job(id, config, configspace, structure, budget, timeout, **kwargs)
             job.time_submitted = time.time()
             self.waiting_jobs.put(job)
             self.runner_cond.notify()

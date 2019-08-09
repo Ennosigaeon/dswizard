@@ -34,7 +34,7 @@ class BaseConfigGenerator(abc.ABC):
         self.cs: CandidateStructure = None
 
     # @abc.abstractmethod
-    def optimize(self, starter: Callable[[CandidateId, Configuration, Structure, float, float], None],
+    def optimize(self, starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
                  candidate: CandidateStructure):
         pass
 
