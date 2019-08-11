@@ -3,15 +3,8 @@ import pickle
 import threading
 from typing import Tuple, Optional
 
-import Pyro4.naming
 import Pyro4
-
-
-def nic_name_to_host(nic_name):
-    """ helper function to translate the name of a network card into a valid host name"""
-    from netifaces import ifaddresses, AF_INET
-    host = ifaddresses(nic_name).setdefault(AF_INET, [{'addr': 'No IP addr'}])[0]['addr']
-    return host
+import Pyro4.naming
 
 
 class NameServer:
@@ -55,7 +48,7 @@ class NameServer:
             if self.nic_name is None:
                 self.host = 'localhost'
             else:
-                self.host = nic_name_to_host(self.nic_name)
+                self.host = NameServer._nic_name_to_host(self.nic_name)
 
         Pyro4.config.SERIALIZER = 'pickle'
         Pyro4.config.SERIALIZERS_ACCEPTED = ['json', 'marshal', 'serpent', 'pickle']
@@ -75,6 +68,13 @@ class NameServer:
                 pickle.dump((self.host, self.port), fh)
 
         return self.host, self.port
+
+    @staticmethod
+    def _nic_name_to_host(nic_name):
+        """ helper function to translate the name of a network card into a valid host name"""
+        from netifaces import ifaddresses, AF_INET
+        host = ifaddresses(nic_name).setdefault(AF_INET, [{'addr': 'No IP addr'}])[0]['addr']
+        return host
 
     def shutdown(self) -> None:
         """

@@ -21,8 +21,8 @@ class ConfigGeneratorCache:
         return self.cache[configspace]
 
     def register_result(self, job: Job):
-        # TODO missing, job does not contain ConfigSpace
         try:
+            # TODO only workaround, job should contain only structure and not configspace
             self.cache[job.configspace].register_result(job)
         except KeyError:
             # Should never happen

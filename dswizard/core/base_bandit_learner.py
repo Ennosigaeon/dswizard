@@ -7,7 +7,7 @@ from ConfigSpace import Configuration
 from dswizard.core.base_iteration import BaseIteration
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_generator_cache import ConfigGeneratorCache
-from dswizard.core.model import CandidateStructure, CandidateId, Structure
+from dswizard.core.model import CandidateStructure, CandidateId
 from dswizard.optimizers.config_generators import RandomSampling
 
 
@@ -28,6 +28,7 @@ class BanditLearner(abc.ABC):
         self.max_iterations = 0
         self.config_generator = ConfigGeneratorCache(RandomSampling, {})
 
+    @abc.abstractmethod
     def _get_next_iteration(self, iteration: int, iteration_kwargs: dict) -> BaseIteration:
         """
         instantiates the next iteration
@@ -37,8 +38,7 @@ class BanditLearner(abc.ABC):
         :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
         :return: a valid HB iteration object
         """
-
-        raise NotImplementedError('implement get_next_iteration for {}'.format(type(self).__name__))
+        pass
 
     def optimize(self, starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
                  iteration_kwargs: dict) -> None:

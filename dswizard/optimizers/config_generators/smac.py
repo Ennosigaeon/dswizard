@@ -1,11 +1,11 @@
-from typing import Tuple, List
+from typing import List
 
 from ConfigSpace import Configuration, ConfigurationSpace
 from smac.facade import smac_facade
 from smac.scenario.scenario import Scenario
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import ConfigInfo, Structure, Job
+from dswizard.core.model import Structure, Job
 
 
 class SMAC(BaseConfigGenerator):
@@ -28,19 +28,15 @@ class SMAC(BaseConfigGenerator):
         self.challengers: List[Configuration] = []
         self.idx = 0
 
-    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
+    def get_config(self, budget: float = None) -> Configuration:
         if self.idx >= len(self.challengers):
             self.idx = 0
 
             X, y = self.smac.solver.rh2EPM.transform(self.smac.solver.runhistory)
             self.challengers = list(self.smac.solver.choose_next(X, y))
 
-        info = ConfigInfo(
-            model_based_pick=True,
-            structure=self.structure
-        )
         self.idx += 1
-        return self.challengers[self.idx - 1], info
+        return self.challengers[self.idx - 1]
 
     def register_result(self, job: Job, update_model: bool = True) -> None:
         super().register_result(job, update_model)

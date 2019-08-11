@@ -84,8 +84,8 @@ class RunHistory:
         self.HB_config = algorithm_config
         self.data = self._merge_results(data)
 
-    def _merge_results(self, data: List[Dict[CandidateId, CandidateStructure]]) -> Dict[
-        CandidateId, CandidateStructure]:
+    @staticmethod
+    def _merge_results(data: List[Dict[CandidateId, CandidateStructure]]) -> Dict[CandidateId, CandidateStructure]:
         """
         protected function to merge the list of results into one dictionary and 'normalize' the time stamps
         """
@@ -188,12 +188,12 @@ def logged_results_to_runhistory(directory: str) -> RunHistory:
         for line in fh:
             config_id, budget, result, exception = json.loads(line)
 
-            id = CandidateId(*config_id).without_config()
+            cid = CandidateId(*config_id).without_config()
 
             if result is not None:
-                res = Result(result.get('status'), Configuration(data[id].configspace, result.get('config')),
+                res = Result(result.get('status'), Configuration(data[cid].configspace, result.get('config')),
                              result.get('loss'), result.get('runtime'))
-                data[id].add_result(budget, res)
+                data[cid].add_result(budget, res)
                 budget_set.add(budget)
 
         # infer the hyperband configuration from the data

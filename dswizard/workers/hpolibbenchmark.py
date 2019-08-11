@@ -1,5 +1,7 @@
 import ConfigSpace as CS
+from ConfigSpace import Configuration
 
+from dswizard.core.model import CandidateId, Structure
 from dswizard.core.worker import Worker
 
 
@@ -26,9 +28,13 @@ class HPOlib2Worker(Worker):
 
         self.measure_test_loss = measure_test_loss
 
-    def compute(self, config, budget, result, **kwargs):
-
+    def compute(self,
+                config_id: CandidateId,
+                config: Configuration,
+                structure: Structure,
+                budget: float) -> float:
         if self.config_as_array:
+            # noinspection PyTypeChecker
             c = CS.Configuration(self.configspace, values=config)
         else:
             c = config
@@ -38,5 +44,4 @@ class HPOlib2Worker(Worker):
         if self.measure_test_loss:
             del kwargs[self.budget_name]
             res['test_loss'] = self.benchmark.objective_function_test(c, **kwargs)['function_value']
-        result['loss'] = res['function_value']
-        result['info'] = res
+        return res['function_value']

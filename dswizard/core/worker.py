@@ -34,7 +34,7 @@ class Worker(abc.ABC):
                  nameserver_port: int = None,
                  logger: logging.Logger = None,
                  host: str = None,
-                 id: any = None,
+                 wid: any = None,
                  timeout: float = None):
         """
         :param run_id: unique id to identify individual optimization run
@@ -42,7 +42,7 @@ class Worker(abc.ABC):
         :param nameserver_port: port of the nameserver
         :param logger: logger used for debugging output
         :param host: hostname for this worker process
-        :param id: if multiple workers are started in the same process, you MUST provide a unique id for each one of
+        :param wid: if multiple workers are started in the same process, you MUST provide a unique id for each one of
             them using the `id` argument.
         :param timeout: specifies the timeout a worker will wait for a new after finishing a computation before shutting
             down. Towards the end of a long run with multiple workers, this helps to shutdown idling workers. We
@@ -58,8 +58,8 @@ class Worker(abc.ABC):
         self.timeout = timeout
         self.timer = None
 
-        if id is not None:
-            self.worker_id += '.{}'.format(id)
+        if wid is not None:
+            self.worker_id += '.{}'.format(wid)
 
         self.thread = None
 
@@ -157,22 +157,6 @@ class Worker(abc.ABC):
         with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
             ns.remove(self.worker_id)
 
-    @abc.abstractmethod
-    def compute(self,
-                config_id: CandidateId,
-                config: Configuration,
-                structure: Structure,
-                budget: float
-                ) -> float:
-        """
-        The function you have to overload implementing your computation.
-        :param config_id: the id of the configuration to be evaluated
-        :param config: the actual configuration to be evaluated.
-        :param structure: Additional information about the sampled configuration like pipeline structure.
-        :param budget: the budget for the evaluation
-        """
-        pass
-
     @Pyro4.expose
     @Pyro4.oneway
     def start_computation(self,
@@ -228,6 +212,22 @@ class Worker(abc.ABC):
             self.timer.daemon = True
             self.timer.start()
         return result
+
+    @abc.abstractmethod
+    def compute(self,
+                config_id: CandidateId,
+                config: Configuration,
+                structure: Structure,
+                budget: float
+                ) -> float:
+        """
+        The function you have to overload implementing your computation.
+        :param config_id: the id of the configuration to be evaluated
+        :param config: the actual configuration to be evaluated.
+        :param structure: Additional information about the sampled configuration like pipeline structure.
+        :param budget: the budget for the evaluation
+        """
+        pass
 
     @Pyro4.expose
     def is_busy(self) -> bool:

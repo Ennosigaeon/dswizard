@@ -54,35 +54,6 @@ class BaseIteration(abc.ABC):
             self.logger = logger
         self.result_logger = result_logger
 
-    def add_candidate(self, candidate: CandidateStructure = None) -> CandidateId:
-        """
-        function to add a new configuration to the current iteration
-        :param candidate: The configuration to add. If None, a configuration is sampled from the config_sampler
-        :return: The id of the new configuration
-        """
-        if candidate is None:
-            candidate = self.sampler.get_candidate(self.budgets[self.stage])
-
-        if self.is_finished:
-            raise RuntimeError("This iteration is finished, you can't add more configurations!")
-
-        if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
-            raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
-                                                                                                 self.iteration))
-
-        candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
-        candidate.id = candidate_id
-        timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
-        candidate.timeout = timeout
-
-        self.data[candidate_id] = candidate
-        self.actual_num_candidates[self.stage] += 1
-
-        if self.result_logger is not None:
-            self.result_logger.new_structure(candidate)
-
-        return candidate_id
-
     def register_result(self, cs: CandidateStructure) -> None:
         """
         function to register the result of a job
@@ -122,7 +93,7 @@ class BaseIteration(abc.ABC):
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
-            self.add_candidate()
+            self._add_candidate()
             return self.get_next_candidate()
 
         if self.num_running == 0:
@@ -133,16 +104,34 @@ class BaseIteration(abc.ABC):
 
         return None
 
-    @abc.abstractmethod
-    def _advance_to_next_stage(self, losses: np.ndarray) -> np.ndarray:
+    def _add_candidate(self, candidate: CandidateStructure = None) -> CandidateId:
         """
-        Function that implements the strategy to advance configs within this iteration
+        function to add a new configuration to the current iteration
+        :param candidate: The configuration to add. If None, a configuration is sampled from the config_sampler
+        :return: The id of the new configuration
+        """
+        if candidate is None:
+            candidate = self.sampler.get_candidate(self.budgets[self.stage])
 
-        Overload this to implement different strategies, like SuccessiveHalving, SuccessiveResampling.
-        :param losses: losses of the run on the current budget
-        :return: A boolean for each entry in config_ids indicating whether to advance it or not
-        """
-        raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))
+        if self.is_finished:
+            raise RuntimeError("This iteration is finished, you can't add more configurations!")
+
+        if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
+            raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
+                                                                                                 self.iteration))
+
+        candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
+        candidate.id = candidate_id
+        timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
+        candidate.timeout = timeout
+
+        self.data[candidate_id] = candidate
+        self.actual_num_candidates[self.stage] += 1
+
+        if self.result_logger is not None:
+            self.result_logger.new_structure(candidate)
+
+        return candidate_id
 
     def _process_results(self) -> None:
         """
@@ -159,7 +148,7 @@ class BaseIteration(abc.ABC):
         candidate_ids = list(filter(lambda cid: self.data[cid].status == 'REVIEW', self.data.keys()))
 
         if self.stage >= len(self.num_candidates):
-            self.finish_up()
+            self._finish_up()
             return
 
         budgets = [self.data[cid].budget for cid in candidate_ids]
@@ -182,9 +171,20 @@ class BaseIteration(abc.ABC):
             else:
                 self.data[cid].status = 'TERMINATED'
 
-    def finish_up(self) -> None:
+    def _finish_up(self) -> None:
         self.is_finished = True
 
         for k, v in self.data.items():
             assert v.status in ['TERMINATED', 'REVIEW', 'CRASHED'], 'Configuration has not finshed yet!'
             v.status = 'COMPLETED'
+
+    @abc.abstractmethod
+    def _advance_to_next_stage(self, losses: np.ndarray) -> np.ndarray:
+        """
+        Function that implements the strategy to advance configs within this iteration
+
+        Overload this to implement different strategies, like SuccessiveHalving, SuccessiveResampling.
+        :param losses: losses of the run on the current budget
+        :return: A boolean for each entry in config_ids indicating whether to advance it or not
+        """
+        raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))

@@ -1,5 +1,5 @@
 import traceback
-from typing import Tuple, Optional
+from typing import Optional
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -10,7 +10,7 @@ import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Job, ConfigInfo, Structure
+from dswizard.core.model import Job, Structure
 
 
 class Hyperopt(BaseConfigGenerator):
@@ -86,20 +86,18 @@ class Hyperopt(BaseConfigGenerator):
             return -float('inf')
         return max(self.kde_models.keys())
 
-    def get_config(self, budget: float) -> Tuple[Configuration, ConfigInfo]:
+    def get_config(self, budget: float = None) -> Configuration:
         if self.configspace is None:
             raise ValueError('No configuration space provided. Call set_config_space(ConfigurationSpace) first.')
 
         self.logger.debug('start sampling a new configuration.')
 
         sample: Optional[Configuration] = None
-        model_based_pick = True
 
         # If no model is available, sample from prior
         # also mix in a fraction of random configs
         if len(self.kde_models.keys()) == 0 or np.random.rand() < self.random_fraction:
             sample = self.configspace.sample_configuration()
-            model_based_pick = False
 
         best = np.inf
         best_vector = None
@@ -124,7 +122,6 @@ class Hyperopt(BaseConfigGenerator):
                     vector = []
 
                     for m, bw, t in zip(datum, kde_good.bw, self.vartypes):
-
                         bw = max(bw, self.min_bandwidth)
                         if t == 0:
                             bw = self.bw_factor * bw
@@ -136,7 +133,6 @@ class Hyperopt(BaseConfigGenerator):
                                         datum, kde_good.bw, m))
                                 self.logger.warning('data in the KDE:\n{}'.format(kde_good.data))
                         else:
-
                             if np.random.rand() < (1 - bw):
                                 vector.append(int(m))
                             else:
@@ -167,7 +163,6 @@ class Hyperopt(BaseConfigGenerator):
                         'Sampling based optimization with {} samples failed -> using random configuration'.format(
                             self.num_samples))
                     sample = self.configspace.sample_configuration()
-                    model_based_pick = False
                 else:
                     self.logger.debug(
                         'best_vector: {}, {}, {}, {}'.format(best_vector, best, l(best_vector), g(best_vector)))
@@ -179,6 +174,7 @@ class Hyperopt(BaseConfigGenerator):
                                 ConfigSpace.hyperparameters.CategoricalHyperparameter
                         ):
                             best_vector[i] = int(np.rint(best_vector[i]))
+                    # noinspection PyTypeChecker
                     sample = ConfigSpace.Configuration(self.configspace, vector=best_vector)
 
                     try:
@@ -186,21 +182,17 @@ class Hyperopt(BaseConfigGenerator):
                             configuration_space=self.configspace,
                             configuration=sample.get_dictionary()
                         )
-                        model_based_pick = True
-
                     except Exception as e:
                         self.logger.warning(("=" * 50 + "\n") * 3 +
                                             'Error converting configuration:\n{}'.format(sample.get_dictionary()) +
                                             '\n here is a traceback:' +
                                             traceback.format_exc())
                         raise e
-
             except:
                 self.logger.warning(
                     'Sampling based optimization with {} samples failed\n {} \nUsing random configuration'.format(
                         self.num_samples, traceback.format_exc()))
                 sample = self.configspace.sample_configuration()
-                model_based_pick = False
 
         try:
             sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
@@ -212,39 +204,7 @@ class Hyperopt(BaseConfigGenerator):
                                 'using random configuration!'.format(e, sample))
             sample = self.configspace.sample_configuration()
         self.logger.debug('done sampling a new configuration.')
-        return sample, ConfigInfo(
-            model_based_pick=model_based_pick,
-            structure=self.structure
-        )
-
-    def impute_conditional_data(self, array):
-
-        return_array = np.empty_like(array)
-
-        for i in range(array.shape[0]):
-            datum = np.copy(array[i])
-            nan_indices = np.argwhere(np.isnan(datum)).flatten()
-
-            while np.any(nan_indices):
-                nan_idx = nan_indices[0]
-                valid_indices = np.argwhere(np.isfinite(array[:, nan_idx])).flatten()
-
-                if len(valid_indices) > 0:
-                    # pick one of them at random and overwrite all NaN values
-                    row_idx = np.random.choice(valid_indices)
-                    datum[nan_indices] = array[row_idx, nan_indices]
-
-                else:
-                    # no good point in the data has this value activated, so fill it with a valid but random value
-                    t = self.vartypes[nan_idx]
-                    if t == 0:
-                        datum[nan_idx] = np.random.rand()
-                    else:
-                        datum[nan_idx] = np.random.randint(t)
-
-                nan_indices = np.argwhere(np.isnan(datum)).flatten()
-            return_array[i, :] = datum
-        return return_array
+        return sample
 
     def register_result(self,
                         job: Job,
@@ -308,8 +268,8 @@ class Hyperopt(BaseConfigGenerator):
         # Refit KDE for the current budget
         idx = np.argsort(train_losses)
 
-        train_data_good = self.impute_conditional_data(train_configs[idx[:n_good]])
-        train_data_bad = self.impute_conditional_data(train_configs[idx[-n_bad:]])
+        train_data_good = self._impute_conditional_data(train_configs[idx[:n_good]])
+        train_data_bad = self._impute_conditional_data(train_configs[idx[-n_bad:]])
 
         if train_data_good.shape[0] <= train_data_good.shape[1]:
             return
@@ -337,3 +297,31 @@ class Hyperopt(BaseConfigGenerator):
         self.logger.debug(
             'done building a new model for budget {} based on {}/{} split. Best loss for this budget:{}'.format(
                 budget, n_good, n_bad, np.min(train_losses)))
+
+    def _impute_conditional_data(self, array):
+        return_array = np.empty_like(array)
+
+        for i in range(array.shape[0]):
+            datum = np.copy(array[i])
+            nan_indices = np.argwhere(np.isnan(datum)).flatten()
+
+            while np.any(nan_indices):
+                nan_idx = nan_indices[0]
+                valid_indices = np.argwhere(np.isfinite(array[:, nan_idx])).flatten()
+
+                if len(valid_indices) > 0:
+                    # pick one of them at random and overwrite all NaN values
+                    row_idx = np.random.choice(valid_indices)
+                    datum[nan_indices] = array[row_idx, nan_indices]
+
+                else:
+                    # no good point in the data has this value activated, so fill it with a valid but random value
+                    t = self.vartypes[nan_idx]
+                    if t == 0:
+                        datum[nan_idx] = np.random.rand()
+                    else:
+                        datum[nan_idx] = np.random.randint(t)
+
+                nan_indices = np.argwhere(np.isnan(datum)).flatten()
+            return_array[i, :] = datum
+        return return_array

@@ -7,6 +7,7 @@ from typing import Callable, Dict, Set, Optional
 import Pyro4
 from ConfigSpace import Configuration, ConfigurationSpace
 from Pyro4.errors import ConnectionClosedError
+from smac.tae.execute_ta_run import StatusType
 
 from dswizard.core.model import CandidateId, Result, Job, Structure
 
@@ -91,10 +92,10 @@ class Dispatcher:
 
     def run(self) -> None:
         with self.discover_cond:
-            t1 = threading.Thread(target=self.discover_workers, name='discover_workers')
+            t1 = threading.Thread(target=self._discover_workers, name='discover_workers')
             t1.start()
             self.logger.info('started the \'discover_worker\' thread')
-            t2 = threading.Thread(target=self.job_runner, name='job_runner')
+            t2 = threading.Thread(target=self._job_runner, name='job_runner')
             t2.start()
             self.logger.info('started the \'job_runner\' thread')
 
@@ -124,20 +125,49 @@ class Dispatcher:
         self.logger.debug('\'job_runner\' thread exited')
         self.logger.info('shut down complete')
 
-    def shutdown_all_workers(self, rediscover: bool = False) -> None:
+    def _job_runner(self) -> None:
+        self.runner_cond.acquire()
+        while True:
+
+            while self.waiting_jobs.empty() or len(self.idle_workers) == 0:
+                self.logger.debug('jobs to submit = {}, number of idle workers = {} -> waiting!'.format(
+                    self.waiting_jobs.qsize(), len(self.idle_workers)))
+                self.runner_cond.wait()
+                if self.shutdown_all_threads:
+                    self.logger.info('\'job_runner\' thread shutting down')
+                    self.discover_cond.notify()
+                    self.runner_cond.release()
+                    return
+
+            job = self.waiting_jobs.get()
+            wn = self.idle_workers.pop()
+
+            worker = self.worker_pool[wn]
+            self.logger.debug('starting job {} on {}'.format(str(job.id), worker.name))
+
+            job.time_started = time.time()
+            worker.runs_job = job.id
+
+            worker.proxy.start_computation(self, job.id, config=job.config, structure=job.structure, budget=job.budget,
+                                           **job.kwargs)
+
+            job.worker_name = wn
+            self.running_jobs[job.id] = job
+
+    def shutdown(self, shutdown_workers: bool = False) -> None:
+        if shutdown_workers:
+            self._shutdown_all_workers()
+
+        with self.runner_cond:
+            self.pyro_daemon.shutdown()
+
+    def _shutdown_all_workers(self, rediscover: bool = False) -> None:
         with self.discover_cond:
             for worker in self.worker_pool.values():
                 worker.shutdown()
             if rediscover:
                 time.sleep(1)
                 self.discover_cond.notify()
-
-    def shutdown(self, shutdown_workers: bool = False) -> None:
-        if shutdown_workers:
-            self.shutdown_all_workers()
-
-        with self.runner_cond:
-            self.pyro_daemon.shutdown()
 
     @Pyro4.expose
     @Pyro4.oneway
@@ -147,7 +177,7 @@ class Dispatcher:
         with self.discover_cond:
             self.discover_cond.notify()
 
-    def discover_workers(self) -> None:
+    def _discover_workers(self) -> None:
         self.discover_cond.acquire()
 
         while True:
@@ -203,7 +233,7 @@ class Dispatcher:
 
             for crashed_job in crashed_jobs:
                 self.discover_cond.release()
-                self.register_result(crashed_job.id, Result.failure('Worker died unexpectedly.'))
+                self.register_result(crashed_job.id, Result(StatusType.CRASHED, loss=1))
                 self.discover_cond.acquire()
 
             self.logger.debug('Finished worker discovery')
@@ -218,35 +248,6 @@ class Dispatcher:
     def number_of_workers(self) -> int:
         with self.discover_cond:
             return len(self.worker_pool)
-
-    def job_runner(self) -> None:
-        self.runner_cond.acquire()
-        while True:
-
-            while self.waiting_jobs.empty() or len(self.idle_workers) == 0:
-                self.logger.debug('jobs to submit = {}, number of idle workers = {} -> waiting!'.format(
-                    self.waiting_jobs.qsize(), len(self.idle_workers)))
-                self.runner_cond.wait()
-                if self.shutdown_all_threads:
-                    self.logger.info('\'job_runner\' thread shutting down')
-                    self.discover_cond.notify()
-                    self.runner_cond.release()
-                    return
-
-            job = self.waiting_jobs.get()
-            wn = self.idle_workers.pop()
-
-            worker = self.worker_pool[wn]
-            self.logger.debug('starting job {} on {}'.format(str(job.id), worker.name))
-
-            job.time_started = time.time()
-            worker.runs_job = job.id
-
-            worker.proxy.start_computation(self, job.id, config=job.config, structure=job.structure, budget=job.budget,
-                                           **job.kwargs)
-
-            job.worker_name = wn
-            self.running_jobs[job.id] = job
 
     def submit_job(self,
                    id: CandidateId,

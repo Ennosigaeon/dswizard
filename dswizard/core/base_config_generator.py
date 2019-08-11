@@ -1,6 +1,6 @@
 import abc
 import logging
-from typing import Callable
+from typing import Callable, Optional
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 from smac.tae.execute_ta_run import StatusType
@@ -31,11 +31,20 @@ class BaseConfigGenerator(abc.ABC):
             self.logger = logger
         self.configspace: ConfigurationSpace = configspace
         self.structure = structure
-        self.cs: CandidateStructure = None
+        self.cs: Optional[CandidateStructure] = None
 
-    # @abc.abstractmethod
-    def optimize(self, starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
-                 candidate: CandidateStructure):
+    def optimize(self,
+                 starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
+                 candidate: CandidateStructure,
+                 iterations: int = 1):
+        self.cs = candidate
+        for i in range(iterations):
+            config = self.get_config()
+            config_id = candidate.id.with_config(i)
+            starter(config_id, config, candidate)
+
+    @abc.abstractmethod
+    def get_config(self, budget: float = None) -> Configuration:
         pass
 
     def register_result(self, job: Job, update_model: bool = True) -> None:

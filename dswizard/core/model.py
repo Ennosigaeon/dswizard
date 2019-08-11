@@ -11,7 +11,6 @@ from dswizard.components.base import ComponentChoice, EstimatorComponent
 Structure = Dict[str, Union[ComponentChoice, EstimatorComponent]]
 
 
-# TODO add fourth index for Configuration number
 class CandidateId:
     """
     a triplet of ints that uniquely identifies a configuration. the convention is id = (iteration, budget index,
@@ -22,8 +21,8 @@ class CandidateId:
         """
         :param iteration:the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
             Successive Halving
-        :param structure: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e. (x,x,0) was
-            sampled before (x,x,1).
+        :param structure: this is simply an int >= 0 that sort the configs into the order they where sampled, i.e.
+            (x,x,0) was sampled before (x,x,1).
         :param config: the budget (of the current iteration) for which this configuration was sampled by the
             optimizer. This is only nonzero if the majority of the runs fail and Hyperband resamples to fill empty
             slots, or you use a more 'advanced' optimizer.

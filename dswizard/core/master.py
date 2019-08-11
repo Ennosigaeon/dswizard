@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Tuple, Optional
 
-import humanize
+import math
 from ConfigSpace import Configuration
 
 from dswizard.core.base_bandit_learner import BanditLearner
@@ -90,23 +90,6 @@ class Master:
         self.dispatcher.shutdown(shutdown_workers)
         self.dispatcher_thread.join()
 
-    def wait_for_workers(self, min_n_workers: int = 1) -> None:
-        """
-        helper function to hold execution until some workers are active
-        :param min_n_workers: minimum number of workers present before the run starts
-        :return:
-        """
-
-        self.logger.debug('wait_for_workers trying to get the condition')
-        with self.thread_cond:
-            while self.dispatcher.number_of_workers() < min_n_workers:
-                self.logger.debug('only {} worker(s) available, waiting for at least {}.'.format(
-                    self.dispatcher.number_of_workers(), min_n_workers))
-                self.thread_cond.wait(1)
-                self.dispatcher.trigger_discover_worker()
-
-        self.logger.debug('Enough workers to start this run!')
-
     def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
         """
         run optimization
@@ -118,7 +101,7 @@ class Master:
         if iteration_kwargs is None:
             iteration_kwargs = {}
 
-        self.wait_for_workers(min_n_workers)
+        self._wait_for_workers(min_n_workers)
 
         iteration_kwargs.update({'result_logger': self.result_logger})
 
@@ -143,10 +126,59 @@ class Master:
         self.bandit_learner.optimize(self._submit_job, iteration_kwargs)
 
         self.thread_cond.release()
-        self.logger.info('Finished run after {}'.format(humanize.naturaldelta(time.time() - self.time_ref)))
+        self.logger.info('Finished run after {} seconds'.format(math.ceil(time.time() - self.time_ref)))
 
         return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
                           {**self.config, **self.bandit_learner.config})
+
+    def _wait_for_workers(self, min_n_workers: int = 1) -> None:
+        """
+        helper function to hold execution until some workers are active
+        :param min_n_workers: minimum number of workers present before the run starts
+        :return:
+        """
+
+        self.logger.debug('wait_for_workers trying to get the condition')
+        with self.thread_cond:
+            while self.dispatcher.number_of_workers() < min_n_workers:
+                self.logger.debug('only {} worker(s) available, waiting for at least {}.'.format(
+                    self.dispatcher.number_of_workers(), min_n_workers))
+                self.thread_cond.wait(1)
+                self.dispatcher.trigger_discover_worker()
+
+        self.logger.debug('Enough workers to start this run!')
+
+    def _submit_job(self,
+                    cid: CandidateId,
+                    config: Configuration,
+                    cs: CandidateStructure) -> None:
+        """
+        protected function to submit a new job to the dispatcher
+
+        This function handles the actual submission in a (hopefully) thread save way
+        """
+        self.logger.debug('submitting job {} to dispatcher'.format(cid))
+        with self.thread_cond:
+            # noinspection PyTypeChecker
+            self.dispatcher.submit_job(cid,
+                                       config=config,
+                                       configspace=cs.configspace,
+                                       structure=cs.structure,
+                                       budget=cs.budget,
+                                       timeout=cs.timeout)
+            self.num_running_jobs += 1
+        self._queue_wait()
+
+    def _queue_wait(self) -> None:
+        """
+        helper function to wait for the queue to not overflow/underload it
+        """
+
+        if self.num_running_jobs >= self.job_queue_sizes[1]:
+            while self.num_running_jobs > self.job_queue_sizes[0]:
+                self.logger.debug('running jobs: {}, queue sizes: {} -> wait'.format(
+                    self.num_running_jobs, self.job_queue_sizes))
+                self.thread_cond.wait()
 
     def adjust_queue_size(self, number_of_workers: int = None) -> None:
         self.logger.debug('number of workers changed to {}'.format(number_of_workers))
@@ -177,35 +209,3 @@ class Master:
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')
                 self.thread_cond.notify()
-
-    def _queue_wait(self) -> None:
-        """
-        helper function to wait for the queue to not overflow/underload it
-        """
-
-        if self.num_running_jobs >= self.job_queue_sizes[1]:
-            while self.num_running_jobs > self.job_queue_sizes[0]:
-                self.logger.debug('running jobs: {}, queue sizes: {} -> wait'.format(
-                    self.num_running_jobs, self.job_queue_sizes))
-                self.thread_cond.wait()
-
-    def _submit_job(self,
-                    id: CandidateId,
-                    config: Configuration,
-                    cs: CandidateStructure) -> None:
-        """
-        protected function to submit a new job to the dispatcher
-
-        This function handles the actual submission in a (hopefully) thread save way
-        """
-        self.logger.debug('submitting job {} to dispatcher'.format(id))
-        with self.thread_cond:
-            # noinspection PyTypeChecker
-            self.dispatcher.submit_job(id,
-                                       config=config,
-                                       configspace=cs.configspace,
-                                       structure=cs.structure,
-                                       budget=cs.budget,
-                                       timeout=cs.timeout)
-            self.num_running_jobs += 1
-        self._queue_wait()

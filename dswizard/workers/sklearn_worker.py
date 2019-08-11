@@ -39,7 +39,7 @@ class SklearnWorker(Worker):
                 config_id: CandidateId,
                 config: Configuration,
                 structure: Structure,
-                budget: float):
+                budget: float) -> float:
         # Only use budget-percent
         n = math.ceil(len(self.X) * budget)
 
