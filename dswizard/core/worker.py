@@ -2,10 +2,8 @@ import abc
 import logging
 import multiprocessing
 import os
-import pickle
 import socket
 import threading
-import time
 import traceback
 
 import Pyro4
@@ -34,7 +32,7 @@ class Worker(abc.ABC):
                  nameserver_port: int = None,
                  logger: logging.Logger = None,
                  host: str = None,
-                 wid: any = None,
+                 wid: str = None,
                  timeout: float = None):
         """
         :param run_id: unique id to identify individual optimization run
@@ -62,6 +60,7 @@ class Worker(abc.ABC):
             self.worker_id += '.{}'.format(wid)
 
         self.thread = None
+        self.pyro_daemon = None
 
         if logger is None:
             self.logger = logging.getLogger(self.worker_id)
@@ -74,29 +73,6 @@ class Worker(abc.ABC):
         self.thread_cond = threading.Condition(threading.Lock())
         self.manager = multiprocessing.Manager()
 
-    def load_nameserver_credentials(self,
-                                    working_directory: str,
-                                    num_tries: int = 60,
-                                    interval: int = 1) -> None:
-        """
-        loads the nameserver credentials in cases where master and workers share a filesystem
-        :param working_directory: the working directory for the HPB run (see master)
-        :param num_tries: number of attempts to find the file (default 60)
-        :param interval: waiting period between the attempts
-        :return:
-        """
-        fn = os.path.join(working_directory, 'HPB_run_{}_pyro.pkl'.format(self.run_id))
-
-        for i in range(num_tries):
-            try:
-                with open(fn, 'rb') as fh:
-                    self.nameserver, self.nameserver_port = pickle.load(fh)
-                return
-            except FileNotFoundError:
-                self.logger.warning('config file {} not found (trail {}/{})'.format(fn, i + 1, num_tries))
-                time.sleep(interval)
-        raise RuntimeError('Could not find the nameserver information, aborting!')
-
     def run(self, background: bool = False) -> None:
         """
         Method to start the worker.
@@ -105,6 +81,9 @@ class Worker(abc.ABC):
             function only simulates work.
         :return:
         """
+        if self.nameserver is None:
+            return
+
         if background:
             self.worker_id += str(threading.get_ident())
             self.thread = threading.Thread(target=self._run, name='worker {} thread'.format(self.worker_id))
@@ -237,6 +216,8 @@ class Worker(abc.ABC):
     @Pyro4.oneway
     def shutdown(self) -> None:
         self.logger.debug('shutting down')
-        self.pyro_daemon.shutdown()
+
+        if self.pyro_daemon is not None:
+            self.pyro_daemon.shutdown()
         if self.thread is not None:
             self.thread.join()

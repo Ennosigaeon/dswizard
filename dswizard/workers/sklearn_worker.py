@@ -12,10 +12,8 @@ from dswizard.core.worker import Worker
 
 class SklearnWorker(Worker):
 
-    def __init__(self, *args, sleep_interval=0, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.sleep_interval = sleep_interval
-
         self.dataset_properties = None
         self.X = None
         self.X_test = None

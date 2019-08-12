@@ -10,11 +10,11 @@ from collections import OrderedDict
 
 from sklearn import datasets
 
-import dswizard.core.nameserver as hpns
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
 from dswizard.core.master import Master
+from dswizard.core.nameserver import NameServer
 from dswizard.core.runhistory import JsonResultLogger
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
@@ -34,17 +34,13 @@ parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='../logs/')
 args = parser.parse_args()
 
-# Start Nameserver
-NS = hpns.NameServer(run_id=args.run_id, host='127.0.0.1', port=None)
-NS.start()
-
 # Start worker
 X, y = datasets.load_iris(True)
 dataset_properties = {
     'target_type': 'classification'
 }
 
-w = SklearnWorker(sleep_interval=0, nameserver='127.0.0.1', run_id=args.run_id)
+w = SklearnWorker(run_id=args.run_id, wid='0')
 w.set_dataset(X, y, dataset_properties=dataset_properties, test_size=0.3)
 w.run(background=True)
 
@@ -67,16 +63,16 @@ bandit = GenericBanditLearner(structure_generator,
                               timeout=args.timeout)
 
 master = Master(
-    bandit_learner=bandit,
     run_id=args.run_id,
-    nameserver='127.0.0.1',
-    result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True)
+    bandit_learner=bandit,
+    result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
+
+    local_workers=[w],
 )
 res = master.run()
 
 # Shutdown
 master.shutdown(shutdown_workers=True)
-NS.shutdown()
 
 # Analysis
 id2config = res.get_id2config_mapping()

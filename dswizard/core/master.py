@@ -3,15 +3,16 @@ import logging
 import os
 import threading
 import time
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 import math
 from ConfigSpace import Configuration
 
 from dswizard.core.base_bandit_learner import BanditLearner
-from dswizard.core.dispatcher import Dispatcher
+from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.model import CandidateId, Job, CandidateStructure
 from dswizard.core.runhistory import JsonResultLogger, RunHistory
+from dswizard.core.worker import Worker
 
 
 class Master:
@@ -19,14 +20,16 @@ class Master:
                  run_id: str,
                  bandit_learner: BanditLearner,
                  working_directory: str = '.',
+                 job_queue_sizes: Tuple[int, int] = (-1, 0),
+                 dynamic_queue_size: bool = True,
+                 logger: logging.Logger = None,
+                 result_logger: JsonResultLogger = None,
+
                  ping_interval: int = 60,
                  nameserver: str = '127.0.0.1',
                  nameserver_port: int = None,
                  host: str = None,
-                 job_queue_sizes: Tuple[int, int] = (-1, 0),
-                 dynamic_queue_size: bool = True,
-                 logger: logging.Logger = None,
-                 result_logger: JsonResultLogger = None
+                 local_workers: List[Worker] = None,
                  ):
         """
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
@@ -36,16 +39,18 @@ class Master:
             multiple concurrent runs to separate them
         :param bandit_learner: A hyperparameter optimization procedure
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
-        :param ping_interval: number of seconds between pings to discover new nodes. Default is 60 seconds.
-        :param nameserver: address of the Pyro4 nameserver
-        :param nameserver_port: port of Pyro4 nameserver
-        :param host: IP (or name that resolves to that) of the network interface to use
         :param job_queue_sizes: min and max size of the job queue. During the run, when the number of jobs in the queue
             reaches the min value, it will be filled up to the max size. Default: (0,1)
         :param dynamic_queue_size:  Whether or not to change the queue size based on the number of workers available.
             If true (default), the job_queue_sizes are relative to the current number of workers.
         :param logger: the logger to output some (more or less meaningful) information
         :param result_logger: a result logger that writes live results to disk
+
+        :param ping_interval: number of seconds between pings to discover new nodes. Default is 60 seconds.
+        :param nameserver: address of the Pyro4 nameserver
+        :param nameserver_port: port of Pyro4 nameserver
+        :param host: IP (or name that resolves to that) of the network interface to use
+        :param local_workers: A list of local workers. If this parameter is not None, a LocalDispatcher will be used.
         """
 
         self.working_directory = working_directory
@@ -78,9 +83,13 @@ class Master:
             'time_ref': self.time_ref
         }
 
-        self.dispatcher = Dispatcher(self.job_callback, queue_callback=self.adjust_queue_size, run_id=run_id,
-                                     ping_interval=ping_interval, nameserver=nameserver,
-                                     nameserver_port=nameserver_port, host=host)
+        if local_workers is not None:
+            self.dispatcher = LocalDispatcher(local_workers, self.job_callback, queue_callback=self.adjust_queue_size,
+                                              run_id=run_id)
+        else:
+            self.dispatcher = PyroDispatcher(self.job_callback, queue_callback=self.adjust_queue_size, run_id=run_id,
+                                             ping_interval=ping_interval, nameserver=nameserver,
+                                             nameserver_port=nameserver_port, host=host)
 
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
