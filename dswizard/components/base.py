@@ -154,10 +154,13 @@ class EstimatorComponent(BaseEstimator, MetaData, ABC):
         -learn-objects>`_ for further information."""
         raise NotImplementedError()
 
-    def set_hyperparameters(self, configuration, init_params=None):
-        params = configuration.get_dictionary()
+    def serialize(self):
+        # TODO kwargs for __init__ not persisted
+        cls = self.__class__
+        return '.'.join([cls.__module__, cls.__qualname__])
 
-        for param, value in params.items():
+    def set_hyperparameters(self, configuration: dict, init_params=None):
+        for param, value in configuration.items():
             if not hasattr(self, param):
                 raise ValueError('Cannot set hyperparameter %s for %s because '
                                  'the hyperparameter does not exist.' %

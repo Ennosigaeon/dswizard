@@ -172,7 +172,7 @@ class Master:
             self.dispatcher.submit_job(cid,
                                        config=config,
                                        configspace=cs.configspace,
-                                       structure=cs.structure,
+                                       pipeline=cs.pipeline,
                                        budget=cs.budget,
                                        timeout=cs.timeout)
             self.num_running_jobs += 1

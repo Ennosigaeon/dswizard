@@ -12,9 +12,8 @@ from sklearn import datasets
 
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
-from dswizard.components.pipeline import SubPipeline
+from dswizard.components.pipeline import SubPipeline, FlexiblePipeline
 from dswizard.core.master import Master
-from dswizard.core.nameserver import NameServer
 from dswizard.core.runhistory import JsonResultLogger
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
@@ -55,7 +54,9 @@ sub_wf_2['sub_step_1'] = ClassifierChoice()
 steps = OrderedDict()
 steps['step_0'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_properties)
 steps['step_1'] = ClassifierChoice()
-structure_generator = FixedStructure(dataset_properties, steps)
+
+pipeline = FlexiblePipeline(steps, dataset_properties)
+structure_generator = FixedStructure(dataset_properties, pipeline)
 
 bandit = GenericBanditLearner(structure_generator,
                               min_budget=args.min_budget,

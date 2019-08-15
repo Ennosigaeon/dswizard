@@ -12,8 +12,9 @@ from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 from smac.tae.execute_ta_run import StatusType
 
+from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.dispatcher import Dispatcher
-from dswizard.core.model import CandidateId, Result, Structure
+from dswizard.core.model import CandidateId, Result
 
 
 class Worker(abc.ABC):
@@ -142,7 +143,7 @@ class Worker(abc.ABC):
                           callback: Dispatcher,
                           id: CandidateId,
                           config: Configuration,
-                          structure: Structure,
+                          pipeline: FlexiblePipeline,
                           budget: float,
                           timeout: float = None) -> Result:
         with self.thread_cond:
@@ -156,8 +157,9 @@ class Worker(abc.ABC):
 
         result = None
         try:
+            # TODO copy pipeline to prevent side effects
             wrapper = pynisher.enforce_limits(wall_time_in_s=timeout)(self.compute)
-            c = wrapper(id, config, structure, budget)
+            c = wrapper(id, config, pipeline, budget)
 
             if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -196,14 +198,14 @@ class Worker(abc.ABC):
     def compute(self,
                 config_id: CandidateId,
                 config: Configuration,
-                structure: Structure,
+                pipeline: FlexiblePipeline,
                 budget: float
                 ) -> float:
         """
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
-        :param structure: Additional information about the sampled configuration like pipeline structure.
+        :param pipeline: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         """
         pass

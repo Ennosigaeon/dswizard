@@ -5,7 +5,8 @@ from typing import Callable, Optional
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 from smac.tae.execute_ta_run import StatusType
 
-from dswizard.core.model import Job, Structure, CandidateStructure, CandidateId
+from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.model import Job, CandidateStructure, CandidateId
 
 
 class BaseConfigGenerator(abc.ABC):
@@ -17,7 +18,7 @@ class BaseConfigGenerator(abc.ABC):
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 structure: Structure = None,
+                 pipeline: FlexiblePipeline = None,
                  logger: logging.Logger = None):
         """
         :param logger: for some debug output
@@ -30,7 +31,7 @@ class BaseConfigGenerator(abc.ABC):
         else:
             self.logger = logger
         self.configspace: ConfigurationSpace = configspace
-        self.structure = structure
+        self.pipeline = pipeline
         self.cs: Optional[CandidateStructure] = None
 
     def optimize(self,

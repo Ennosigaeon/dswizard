@@ -2,8 +2,9 @@ from typing import Dict, Type
 
 from ConfigSpace import ConfigurationSpace
 
+from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Structure, Job
+from dswizard.core.model import Job
 
 
 class ConfigGeneratorCache:
@@ -14,9 +15,9 @@ class ConfigGeneratorCache:
 
         self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
 
-    def get(self, configspace: ConfigurationSpace, structure: Structure) -> BaseConfigGenerator:
+    def get(self, configspace: ConfigurationSpace, pipeline: FlexiblePipeline) -> BaseConfigGenerator:
         if configspace not in self.cache:
-            cg = self.clazz(configspace, structure, **self.init_args)
+            cg = self.clazz(configspace, pipeline, **self.init_args)
             self.cache[configspace] = cg
         return self.cache[configspace]
 

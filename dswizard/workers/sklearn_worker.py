@@ -6,7 +6,7 @@ from sklearn import metrics
 from sklearn.model_selection import train_test_split
 
 from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.model import CandidateId, Structure
+from dswizard.core.model import CandidateId
 from dswizard.core.worker import Worker
 
 
@@ -36,7 +36,7 @@ class SklearnWorker(Worker):
     def compute(self,
                 config_id: CandidateId,
                 config: Configuration,
-                structure: Structure,
+                pipeline: FlexiblePipeline,
                 budget: float) -> float:
         # Only use budget-percent
         n = math.ceil(len(self.X) * budget)
@@ -47,8 +47,7 @@ class SklearnWorker(Worker):
         X = self.X[:n]
         y = self.y[:n]
 
-        pipeline = FlexiblePipeline(structure, self.dataset_properties)
-        pipeline.set_hyperparameters(config)
+        pipeline.set_hyperparameters(config.get_dictionary())
         pipeline.fit(X, y)
 
         y_pred = pipeline.predict(self.X_test)

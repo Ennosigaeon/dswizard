@@ -1,14 +1,12 @@
 import time
-from typing import Optional, Dict, Union, List
+from typing import Optional, Dict, List
 
 from ConfigSpace import ConfigurationSpace
-from ConfigSpace.configuration_space import Configuration, OrderedDict
+from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 from smac.tae.execute_ta_run import StatusType
 
-from dswizard.components.base import ComponentChoice, EstimatorComponent
-
-Structure = Dict[str, Union[ComponentChoice, EstimatorComponent]]
+from dswizard.components.pipeline import FlexiblePipeline
 
 
 class CandidateId:
@@ -57,32 +55,6 @@ class CandidateId:
         return self.as_tuple() < other.as_tuple()
 
 
-class ConfigInfo:
-    def __init__(self, model_based_pick: bool = False, structure: Structure = None):
-        self.model_based_pick = model_based_pick
-
-        if structure is None:
-            structure = OrderedDict()
-        self.structure = structure
-
-    def __repr__(self):
-        return str({
-            'model_based_pick': self.model_based_pick,
-            'structure': self.structure
-        })
-
-    def get_dictionary(self) -> dict:
-        # TODO serialization of structure is missing
-        return {
-            'model_based_pick': self.model_based_pick
-        }
-
-    @staticmethod
-    def from_dictionary(values: dict):
-        # TODO deserialization of structure is missing
-        return ConfigInfo(model_based_pick=values.get('model_based_pick'))
-
-
 class Result:
 
     def __init__(self,
@@ -112,12 +84,12 @@ class CandidateStructure:
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 structure: Structure,
+                 pipeline: FlexiblePipeline,
                  budget: float,
                  timeout: float = None,
                  model_based_pick: bool = False):
         self.configspace = configspace
-        self.structure = structure
+        self.pipeline = pipeline
         self.budget = budget
         self.timeout = timeout
         self.model_based_pick = model_based_pick
@@ -141,10 +113,9 @@ class CandidateStructure:
         self.results.setdefault(budget, []).append(result)
 
     def as_dict(self):
-        # TODO structure missing
         return {
             'configspace': config_json.write(self.configspace),
-            'structure': None,
+            'pipeline': self.pipeline.as_list(),
             'budget': self.budget,
             'timeout': self.timeout,
             'model_based_pick': self.model_based_pick,
@@ -156,9 +127,8 @@ class CandidateStructure:
 
     @staticmethod
     def from_dict(raw: dict) -> 'CandidateStructure':
-        # TODO structure missing
-        cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['budget'], raw['timeout'],
-                                raw['model_based_pick'])
+        cs = CandidateStructure(config_json.read(raw['configspace']), FlexiblePipeline.from_list(raw['pipeline']),
+                                raw['budget'], raw['timeout'], raw['model_based_pick'])
         cs.id = CandidateId(*raw['id'])
         cs.status = raw['status']
         # cs.results = {k: [Result.from_dict(res) for res in v] for k, v in raw['results'].items()},
@@ -172,7 +142,7 @@ class Job:
                  candidate_id: CandidateId,
                  config: Configuration,
                  configspace: ConfigurationSpace,
-                 structure: Structure,
+                 pipeline: FlexiblePipeline,
                  budget: float,
                  timout: float,
                  **kwargs):
@@ -181,7 +151,7 @@ class Job:
 
         # TODO configspace only added as a temporary workaround. Structure should be sufficient
         self.configspace = configspace
-        self.structure = structure
+        self.pipeline = pipeline
         self.budget = budget
         self.timeout = timout
         self.kwargs = kwargs

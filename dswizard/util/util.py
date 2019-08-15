@@ -1,3 +1,5 @@
+import importlib
+
 import numpy as np
 
 
@@ -35,3 +37,15 @@ def convert_multioutput_multiclass_to_multilabel(probas):
                 multioutput_probas[:, i] = 0
         probas = multioutput_probas
     return probas
+
+
+def get_class(clazz, kwargs=None):
+    if kwargs is None:
+        kwargs = {}
+
+    module_name = clazz.rpartition(".")[0]
+    class_name = clazz.split(".")[-1]
+
+    module = importlib.import_module(module_name)
+    class_ = getattr(module, class_name)
+    return class_(**kwargs)

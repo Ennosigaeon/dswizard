@@ -9,14 +9,15 @@ import scipy.stats as sps
 import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
+from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Job, Structure
+from dswizard.core.model import Job
 
 
 class Hyperopt(BaseConfigGenerator):
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 structure: Structure = None,
+                 pipeline: FlexiblePipeline = None,
                  min_points_in_model: int = None,
                  top_n_percent: int = 15,
                  num_samples: int = 64,
@@ -28,7 +29,7 @@ class Hyperopt(BaseConfigGenerator):
         Fits for each given budget a kernel density estimator on the best N percent of the evaluated configurations on
         this budget.
         :param configspace: Configuration space object
-        :param structure: optional structure associated with the ConfigurationSpace
+        :param pipeline: optional pipeline associated with the ConfigurationSpace
         :param min_points_in_model: Determines the percentile of configurations that will be used as training data for
             the kernel density estimator, e.g if set to 10 the 10% best configurations will be considered for training.
         :param top_n_percent: minimum number of datapoints needed to fit a model
@@ -40,7 +41,7 @@ class Hyperopt(BaseConfigGenerator):
         :param kwargs:
         """
 
-        super().__init__(configspace, structure, **kwargs)
+        super().__init__(configspace, pipeline, **kwargs)
         self.top_n_percent = top_n_percent
         self.bw_factor = bandwidth_factor
         self.min_bandwidth = min_bandwidth

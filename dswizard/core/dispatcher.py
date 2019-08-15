@@ -10,7 +10,8 @@ from ConfigSpace import Configuration, ConfigurationSpace
 from Pyro4.errors import ConnectionClosedError
 from smac.tae.execute_ta_run import StatusType
 
-from dswizard.core.model import CandidateId, Result, Job, Structure
+from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.model import CandidateId, Result, Job
 
 
 class WorkerProxy:
@@ -94,13 +95,13 @@ class Dispatcher(abc.ABC):
                    id: CandidateId,
                    config: Configuration,
                    configspace: ConfigurationSpace,
-                   structure: Structure,
+                   pipeline: FlexiblePipeline,
                    budget: float,
                    timeout: float,
                    **kwargs
                    ) -> None:
         with self.runner_cond:
-            job = Job(id, config, configspace, structure, budget, timeout, **kwargs)
+            job = Job(id, config, configspace, pipeline, budget, timeout, **kwargs)
             job.time_submitted = time.time()
             self.waiting_jobs.put(job)
             self.runner_cond.notify()
@@ -205,7 +206,7 @@ class PyroDispatcher(Dispatcher):
             job.time_started = time.time()
             worker.runs_job = job.id
 
-            worker.proxy.start_computation(self, job.id, config=job.config, structure=job.structure, budget=job.budget,
+            worker.proxy.start_computation(self, job.id, config=job.config, pipeline=job.pipeline, budget=job.budget,
                                            **job.kwargs)
 
             job.worker_name = wn
@@ -398,7 +399,7 @@ class LocalDispatcher(Dispatcher):
             self.running_jobs[job.id] = job
 
             t = threading.Thread(target=worker.start_computation,
-                                 args=(self, job.id, job.config, job.structure, job.budget, job.timeout),
+                                 args=(self, job.id, job.config, job.pipeline, job.budget, job.timeout),
                                  kwargs=job.kwargs)
             t.start()
 

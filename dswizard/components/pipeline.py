@@ -1,17 +1,17 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+from ConfigSpace.configuration_space import Configuration, ConfigurationSpace, OrderedDict
 from sklearn.base import BaseEstimator
 from sklearn.pipeline import Pipeline
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
-from dswizard.core.model import Structure
+from dswizard.util import util
 
 
 class FlexiblePipeline(Pipeline, BaseEstimator):
 
-    def __init__(self, steps: Structure, dataset_properties: dict):
+    def __init__(self, steps: Dict[str, EstimatorComponent], dataset_properties: dict):
         super().__init__(list(steps.items()))
         self.steps_ = steps
         self.configuration = None
@@ -23,7 +23,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         super().fit(X, y, **fit_params)
 
-    def set_hyperparameters(self, configuration: Configuration, init_params=None):
+    def set_hyperparameters(self, configuration: dict, init_params=None):
         self.configuration = configuration
 
         for node_idx, (node_name, node) in enumerate(self.steps):
@@ -59,15 +59,44 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
     def get_hyperparameter_search_space(self, dataset_properties=None) -> ConfigurationSpace:
         cs = ConfigurationSpace()
-        for name, step in self.steps_.items():
+        for name, step in self.steps:
             step_configuration_space = step.get_hyperparameter_search_space(dataset_properties)
             cs.add_configuration_space(name, step_configuration_space)
         return cs
 
+    def items(self):
+        return self.steps_.items()
+
+    def as_list(self) -> Tuple[List[Tuple[str, Union[str, List]]], Dict]:
+        steps = []
+        for name, step in self.steps:
+            steps.append((name, step.serialize()))
+        return steps, self.dataset_properties
+
+    @staticmethod
+    def from_list(steps: List[Tuple[str, Union[str, List]]], ds_properties: Dict) -> 'FlexiblePipeline':
+        def __load(sub_steps: List[Tuple[str, Union[str, List]]]) -> Dict[str, EstimatorComponent]:
+            d = OrderedDict()
+            for name, value in sub_steps:
+                if type(value) == str:
+                    # TODO kwargs for __init__ not loaded
+                    d[name] = util.get_class(value)
+                elif type(value) == list:
+                    ls = []
+                    for sub_name, sub_value in value:
+                        ls.append(__load(sub_value))
+                    d[name] = SubPipeline(ls, ds_properties)
+                else:
+                    raise ValueError('Unable to handle type {}'.format(type(value)))
+            return d
+
+        ds = __load(steps)
+        return FlexiblePipeline(ds, ds_properties)
+
 
 class SubPipeline(EstimatorComponent):
 
-    def __init__(self, sub_wfs: List[Structure],
+    def __init__(self, sub_wfs: List[Dict[str, EstimatorComponent]],
                  dataset_properties: dict = None):
         self.dataset_properties = dataset_properties
         self.pipelines: Dict[str, FlexiblePipeline] = {}
@@ -103,11 +132,18 @@ class SubPipeline(EstimatorComponent):
         for pipeline_name, pipeline in self.pipelines.items():
             pipeline_cs = ConfigurationSpace()
 
-            for task_name, task in pipeline.steps_.items():
+            for task_name, task in pipeline.steps:
                 step_configuration_space = task.get_hyperparameter_search_space(dataset_properties)
                 pipeline_cs.add_configuration_space(task_name, step_configuration_space)
             cs.add_configuration_space(pipeline_name, pipeline_cs)
         return cs
+
+    def serialize(self):
+        pipelines = []
+        for name, p in self.pipelines.items():
+            pipelines.append((name, p.as_list()[0]))
+
+        return pipelines
 
     @staticmethod
     def get_properties(dataset_properties=None):

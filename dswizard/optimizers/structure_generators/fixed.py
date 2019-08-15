@@ -1,25 +1,24 @@
 from ConfigSpace.configuration_space import ConfigurationSpace
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
+from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.model import Structure, CandidateStructure
+from dswizard.core.model import CandidateStructure
 
 
 class FixedStructure(BaseStructureGenerator):
 
-    def __init__(self, dataset_properties: dict, structure: Structure):
+    def __init__(self, dataset_properties: dict, pipeline: FlexiblePipeline):
         super().__init__()
         self.configspace = ConfigurationSpace()
 
-        for step, task in structure.items():
-            if isinstance(task, ComponentChoice):
-                cs = task.get_hyperparameter_search_space(dataset_properties=dataset_properties)
-            elif isinstance(task, EstimatorComponent):
+        for step, task in pipeline.items():
+            if isinstance(task, ComponentChoice) or isinstance(task, EstimatorComponent):
                 cs = task.get_hyperparameter_search_space(dataset_properties=dataset_properties)
             else:
                 raise ValueError('Unable to handle type {}'.format(type(task)))
             self.configspace.add_configuration_space(step, cs)
-        self.structure = structure
+        self.pipeline = pipeline
 
     def get_candidate(self, budget: float = None) -> CandidateStructure:
-        return CandidateStructure(self.configspace, self.structure, budget)
+        return CandidateStructure(self.configspace, self.pipeline, budget)

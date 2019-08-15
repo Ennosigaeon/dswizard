@@ -1,7 +1,8 @@
 import ConfigSpace as CS
 from ConfigSpace import Configuration
 
-from dswizard.core.model import CandidateId, Structure
+from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.model import CandidateId
 from dswizard.core.worker import Worker
 
 
@@ -31,7 +32,7 @@ class HPOlib2Worker(Worker):
     def compute(self,
                 config_id: CandidateId,
                 config: Configuration,
-                structure: Structure,
+                pipeline: FlexiblePipeline,
                 budget: float) -> float:
         if self.config_as_array:
             # noinspection PyTypeChecker
