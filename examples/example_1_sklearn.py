@@ -12,6 +12,7 @@ from sklearn import datasets
 
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
+from dswizard.components.feature_preprocessing.one_hot_encoding import OneHotEncoder
 from dswizard.components.pipeline import SubPipeline, FlexiblePipeline
 from dswizard.core.master import Master
 from dswizard.core.runhistory import JsonResultLogger
@@ -52,8 +53,9 @@ sub_wf_2['sub_step_0'] = DataPreprocessorChoice()
 sub_wf_2['sub_step_1'] = ClassifierChoice()
 
 steps = OrderedDict()
-steps['step_0'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_properties)
-steps['step_1'] = ClassifierChoice()
+steps['step_0'] = OneHotEncoder()
+steps['step_1'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_properties)
+steps['step_2'] = ClassifierChoice()
 
 pipeline = FlexiblePipeline(steps, dataset_properties)
 structure_generator = FixedStructure(dataset_properties, pipeline)

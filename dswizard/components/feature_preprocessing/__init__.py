@@ -6,13 +6,13 @@ from ConfigSpace.hyperparameters import CategoricalHyperparameter
 
 from dswizard.components.base import PreprocessingAlgorithm, find_components, ComponentChoice
 
-preprocessor_directory = os.path.split(__file__)[0]
+classifier_directory = os.path.split(__file__)[0]
 _preprocessors = find_components(__package__,
-                                 preprocessor_directory,
+                                 classifier_directory,
                                  PreprocessingAlgorithm)
 
 
-class DataPreprocessorChoice(ComponentChoice):
+class FeaturePreprocessorChoice(ComponentChoice):
 
     def get_components(self):
         components = OrderedDict()
@@ -49,7 +49,7 @@ class DataPreprocessorChoice(ComponentChoice):
             entry = available_comp[name]
 
             # Exclude itself to avoid infinite loop
-            if entry == DataPreprocessorChoice or hasattr(entry, 'get_components'):
+            if entry == FeaturePreprocessorChoice or hasattr(entry, 'get_components'):
                 continue
 
             target_type = dataset_properties['target_type']
@@ -85,24 +85,29 @@ class DataPreprocessorChoice(ComponentChoice):
 
         # Compile a list of legal preprocessors for this problem
         available_preprocessors = self.get_available_components(
-            dataset_properties=dataset_properties, include=include, exclude=exclude)
+            dataset_properties=dataset_properties,
+            include=include, exclude=exclude)
 
         if len(available_preprocessors) == 0:
-            raise ValueError("No preprocessors found, please add NoPreprocessing")
+            raise ValueError(
+                "No preprocessors found, please add NoPreprocessing")
 
         if default is None:
-            defaults = ['no_preprocessing', 'select_percentile', 'pca', 'truncatedSVD']
+            defaults = ['no_preprocessing', 'select_percentile', 'pca',
+                        'truncatedSVD']
             for default_ in defaults:
                 if default_ in available_preprocessors:
                     default = default_
                     break
 
-        preprocessor = CategoricalHyperparameter('__choice__', list(available_preprocessors.keys()),
+        preprocessor = CategoricalHyperparameter('__choice__',
+                                                 list(
+                                                     available_preprocessors.keys()),
                                                  default_value=default)
         cs.add_hyperparameter(preprocessor)
         for name in available_preprocessors:
-            preprocessor_configuration_space = available_preprocessors[name].get_hyperparameter_search_space(
-                dataset_properties)
+            preprocessor_configuration_space = available_preprocessors[name]. \
+                get_hyperparameter_search_space(dataset_properties)
             parent_hyperparameter = {'parent': preprocessor, 'value': name}
             cs.add_configuration_space(name, preprocessor_configuration_space,
                                        parent_hyperparameter=parent_hyperparameter)
