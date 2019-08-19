@@ -8,8 +8,8 @@ from dswizard.core.model import CandidateStructure
 
 class FixedStructure(BaseStructureGenerator):
 
-    def __init__(self, dataset_properties: dict, pipeline: FlexiblePipeline):
-        super().__init__()
+    def __init__(self, dataset_properties: dict, pipeline: FlexiblePipeline, timeout: int = None):
+        super().__init__(dataset_properties=dataset_properties, timeout=timeout)
         self.configspace = ConfigurationSpace()
 
         for step, task in pipeline.items():
@@ -21,4 +21,4 @@ class FixedStructure(BaseStructureGenerator):
         self.pipeline = pipeline
 
     def get_candidate(self, budget: float = None) -> CandidateStructure:
-        return CandidateStructure(self.configspace, self.pipeline, budget)
+        return CandidateStructure(self.configspace, self.pipeline, budget, timeout=self.timeout, model_based_pick=False)

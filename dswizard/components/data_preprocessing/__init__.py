@@ -1,5 +1,6 @@
 import os
 from collections import OrderedDict
+from typing import Any, Dict
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter
@@ -14,7 +15,7 @@ _preprocessors = find_components(__package__,
 
 class DataPreprocessorChoice(ComponentChoice):
 
-    def get_components(self):
+    def get_components(self) -> Dict[str, Any]:
         components = OrderedDict()
         components.update(_preprocessors)
         return components

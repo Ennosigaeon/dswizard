@@ -1,11 +1,11 @@
-import sklearn
+import sklearn.feature_selection
 from ConfigSpace.configuration_space import ConfigurationSpace
 
 from dswizard.components.base import PreprocessingAlgorithm
 
 
 class VarianceThreshold(PreprocessingAlgorithm):
-    def __init__(self):
+    def __init__(self, random_state=None):
         super().__init__()
 
     def fit(self, X, y=None):

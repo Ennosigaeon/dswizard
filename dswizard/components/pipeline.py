@@ -17,6 +17,13 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         self.configuration = None
         self.dataset_properties = dataset_properties
 
+    def _validate_steps(self):
+        if len(self.steps) == 0:
+            raise TypeError('Pipeline has to contain at least 1 step')
+        super()._validate_steps()
+        if not hasattr(self.steps[-1][1], 'predict'):
+            raise TypeError('Last step of Pipeline should implement predict.')
+
     def fit(self, X, y=None, **fit_params):
         # TODO implement pipeline fitting
         # Was ist mit splits und merge in pipelines?
@@ -80,7 +87,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             for name, value in sub_steps:
                 if type(value) == str:
                     # TODO kwargs for __init__ not loaded
-                    d[name] = util.get_class(value)
+                    d[name] = util.get_object(value)
                 elif type(value) == list:
                     ls = []
                     for sub_name, sub_value in value:
@@ -93,6 +100,11 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         ds = __load(steps)
         return FlexiblePipeline(ds, ds_properties)
 
+    def __lt__(self, other: 'FlexiblePipeline'):
+        s1 = tuple(e.name() for e in self.steps_.values())
+        s2 = tuple(e.name() for e in other.steps_.values())
+        return s1 < s2
+
 
 class SubPipeline(EstimatorComponent):
 
@@ -101,8 +113,9 @@ class SubPipeline(EstimatorComponent):
         self.dataset_properties = dataset_properties
         self.pipelines: Dict[str, FlexiblePipeline] = {}
 
-        for idx, wf in enumerate(sub_wfs):
-            self.pipelines['pipeline_{}'.format(idx)] = FlexiblePipeline(wf, dataset_properties=self.dataset_properties)
+        ls = list(map(lambda wf: FlexiblePipeline(wf, dataset_properties=self.dataset_properties), sub_wfs))
+        for idx, wf in enumerate(sorted(ls)):
+            self.pipelines['pipeline_{}'.format(idx)] = wf
 
     def fit(self, X, y=None, **fit_params):
         for node_name, pipeline in self.pipelines.items():

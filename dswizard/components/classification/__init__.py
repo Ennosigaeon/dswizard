@@ -1,3 +1,5 @@
+from typing import Dict, Any
+
 __author__ = 'feurerm'
 
 import os
@@ -14,7 +16,7 @@ _classifiers = find_components(__package__, classifier_directory, PredictionAlgo
 
 class ClassifierChoice(ComponentChoice, PredictionMixin):
 
-    def get_components(self):
+    def get_components(self) -> Dict[str, Any]:
         components = OrderedDict()
         components.update(_classifiers)
         return components

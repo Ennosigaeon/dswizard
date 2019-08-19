@@ -4,9 +4,10 @@ import pkgutil
 import sys
 from abc import ABC
 from collections import OrderedDict
-from typing import Type, Dict
+from typing import Type, Dict, Any, Optional
 
 import numpy as np
+from ConfigSpace import ConfigurationSpace
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_random_state, check_array
 
@@ -33,7 +34,7 @@ def find_components(package: str, directory: str, base_class: Type) -> Dict[str,
 
 class MetaData:
     @staticmethod
-    def get_properties(dataset_properties=None):
+    def get_properties(dataset_properties=None) -> dict:
         """Get the properties of the underlying algorithm.
 
         Find more information at :ref:`get_properties`
@@ -50,7 +51,7 @@ class MetaData:
         raise NotImplementedError()
 
     @staticmethod
-    def get_hyperparameter_search_space(dataset_properties=None):
+    def get_hyperparameter_search_space(dataset_properties=None) -> ConfigurationSpace:
         """Return the configuration space of this classification algorithm.
 
         Parameters
@@ -65,17 +66,18 @@ class MetaData:
         """
         raise NotImplementedError()
 
-    def set_hyperparameters(self, configuration, init_params=None):
+    def set_hyperparameters(self, configuration, init_params=None) -> 'MetaData':
         raise NotImplementedError()
 
     @classmethod
-    def TASK_NAME(cls) -> str:
-        return cls.__name__
+    def name(cls) -> str:
+        return '.'.join([cls.__module__, cls.__qualname__])
 
 
+# noinspection PyPep8Naming
 class PredictionMixin:
 
-    def predict(self, X):
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """The predict function calls the predict function of the
         underlying scikit-learn model and returns an array with the predictions.
 
@@ -95,7 +97,7 @@ class PredictionMixin:
         -learn-objects>`_ for further information."""
         raise NotImplementedError()
 
-    def predict_proba(self, X):
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """Predict probabilities.
 
         Parameters
@@ -109,9 +111,10 @@ class PredictionMixin:
         raise NotImplementedError()
 
 
+# noinspection PyPep8Naming
 class EstimatorComponent(BaseEstimator, MetaData, ABC):
 
-    def fit(self, X, y):
+    def fit(self, X: np.ndarray, y: np.ndarray) -> 'EstimatorComponent':
         """The fit function calls the fit function of the underlying
         scikit-learn model and returns `self`.
 
@@ -134,7 +137,7 @@ class EstimatorComponent(BaseEstimator, MetaData, ABC):
         -learn-objects>`_ for further information."""
         return self
 
-    def transform(self, X: np.ndarray):
+    def transform(self, X: np.ndarray) -> np.ndarray:
         """The transform function calls the transform function of the
         underlying scikit-learn model and returns the transformed array.
 
@@ -159,7 +162,7 @@ class EstimatorComponent(BaseEstimator, MetaData, ABC):
         cls = self.__class__
         return '.'.join([cls.__module__, cls.__qualname__])
 
-    def set_hyperparameters(self, configuration: dict, init_params=None):
+    def set_hyperparameters(self, configuration: dict, init_params=None) -> 'EstimatorComponent':
         for param, value in configuration.items():
             if not hasattr(self, param):
                 raise ValueError('Cannot set hyperparameter %s for %s because '
@@ -178,10 +181,11 @@ class EstimatorComponent(BaseEstimator, MetaData, ABC):
         return self
 
     def __str__(self):
-        name = self.get_properties()['name']
-        return "autosklearn.pipeline %s" % name
+        cls = self.__class__
+        return '.'.join([cls.__module__, cls.__qualname__])
 
 
+# noinspection PyPep8Naming
 class PredictionAlgorithm(EstimatorComponent, PredictionMixin, ABC):
     """Provide an abstract interface for classification algorithms in
     auto-sklearn.
@@ -189,8 +193,8 @@ class PredictionAlgorithm(EstimatorComponent, PredictionMixin, ABC):
     See :ref:`extending` for more information."""
 
     def __init__(self):
-        self.estimator = None
-        self.properties = None
+        self.estimator: Optional[BaseEstimator] = None
+        self.properties: Optional[Dict] = None
 
     def get_estimator(self):
         """Return the underlying estimator object.
@@ -201,26 +205,29 @@ class PredictionAlgorithm(EstimatorComponent, PredictionMixin, ABC):
         """
         return self.estimator
 
-    def transform(self, X: np.ndarray):
+    def transform(self, X: np.ndarray) -> np.ndarray:
         X = check_array(X)
         # add class probabilities as a synthetic feature
+        # noinspection PyUnresolvedReferences
         X_transformed = np.hstack((X, self.estimator.predict_proba(X)))
 
         # add class prediction as a synthetic feature
+        # noinspection PyUnresolvedReferences
         X_transformed = np.hstack((X_transformed, np.reshape(self.estimator.predict(X), (-1, 1))))
 
         return X_transformed
 
 
+# noinspection PyPep8Naming
 class PreprocessingAlgorithm(EstimatorComponent, ABC):
     """Provide an abstract interface for preprocessing algorithms in auto-sklearn.
 
     See :ref:`extending` for more information."""
 
     def __init__(self):
-        self.preprocessor = None
+        self.preprocessor: Optional[BaseEstimator] = None
 
-    def get_preprocessor(self):
+    def get_preprocessor(self) -> BaseEstimator:
         """Return the underlying preprocessor object.
 
         Returns
@@ -229,10 +236,11 @@ class PreprocessingAlgorithm(EstimatorComponent, ABC):
         """
         return self.preprocessor
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X: np.ndarray, y: np.ndarray = None) -> np.ndarray:
         return self.fit(X, y).transform(X)
 
 
+# noinspection PyPep8Naming
 class ComponentChoice(EstimatorComponent):
 
     def __init__(self, random_state=None):
@@ -250,17 +258,17 @@ class ComponentChoice(EstimatorComponent):
         # Since the pipeline will initialize the hyperparameters, it is not
         # necessary to do this upon the construction of this object
         # self.set_hyperparameters(self.configuration)
-        self.choice = None
-        self.configuration_space_ = None
-        self.dataset_properties_ = None
+        self.choice: Optional[BaseEstimator] = None
+        self.configuration_space_: Optional[ConfigurationSpace] = None
+        self.dataset_properties_: Optional[Dict] = None
         self.new_params = None
 
-    def get_components(self):
+    def get_components(self) -> Dict[str, Any]:
         raise NotImplementedError()
 
-    def get_available_components(self, dataset_properties=None,
+    def get_available_components(self, dataset_properties: dict = None,
                                  include=None,
-                                 exclude=None):
+                                 exclude=None) -> Dict[str, Any]:
         if dataset_properties is None:
             dataset_properties = {}
 
@@ -289,7 +297,7 @@ class ComponentChoice(EstimatorComponent):
 
         return components_dict
 
-    def set_hyperparameters(self, configuration: dict, init_params=None):
+    def set_hyperparameters(self, configuration: dict, init_params=None) -> 'ComponentChoice':
         new_params = {}
 
         choice = configuration['__choice__']
@@ -311,19 +319,63 @@ class ComponentChoice(EstimatorComponent):
 
         return self
 
-    def get_hyperparameter_search_space(self, dataset_properties=None,
+    def get_hyperparameter_search_space(self, dataset_properties: dict = None,
                                         default=None,
                                         include=None,
-                                        exclude=None):
+                                        exclude=None) -> ConfigurationSpace:
         raise NotImplementedError()
 
-    def transform(self, X):
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        # noinspection PyUnresolvedReferences
         return self.choice.transform(X)
 
-    @classmethod
-    def TASK_NAME(cls) -> str:
-        return cls.__name__
+    @staticmethod
+    def get_properties(dataset_properties: dict = None) -> Dict:
+        return {}
+
+
+# noinspection PyPep8Naming
+class TunableEstimator(EstimatorComponent):
+
+    def __init__(self, estimator: Type[EstimatorComponent]):
+        self.type: Type[EstimatorComponent] = estimator
+        self.instance: Optional[EstimatorComponent] = None
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> EstimatorComponent:
+        return self.instance.fit(X, y)
+
+    def transform(self, X: np.ndarray) -> np.ndarray:
+        return self.instance.transform(X)
+
+    def fit_transform(self, X: np.ndarray, y: np.ndarray = None) -> np.ndarray:
+        if hasattr(self.instance, 'fit_transform'):
+            return self.instance.fit_transform(X, y)
+        else:
+            return self.instance.fit(X, y).transform(X)
 
     @staticmethod
-    def get_properties(dataset_properties=None):
-        return {}
+    def get_properties(dataset_properties=None) -> Dict:
+        pass
+
+    def get_hyperparameter_search_space(self, dataset_properties=None) -> ConfigurationSpace:
+        return self.type.get_hyperparameter_search_space(dataset_properties)
+
+    def set_hyperparameters(self, configuration: dict, init_params=None) -> None:
+        # noinspection PyArgumentList
+        self.instance = self.type(**configuration)
+
+
+# noinspection PyPep8Naming
+class TunablePredictor(TunableEstimator, PredictionMixin):
+
+    def __init__(self, estimator: Type[PredictionAlgorithm]):
+        super().__init__(estimator)
+
+        self.type: Type[PredictionAlgorithm] = estimator
+        self.instance: Optional[PredictionAlgorithm] = None
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self.instance.predict(X)
+
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        return self.instance.predict_proba(X)

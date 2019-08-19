@@ -122,8 +122,8 @@ class BaseIteration(abc.ABC):
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
         candidate.id = candidate_id
-        timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
-        candidate.timeout = timeout
+        # timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
+        # candidate.timeout = timeout
 
         self.data[candidate_id] = candidate
         self.actual_num_candidates[self.stage] += 1
@@ -166,7 +166,7 @@ class BaseIteration(abc.ABC):
                 candidate = self.data[cid]
                 candidate.status = 'QUEUED'
                 candidate.budget = self.budgets[self.stage]
-                candidate.timeout = math.ceil(candidate.budget * self.timeout) if self.timeout is not None else None
+                # candidate.timeout = math.ceil(candidate.budget * self.timeout) if self.timeout is not None else None
                 self.actual_num_candidates[self.stage] += 1
             else:
                 self.data[cid].status = 'TERMINATED'

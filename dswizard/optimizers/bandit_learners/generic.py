@@ -12,8 +12,7 @@ class GenericBanditLearner(BanditLearner):
                  config_generator: BaseConfigGenerator = None,
                  eta: float = 3,
                  min_budget: float = 1,
-                 max_budget: float = 1,
-                 timeout: float = None):
+                 max_budget: float = 1):
         """
         Implements a random search across the search space for comparison. Candidates are sampled at random and run on
         the maximum budget.
@@ -29,7 +28,6 @@ class GenericBanditLearner(BanditLearner):
         self.eta = eta
         self.min_budget = min_budget
         self.max_budget = max_budget
-        self.timeout = timeout
 
         # precompute some HB stuff
         self.max_iterations = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
@@ -40,7 +38,6 @@ class GenericBanditLearner(BanditLearner):
             'min_budget': max_budget,
             'max_budget': max_budget,
             'budgets': self.budgets,
-            'timeout': self.timeout,
             'max_iterations': self.max_iterations
         })
 

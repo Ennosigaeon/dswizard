@@ -86,7 +86,7 @@ class CandidateStructure:
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
                  budget: float,
-                 timeout: float = None,
+                 timeout: int = None,
                  model_based_pick: bool = False):
         self.configspace = configspace
         self.pipeline = pipeline

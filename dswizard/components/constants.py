@@ -19,8 +19,3 @@ STRING_TO_TASK_TYPES = {
     "multilabel.classification": MULTILABEL_CLASSIFICATION,
     "regression": REGRESSION
 }
-
-TASK_TYPES_TO_CHOICE = {
-    ClassifierChoice.TASK_NAME(): ClassifierChoice(),
-    DataPreprocessorChoice.TASK_NAME(): DataPreprocessorChoice()
-}

@@ -1,7 +1,10 @@
 import abc
+import inspect
 import logging
 
+from dswizard.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
 from dswizard.core.model import CandidateStructure
+from dswizard.util import util
 
 
 class BaseStructureGenerator(abc.ABC):
@@ -11,10 +14,12 @@ class BaseStructureGenerator(abc.ABC):
     complex empirical prediction models for promising structures.
     """
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, dataset_properties: dict = None, timeout: int = None, logger: logging.Logger = None):
         """
         :param logger: for some debug output
         """
+        self.dataset_properties = dataset_properties
+        self.timeout = timeout
         if logger is None:
             self.logger = logging.getLogger('StructureGenerator')
         else:
@@ -43,3 +48,16 @@ class BaseStructureGenerator(abc.ABC):
 
         if candidate.status == 'CRASHED':
             self.logger.warning('candidate {} failed'.format(candidate.id))
+
+    @staticmethod
+    def _get_estimator_instance(clazz: str) -> EstimatorComponent:
+        try:
+            return util.get_object(clazz)
+        except TypeError:
+            estimator = util.get_type(clazz)
+            if 'predict' in inspect.getmembers(estimator, inspect.isfunction):
+                # noinspection PyTypeChecker
+                return TunablePredictor(estimator)
+            else:
+                # noinspection PyTypeChecker
+                return TunableEstimator(estimator)

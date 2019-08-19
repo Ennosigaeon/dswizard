@@ -6,18 +6,13 @@ Example 2 - Sklearn
 import argparse
 import logging
 import sys
-from collections import OrderedDict
 
 from sklearn import datasets
 
-from dswizard.components.classification import ClassifierChoice
-from dswizard.components.data_preprocessing import DataPreprocessorChoice
-from dswizard.components.feature_preprocessing.one_hot_encoding import OneHotEncoder
-from dswizard.components.pipeline import SubPipeline, FlexiblePipeline
 from dswizard.core.master import Master
 from dswizard.core.runhistory import JsonResultLogger
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
-from dswizard.optimizers.structure_generators.fixed import FixedStructure
+from dswizard.optimizers.structure_generators.random import RandomStructureGenerator
 from dswizard.workers.sklearn_worker import SklearnWorker
 
 logging.basicConfig(level=logging.DEBUG,
@@ -29,13 +24,13 @@ logging.getLogger('Pyro4.core').setLevel(logging.WARNING)
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
-parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation', default=5)
+parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation in seconds', default=5)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='../logs/')
 args = parser.parse_args()
 
 # Start worker
-X, y = datasets.load_iris(True)
+X, y = datasets.load_breast_cancer(True)
 dataset_properties = {
     'target_type': 'classification'
 }
@@ -45,25 +40,10 @@ w.set_dataset(X, y, dataset_properties=dataset_properties, test_size=0.3)
 w.run(background=True)
 
 # Instantiate optimizer
-sub_wf_1 = OrderedDict()
-sub_wf_1['sub_step_0'] = ClassifierChoice()
-
-sub_wf_2 = OrderedDict()
-sub_wf_2['sub_step_0'] = DataPreprocessorChoice()
-sub_wf_2['sub_step_1'] = ClassifierChoice()
-
-steps = OrderedDict()
-steps['step_0'] = OneHotEncoder()
-steps['step_1'] = SubPipeline([sub_wf_1, sub_wf_2], dataset_properties=dataset_properties)
-steps['step_2'] = ClassifierChoice()
-
-pipeline = FlexiblePipeline(steps, dataset_properties)
-structure_generator = FixedStructure(dataset_properties, pipeline)
-
+structure_generator = RandomStructureGenerator(dataset_properties, timeout=args.timeout)
 bandit = GenericBanditLearner(structure_generator,
                               min_budget=args.min_budget,
-                              max_budget=args.max_budget,
-                              timeout=args.timeout)
+                              max_budget=args.max_budget)
 
 master = Master(
     run_id=args.run_id,

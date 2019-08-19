@@ -39,13 +39,17 @@ def convert_multioutput_multiclass_to_multilabel(probas):
     return probas
 
 
-def get_class(clazz, kwargs=None):
-    if kwargs is None:
-        kwargs = {}
-
+def get_type(clazz: str) -> type:
     module_name = clazz.rpartition(".")[0]
     class_name = clazz.split(".")[-1]
 
     module = importlib.import_module(module_name)
     class_ = getattr(module, class_name)
-    return class_(**kwargs)
+    return class_
+
+
+def get_object(clazz: str, kwargs=None):
+    if kwargs is None:
+        kwargs = {}
+
+    return get_type(clazz)(**kwargs)
