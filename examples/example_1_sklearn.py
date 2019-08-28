@@ -9,9 +9,11 @@ import sys
 
 from sklearn import datasets
 
+from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.master import Master
 from dswizard.core.runhistory import JsonResultLogger
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
+from dswizard.optimizers.config_generators import Hyperopt
 from dswizard.optimizers.structure_generators.random import RandomStructureGenerator
 from dswizard.workers.sklearn_worker import SklearnWorker
 
@@ -41,6 +43,7 @@ w.run(background=True)
 
 # Instantiate optimizer
 structure_generator = RandomStructureGenerator(dataset_properties, timeout=args.timeout)
+cfg = ConfigGeneratorCache.instance(clazz=Hyperopt, init_args={})
 bandit = GenericBanditLearner(structure_generator,
                               min_budget=args.min_budget,
                               max_budget=args.max_budget)

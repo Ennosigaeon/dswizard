@@ -140,7 +140,7 @@ class Job:
     # noinspection PyTypeChecker
     def __init__(self,
                  candidate_id: CandidateId,
-                 config: Configuration,
+                 config: Optional[Configuration],
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
                  budget: float,

@@ -91,17 +91,8 @@ class Dispatcher(abc.ABC):
         with self.discover_cond:
             return len(self.worker_pool)
 
-    def submit_job(self,
-                   id: CandidateId,
-                   config: Configuration,
-                   configspace: ConfigurationSpace,
-                   pipeline: FlexiblePipeline,
-                   budget: float,
-                   timeout: float,
-                   **kwargs
-                   ) -> None:
+    def submit_job(self, job: Job) -> None:
         with self.runner_cond:
-            job = Job(id, config, configspace, pipeline, budget, timeout, **kwargs)
             job.time_submitted = time.time()
             self.waiting_jobs.put(job)
             self.runner_cond.notify()

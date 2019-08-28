@@ -22,11 +22,11 @@ class RandomStructureGenerator(BaseStructureGenerator):
     def __init__(self,
                  dataset_properties: dict,
                  timeout: int = None,
-                 max_steps: int = 10,
+                 max_depth: int = 10,
                  include_basic_estimators: bool = False):
         super().__init__(dataset_properties=dataset_properties, timeout=timeout)
 
-        self.max_steps = max_steps
+        self.max_depth = max_depth
 
         self.candidates = {
             ClassifierChoice.name(),
@@ -43,37 +43,38 @@ class RandomStructureGenerator(BaseStructureGenerator):
             for estimator in feature_preprocessing._preprocessors.values():
                 self.candidates.add(estimator.name())
 
-    def _determine_n_steps(self, n_min: int = 1, n_max: int = 2):
+    def _determine_depth(self, n_min: int = 1, n_max: int = 2):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
-        return max(min(self.max_steps, r), n_min)
+        return max(min(self.max_depth, r), n_min)
 
     def get_candidate(self, budget: float) -> CandidateStructure:
         attempts = 1
         while True:
             try:
-                n_steps = self._determine_n_steps(n_max=self.max_steps)
-                cs, steps = self._generate_pipeline(n_steps)
+                depth = self._determine_depth(n_max=self.max_depth)
+                cs, steps = self._generate_pipeline(depth)
 
                 pipeline = FlexiblePipeline(steps, self.dataset_properties)
 
+                print(steps)
                 self.logger.debug('Created valid pipeline after {} tries'.format(attempts))
                 return CandidateStructure(cs, pipeline, budget, timeout=self.timeout, model_based_pick=False)
             except TypeError:
                 attempts += 1
 
-    def _generate_pipeline(self, n_steps: int) -> \
+    def _generate_pipeline(self, depth: int) -> \
             Tuple[ConfigurationSpace, Dict[str, EstimatorComponent]]:
         cs = ConfigurationSpace()
         steps = OrderedDict()
         i = 0
 
-        while i < n_steps:
+        while i < depth:
             name = 'step_{}'.format(i)
             clazz = random.sample(self.candidates, 1)[0]
 
             if clazz == SubPipeline.name():
-                max_steps = n_steps - i - 1
-                instance, n = self._generate_subpipelines(max_steps)
+                max_depth = depth - i - 1
+                instance, n = self._generate_subpipelines(max_depth)
 
                 # Do not add SubPipeline without any sub-steps
                 if n == 0:
@@ -90,16 +91,16 @@ class RandomStructureGenerator(BaseStructureGenerator):
             i += 1
         return cs, steps
 
-    def _generate_subpipelines(self, max_steps: int) -> Tuple[SubPipeline, int]:
+    def _generate_subpipelines(self, max_depth: int) -> Tuple[SubPipeline, int]:
         n_pipelines = random.choice([2, 3, 4])
 
-        actual_steps = 0
+        depths = []
         pipelines = []
         for i in range(n_pipelines):
-            n_steps = self._determine_n_steps(0, max_steps - actual_steps)
-            actual_steps += n_steps
+            d = self._determine_depth(0, max_depth)
+            depths.append(d)
 
-            cs, steps = self._generate_pipeline(n_steps)
+            cs, steps = self._generate_pipeline(d)
             pipelines.append(steps)
         pipelines = list(filter(lambda d: len(d) > 0, pipelines))
-        return SubPipeline(pipelines, self.dataset_properties), actual_steps
+        return SubPipeline(pipelines, self.dataset_properties), max(depths)

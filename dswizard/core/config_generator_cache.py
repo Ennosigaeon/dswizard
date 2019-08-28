@@ -5,8 +5,10 @@ from ConfigSpace import ConfigurationSpace
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import Job
+from dswizard.util.singleton import Singleton
 
 
+@Singleton
 class ConfigGeneratorCache:
 
     def __init__(self, clazz: Type[BaseConfigGenerator], init_args: dict):

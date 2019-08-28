@@ -1,4 +1,5 @@
 import abc
+import copy
 import logging
 import multiprocessing
 import os
@@ -157,9 +158,8 @@ class Worker(abc.ABC):
 
         result = None
         try:
-            # TODO copy pipeline to prevent side effects
             wrapper = pynisher.enforce_limits(wall_time_in_s=timeout)(self.compute)
-            c = wrapper(id, config, pipeline, budget)
+            c = wrapper(id, config, copy.deepcopy(pipeline), budget)
 
             if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT

@@ -1,7 +1,6 @@
 import numpy as np
 
 from dswizard.core.base_bandit_learner import BanditLearner
-from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.optimizers.iterations import SuccessiveHalving
 
@@ -9,7 +8,6 @@ from dswizard.optimizers.iterations import SuccessiveHalving
 class GenericBanditLearner(BanditLearner):
     def __init__(self,
                  structure_generator: BaseStructureGenerator = None,
-                 config_generator: BaseConfigGenerator = None,
                  eta: float = 3,
                  min_budget: float = 1,
                  max_budget: float = 1):
@@ -22,7 +20,7 @@ class GenericBanditLearner(BanditLearner):
         :param min_budget: budget for the evaluation
         :param max_budget: budget for the evaluation
         """
-        super().__init__(structure_generator, config_generator)
+        super().__init__(structure_generator)
 
         # Hyperband related stuff
         self.eta = eta

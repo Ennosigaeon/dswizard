@@ -159,8 +159,9 @@ class Master:
 
     def _submit_job(self,
                     cid: CandidateId,
-                    config: Configuration,
-                    cs: CandidateStructure) -> None:
+                    cs: CandidateStructure,
+                    config: Configuration = None
+                    ) -> None:
         """
         protected function to submit a new job to the dispatcher
 
@@ -168,13 +169,12 @@ class Master:
         """
         self.logger.debug('submitting job {} to dispatcher'.format(cid))
         with self.thread_cond:
-            # noinspection PyTypeChecker
-            self.dispatcher.submit_job(cid,
-                                       config=config,
-                                       configspace=cs.configspace,
-                                       pipeline=cs.pipeline,
-                                       budget=cs.budget,
-                                       timeout=cs.timeout)
+            if config is None:
+                raise NotImplementedError('JIT config generation currently not implemented')
+
+            job = Job(cid, config, cs.configspace, cs.pipeline, cs.budget, cs.timeout)
+
+            self.dispatcher.submit_job(job)
             self.num_running_jobs += 1
         self._queue_wait()
 

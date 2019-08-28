@@ -300,7 +300,18 @@ class Hyperopt(BaseConfigGenerator):
                 budget, n_good, n_bad, np.min(train_losses)))
 
     def _impute_conditional_data(self, array):
-        return_array = np.empty_like(array)
+        """
+        Impute all conditional (nan) values. The following steps are executed for each sample:
+        1. Find all missing values
+        2. For each missing value check if other samples have a value assigned
+            - If yes, select one of the instances at random
+            - If no, select random value from valid space, i.e. [0, 1]
+
+        :param array:
+        :return:
+        """
+
+        return_array = np.zeros_like(array)
 
         for i in range(array.shape[0]):
             datum = np.copy(array[i])

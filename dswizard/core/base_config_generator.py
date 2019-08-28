@@ -35,14 +35,14 @@ class BaseConfigGenerator(abc.ABC):
         self.cs: Optional[CandidateStructure] = None
 
     def optimize(self,
-                 starter: Callable[[CandidateId, Configuration, CandidateStructure], None],
+                 starter: Callable[[CandidateId, CandidateStructure, Optional[Configuration]], None],
                  candidate: CandidateStructure,
                  iterations: int = 1):
         self.cs = candidate
         for i in range(iterations):
             config = self.get_config()
             config_id = candidate.id.with_config(i)
-            starter(config_id, config, candidate)
+            starter(config_id, candidate, config)
 
     @abc.abstractmethod
     def get_config(self, budget: float = None) -> Configuration:
@@ -61,5 +61,5 @@ class BaseConfigGenerator(abc.ABC):
         """
 
         if job.result.status is not StatusType.SUCCESS:
-            self.logger.warning('job {} failed with \n{}'.format(job.id, job.result.status))
+            self.logger.warning('job {} failed with {}'.format(job.id, job.result.status))
         self.cs.add_result(job.budget, job.result)
