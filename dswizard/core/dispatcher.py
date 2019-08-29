@@ -6,11 +6,9 @@ import time
 from typing import Callable, Dict, Set, List, Optional, Union
 
 import Pyro4
-from ConfigSpace import Configuration, ConfigurationSpace
 from Pyro4.errors import ConnectionClosedError
 from smac.tae.execute_ta_run import StatusType
 
-from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.model import CandidateId, Result, Job
 
 

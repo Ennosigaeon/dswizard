@@ -141,7 +141,6 @@ class Job:
     def __init__(self,
                  candidate_id: CandidateId,
                  config: Optional[Configuration],
-                 configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
                  budget: float,
                  timout: float,
@@ -149,8 +148,6 @@ class Job:
         self.id = candidate_id
         self.config = config
 
-        # TODO configspace only added as a temporary workaround. Structure should be sufficient
-        self.configspace = configspace
         self.pipeline = pipeline
         self.budget = budget
         self.timeout = timout

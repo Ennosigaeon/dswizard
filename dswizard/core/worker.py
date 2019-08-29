@@ -1,11 +1,11 @@
 import abc
-import copy
 import logging
 import multiprocessing
 import os
 import socket
 import threading
 import traceback
+from typing import Optional
 
 import Pyro4
 import pynisher
@@ -143,7 +143,7 @@ class Worker(abc.ABC):
     def start_computation(self,
                           callback: Dispatcher,
                           id: CandidateId,
-                          config: Configuration,
+                          config: Optional[Configuration],
                           pipeline: FlexiblePipeline,
                           budget: float,
                           timeout: float = None) -> Result:

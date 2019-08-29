@@ -2,12 +2,11 @@ import abc
 import logging
 from typing import List, Optional, Dict
 
-import math
 import numpy as np
 
 from dswizard.core.base_structure_generator import BaseStructureGenerator
+from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import CandidateId, CandidateStructure
-from dswizard.core.runhistory import JsonResultLogger
 
 
 class BaseIteration(abc.ABC):

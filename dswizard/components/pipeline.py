@@ -17,6 +17,8 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         self.configuration = None
         self.dataset_properties = dataset_properties
 
+        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
+
     def _validate_steps(self):
         if len(self.steps) == 0:
             raise TypeError('Pipeline has to contain at least 1 step')
@@ -65,6 +67,9 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         return self
 
     def get_hyperparameter_search_space(self, dataset_properties=None) -> ConfigurationSpace:
+        if dataset_properties is None:
+            dataset_properties = self.dataset_properties
+
         cs = ConfigurationSpace()
         for name, step in self.steps:
             step_configuration_space = step.get_hyperparameter_search_space(dataset_properties)

@@ -5,7 +5,7 @@ import numpy as np
 
 from dswizard.core.base_iteration import BaseIteration
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.runhistory import JsonResultLogger
+from dswizard.core.logger import JsonResultLogger
 
 
 class SuccessiveResampling(BaseIteration):

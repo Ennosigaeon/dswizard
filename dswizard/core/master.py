@@ -10,8 +10,9 @@ from ConfigSpace import Configuration
 
 from dswizard.core.base_bandit_learner import BanditLearner
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
+from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import CandidateId, Job, CandidateStructure
-from dswizard.core.runhistory import JsonResultLogger, RunHistory
+from dswizard.core.runhistory import RunHistory
 from dswizard.core.worker import Worker
 
 
@@ -169,10 +170,7 @@ class Master:
         """
         self.logger.debug('submitting job {} to dispatcher'.format(cid))
         with self.thread_cond:
-            if config is None:
-                raise NotImplementedError('JIT config generation currently not implemented')
-
-            job = Job(cid, config, cs.configspace, cs.pipeline, cs.budget, cs.timeout)
+            job = Job(cid, config, cs.pipeline, cs.budget, cs.timeout)
 
             self.dispatcher.submit_job(job)
             self.num_running_jobs += 1

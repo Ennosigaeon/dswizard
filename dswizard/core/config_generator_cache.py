@@ -17,7 +17,8 @@ class ConfigGeneratorCache:
 
         self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
 
-    def get(self, configspace: ConfigurationSpace, pipeline: FlexiblePipeline) -> BaseConfigGenerator:
+    def get(self, pipeline: FlexiblePipeline) -> BaseConfigGenerator:
+        configspace = pipeline.configuration_space
         if configspace not in self.cache:
             cg = self.clazz(configspace, pipeline, **self.init_args)
             self.cache[configspace] = cg
@@ -25,8 +26,7 @@ class ConfigGeneratorCache:
 
     def register_result(self, job: Job):
         try:
-            # TODO only workaround, job should contain only structure and not configspace
-            self.cache[job.configspace].register_result(job)
+            self.cache[job.pipeline.configuration_space].register_result(job)
         except KeyError:
             # Should never happen
             pass
