@@ -1,4 +1,5 @@
 import importlib
+from typing import Optional
 
 import numpy as np
 
@@ -37,6 +38,13 @@ def convert_multioutput_multiclass_to_multilabel(probas):
                 multioutput_probas[:, i] = 0
         probas = multioutput_probas
     return probas
+
+
+def prefixed_name(prefix: Optional[str], name: str) -> str:
+    """
+    Returns the potentially prefixed name name.
+    """
+    return name if prefix is None else '{}:{}'.format(prefix, name)
 
 
 def get_type(clazz: str) -> type:

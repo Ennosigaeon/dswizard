@@ -1,4 +1,5 @@
 import importlib
+from typing import Optional
 
 import math
 from ConfigSpace import Configuration
@@ -6,6 +7,7 @@ from sklearn import metrics
 from sklearn.model_selection import train_test_split
 
 from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import CandidateId
 from dswizard.core.worker import Worker
 
@@ -35,7 +37,8 @@ class SklearnWorker(Worker):
 
     def compute(self,
                 config_id: CandidateId,
-                config: Configuration,
+                config: Optional[Configuration],
+                cfg: Optional[BaseConfigGenerator],
                 pipeline: FlexiblePipeline,
                 budget: float) -> float:
         # Only use budget-percent
@@ -47,8 +50,12 @@ class SklearnWorker(Worker):
         X = self.X[:n]
         y = self.y[:n]
 
-        pipeline.set_hyperparameters(config.get_dictionary())
-        pipeline.fit(X, y)
+        self.logger.debug('starting to fit pipeline and predict values')
+        if config is not None:
+            pipeline.set_hyperparameters(config.get_dictionary())
+            pipeline.fit(X, y)
+        else:
+            pipeline.fit(X, y, cfg=cfg, logger=self.process_logger)
 
         y_pred = pipeline.predict(self.X_test)
         accuracy = metrics.accuracy_score(self.y_test, y_pred)

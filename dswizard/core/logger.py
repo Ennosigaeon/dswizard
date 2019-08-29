@@ -3,6 +3,8 @@ import os
 import json
 from ConfigSpace import Configuration
 
+from dswizard.util.util import prefixed_name
+
 
 class JsonResultLogger:
     def __init__(self, directory: str, overwrite: bool = False):
@@ -65,3 +67,44 @@ class JsonResultLogger:
                 json.dumps([job.id.as_tuple(), job.budget, job.result.as_dict() if job.result is not None else None])
             )
             fh.write("\n")
+
+
+class ProcessLogger:
+
+    def __init__(self, directory: str, config_id):
+
+        os.makedirs(directory, exist_ok=True)
+        self.file = os.path.join(directory, '{}-{}-{}.json'.format(*config_id.as_tuple()))
+        with open(self.file, 'w'):
+            pass
+
+    def new_step(self, name: str, config: Configuration) -> None:
+        new_params = {}
+        for param, value in config.get_dictionary().items():
+            param = prefixed_name(name, param)
+            new_params[param] = value
+
+        with open(self.file, 'a') as fh:
+            fh.write(json.dumps([name, new_params]))
+            fh.write('\n')
+
+    def restore_config(self, pipeline):
+        complete = {}
+        missing_steps = set(pipeline.all_steps())
+        with open(self.file) as fh:
+            for line in fh:
+                name, values = json.loads(line)
+                missing_steps.remove(name)
+                complete.update(values)
+
+        # Create random configuration for missing steps
+        for name in missing_steps:
+            config = pipeline.steps_[name].get_hyperparameter_search_space(pipeline.dataset_properties) \
+                .sample_configuration()
+            for param, value in config.get_dictionary().items():
+                param = prefixed_name(name, param)
+                complete[param] = value
+
+        config = Configuration(pipeline.configuration_space, complete)
+        os.remove(self.file)
+        return config

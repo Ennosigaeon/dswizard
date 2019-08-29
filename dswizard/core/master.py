@@ -208,6 +208,9 @@ class Master:
         with self.thread_cond:
             self.num_running_jobs -= 1
 
+            if job.config is None:
+                raise ValueError('Encountered job without a configuration: {}'.format(job))
+
             if self.result_logger is not None:
                 self.result_logger.log_evaluated_config(job)
 

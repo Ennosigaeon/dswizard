@@ -293,6 +293,8 @@ class PyroDispatcher(Dispatcher):
             job = self.running_jobs[id]
             job.time_finished = time.time()
             job.result = result
+            # necessary if config was generated on the fly
+            job.config = result.config
 
             self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))
 
@@ -413,6 +415,8 @@ class LocalDispatcher(Dispatcher):
             job = self.running_jobs[id]
             job.time_finished = time.time()
             job.result = result
+            # necessary if config was generated on the fly
+            job.config = result.config
 
             self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))
 

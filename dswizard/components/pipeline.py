@@ -2,11 +2,15 @@ from typing import Dict, List, Tuple, Union
 
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace, OrderedDict
-from sklearn.base import BaseEstimator
-from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, clone
+from sklearn.pipeline import Pipeline, _fit_transform_one
+from sklearn.utils import _print_elapsed_time
+from sklearn.utils.validation import check_memory
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
+from dswizard.core.logger import ProcessLogger
 from dswizard.util import util
+from dswizard.util.util import prefixed_name
 
 
 class FlexiblePipeline(Pipeline, BaseEstimator):
@@ -19,6 +23,16 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
 
+    def all_steps(self, prefix: str = None) -> List[str]:
+        res = []
+        for name, component in self.steps_.items():
+            n = prefixed_name(prefix, name)
+            res.append(n)
+            if isinstance(component, SubPipeline):
+                for p_name, p in component.pipelines.items():
+                    res.extend(p.all_steps(prefix=prefixed_name(name, p_name)))
+        return res
+
     def _validate_steps(self):
         if len(self.steps) == 0:
             raise TypeError('Pipeline has to contain at least 1 step')
@@ -26,11 +40,112 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         if not hasattr(self.steps[-1][1], 'predict'):
             raise TypeError('Last step of Pipeline should implement predict.')
 
-    def fit(self, X, y=None, **fit_params):
-        # TODO implement pipeline fitting
-        # Was ist mit splits und merge in pipelines?
+    def _fit(self,
+             X: np.ndarray,
+             y: np.ndarray = None,
+             cfg=None,
+             logger: ProcessLogger = None,
+             prefix: str = None,
+             **fit_params: dict):
+        # shallow copy of steps - this should really be steps_
+        self.steps = list(self.steps)
+        self._validate_steps()
+        # Setup the memory
+        memory = check_memory(self.memory)
 
-        super().fit(X, y, **fit_params)
+        fit_transform_one_cached = memory.cache(_fit_transform_one)
+
+        fit_params_steps = {name: {} for name, step in self.steps
+                            if step is not None}
+        for pname, pval in fit_params.items():
+            if '__' not in pname:
+                raise ValueError(
+                    "Pipeline.fit does not accept the {} parameter. "
+                    "You can pass parameters to specific steps of your "
+                    "pipeline using the stepname__parameter format, e.g. "
+                    "`Pipeline.fit(X, y, logisticregression__sample_weight"
+                    "=sample_weight)`.".format(pname))
+            step, param = pname.split('__', 1)
+            fit_params_steps[step][param] = pval
+        Xt = X
+        for (step_idx,
+             name,
+             transformer) in self._iter(with_final=False,
+                                        filter_passthrough=False):
+            if (transformer is None or transformer == 'passthrough'):
+                with _print_elapsed_time('Pipeline',
+                                         self._log_message(step_idx)):
+                    continue
+
+            if memory.location is None:
+                # we do not clone when caching is disabled to
+                # preserve backward compatibility
+                cloned_transformer = transformer
+            else:
+                cloned_transformer = clone(transformer)
+
+            # Configure transformer on the fly if necessary
+            if cfg is not None:
+                config: Configuration = self._get_config_for_step(cfg, prefixed_name(prefix, name), logger)
+                cloned_transformer.set_hyperparameters(configuration=config.get_dictionary())
+
+            # Fit or load from cache the current transfomer
+            if not isinstance(transformer, SubPipeline):
+                Xt, fitted_transformer = fit_transform_one_cached(
+                    cloned_transformer, Xt, y, None,
+                    message_clsname='Pipeline',
+                    message=self._log_message(step_idx),
+                    **fit_params_steps[name])
+            else:
+                Xt, fitted_transformer = fit_transform_one_cached(
+                    cloned_transformer, Xt, y, None,
+                    message_clsname='Pipeline',
+                    message=self._log_message(step_idx),
+                    cfg=cfg,
+                    logger=logger,
+                    prefix=name,
+                    **fit_params_steps[name])
+
+            # Replace the transformer of the step with the fitted
+            # transformer. This is necessary when loading the transformer
+            # from the cache.
+            self.steps[step_idx] = (name, fitted_transformer)
+        if self._final_estimator == 'passthrough':
+            return Xt, {}
+        return Xt, fit_params_steps[self.steps[-1][0]]
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            cfg=None,
+            logger: ProcessLogger = None,
+            prefix: str = None,
+            **fit_params: dict):
+        if self.configuration is None and cfg is None:
+            raise ValueError(
+                'Pipeline is not configured yet. Either call sef_hyperparameters or provide a ConfigGenerator')
+
+        Xt, fit_params = self._fit(X, y, cfg=cfg, logger=logger, prefix=prefix, **fit_params)
+        with _print_elapsed_time('Pipeline',
+                                 self._log_message(len(self.steps) - 1)):
+            if self._final_estimator != 'passthrough':
+                if cfg is not None:
+                    # TODO: Last step can not be a subpipeline
+                    config = self._get_config_for_step(cfg, prefixed_name(prefix, self.steps[-1][0]), logger)
+                    self._final_estimator.set_hyperparameters(configuration=config.get_dictionary())
+
+                self._final_estimator.fit(Xt, y, **fit_params)
+            else:
+                raise NotImplementedError('passthrough pipelines are currently not supported')
+        return self
+
+    @staticmethod
+    def _get_config_for_step(cfg, name: str, logger: ProcessLogger) -> Configuration:
+        config: Configuration = cfg.get_config_for_step(name)
+        if logger is not None:
+            logger.new_step(name, config)
+
+        return config
 
     def set_hyperparameters(self, configuration: dict, init_params=None):
         self.configuration = configuration
@@ -122,11 +237,13 @@ class SubPipeline(EstimatorComponent):
         for idx, wf in enumerate(sorted(ls)):
             self.pipelines['pipeline_{}'.format(idx)] = wf
 
-    def fit(self, X, y=None, **fit_params):
-        for node_name, pipeline in self.pipelines.items():
-            pipeline.fit(X, y, **fit_params)
+    def fit(self, X, y=None, cfg=None, logger=None, prefix: str = None, **fit_params):
+        for p_name, pipeline in self.pipelines.items():
+            p_prefix = prefixed_name(prefix, p_name)
+            pipeline.fit(X, y, cfg=cfg, logger=logger, prefix=p_prefix, **fit_params)
         return self
 
+    # noinspection PyPep8Naming
     def transform(self, X: np.ndarray):
         X_transformed = X
         for name, pipeline in self.pipelines.items():
@@ -136,6 +253,9 @@ class SubPipeline(EstimatorComponent):
         return X_transformed
 
     def set_hyperparameters(self, configuration: dict, init_params=None):
+        if len(configuration.keys()) == 0:
+            return
+
         for node_name, pipeline in self.pipelines.items():
             sub_config_dict = {}
             for param in configuration:

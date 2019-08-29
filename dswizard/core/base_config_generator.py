@@ -42,10 +42,14 @@ class BaseConfigGenerator(abc.ABC):
         for i in range(iterations):
             config = self.get_config()
             config_id = candidate.id.with_config(i)
-            starter(config_id, candidate, config)
+            starter(config_id, candidate, None)
 
     @abc.abstractmethod
     def get_config(self, budget: float = None) -> Configuration:
+        pass
+
+    @abc.abstractmethod
+    def get_config_for_step(self, step: str, budget: float = None) -> Configuration:
         pass
 
     def register_result(self, job: Job, update_model: bool = True) -> None:

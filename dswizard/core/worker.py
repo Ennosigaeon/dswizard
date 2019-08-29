@@ -14,7 +14,10 @@ from Pyro4.errors import CommunicationError, NamingError
 from smac.tae.execute_ta_run import StatusType
 
 from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.base_config_generator import BaseConfigGenerator
+from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.dispatcher import Dispatcher
+from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import CandidateId, Result
 
 
@@ -35,7 +38,8 @@ class Worker(abc.ABC):
                  logger: logging.Logger = None,
                  host: str = None,
                  wid: str = None,
-                 timeout: float = None):
+                 timeout: float = None,
+                 workdir: str = '/tmp/dswizzard/'):
         """
         :param run_id: unique id to identify individual optimization run
         :param nameserver: hostname or IP of the nameserver
@@ -57,6 +61,9 @@ class Worker(abc.ABC):
 
         self.timeout = timeout
         self.timer = None
+
+        self.workdir = workdir
+        self.process_logger = None
 
         if wid is not None:
             self.worker_id += '.{}'.format(wid)
@@ -158,8 +165,16 @@ class Worker(abc.ABC):
 
         result = None
         try:
+            # On the fly configuration of pipeline
+            if config is None:
+                cache: ConfigGeneratorCache = ConfigGeneratorCache.instance()
+                cfg = cache.get(pipeline)
+                self.process_logger = ProcessLogger(self.workdir, id)
+            else:
+                cfg = None
+
             wrapper = pynisher.enforce_limits(wall_time_in_s=timeout)(self.compute)
-            c = wrapper(id, config, copy.deepcopy(pipeline), budget)
+            c = wrapper(id, config, cfg, pipeline, budget)
 
             if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -174,6 +189,9 @@ class Worker(abc.ABC):
                 status = StatusType.CRASHED
                 cost = 1
 
+            if config is None:
+                config = self.process_logger.restore_config(pipeline)
+
             runtime = float(wrapper.wall_clock_time)
             result = Result(status, config, cost, runtime)
         except KeyboardInterrupt:
@@ -183,6 +201,7 @@ class Worker(abc.ABC):
             self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
             result = Result(StatusType.CRASHED, config, 1, None)
         finally:
+            self.process_logger = None
             self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(id))
             with self.thread_cond:
                 self.busy = False
@@ -197,7 +216,8 @@ class Worker(abc.ABC):
     @abc.abstractmethod
     def compute(self,
                 config_id: CandidateId,
-                config: Configuration,
+                config: Optional[Configuration],
+                cfg: Optional[BaseConfigGenerator],
                 pipeline: FlexiblePipeline,
                 budget: float
                 ) -> float:
@@ -205,6 +225,7 @@ class Worker(abc.ABC):
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
+        :param cfg:
         :param pipeline: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         """

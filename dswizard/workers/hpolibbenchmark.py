@@ -1,7 +1,10 @@
+from typing import Optional
+
 import ConfigSpace as CS
 from ConfigSpace import Configuration
 
 from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import CandidateId
 from dswizard.core.worker import Worker
 
@@ -31,7 +34,8 @@ class HPOlib2Worker(Worker):
 
     def compute(self,
                 config_id: CandidateId,
-                config: Configuration,
+                config: Optional[Configuration],
+                cfg: Optional[BaseConfigGenerator],
                 pipeline: FlexiblePipeline,
                 budget: float) -> float:
         if self.config_as_array:
