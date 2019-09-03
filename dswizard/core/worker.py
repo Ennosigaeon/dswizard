@@ -1,6 +1,5 @@
 import abc
 import logging
-import multiprocessing
 import os
 import socket
 import threading
@@ -35,10 +34,9 @@ class Worker(abc.ABC):
                  run_id: str,
                  nameserver: str = None,
                  nameserver_port: int = None,
-                 logger: logging.Logger = None,
                  host: str = None,
+                 logger: logging.Logger = None,
                  wid: str = None,
-                 timeout: float = None,
                  workdir: str = '/tmp/dswizzard/'):
         """
         :param run_id: unique id to identify individual optimization run
@@ -48,19 +46,12 @@ class Worker(abc.ABC):
         :param host: hostname for this worker process
         :param wid: if multiple workers are started in the same process, you MUST provide a unique id for each one of
             them using the `id` argument.
-        :param timeout: specifies the timeout a worker will wait for a new after finishing a computation before shutting
-            down. Towards the end of a long run with multiple workers, this helps to shutdown idling workers. We
-            recommend a timeout that is roughly half the time it would take for the second largest budget to finish.
-            The default (None) means that the worker will wait indefinitely and never shutdown on its own.
         """
         self.run_id = run_id
         self.host = host
         self.nameserver = nameserver
         self.nameserver_port = nameserver_port
         self.worker_id = '{}.worker.{}'.format(self.run_id, os.getpid())
-
-        self.timeout = timeout
-        self.timer = None
 
         self.workdir = workdir
         self.process_logger = None
@@ -80,7 +71,6 @@ class Worker(abc.ABC):
 
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
-        self.manager = multiprocessing.Manager()
 
     def run(self, background: bool = False) -> None:
         """
@@ -158,8 +148,6 @@ class Worker(abc.ABC):
             while self.busy:
                 self.thread_cond.wait()
             self.busy = True
-        if self.timeout is not None and self.timer is not None:
-            self.timer.cancel()
 
         self.logger.info('start processing job {}'.format(id))
 
@@ -207,10 +195,6 @@ class Worker(abc.ABC):
                 self.busy = False
                 callback.register_result(id, result)
                 self.thread_cond.notify()
-        if self.timeout is not None:
-            self.timer = threading.Timer(self.timeout, self.shutdown)
-            self.timer.daemon = True
-            self.timer.start()
         return result
 
     @abc.abstractmethod
