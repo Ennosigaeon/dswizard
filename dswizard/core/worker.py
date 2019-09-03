@@ -10,14 +10,13 @@ import Pyro4
 import pynisher
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
-from smac.tae.execute_ta_run import StatusType
 
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.logger import ProcessLogger
-from dswizard.core.model import CandidateId, Result
+from dswizard.core.model import CandidateId, Result, StatusType
 
 
 class Worker(abc.ABC):

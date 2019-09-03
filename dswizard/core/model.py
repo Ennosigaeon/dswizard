@@ -1,12 +1,22 @@
 import time
+from enum import Enum
 from typing import Optional, Dict, List
 
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
-from smac.tae.execute_ta_run import StatusType
 
 from dswizard.components.pipeline import FlexiblePipeline
+
+
+class StatusType(Enum):
+    """Class to define numbers for status types"""
+    SUCCESS = 1
+    TIMEOUT = 2
+    CRASHED = 3
+    ABORT = 4
+    MEMOUT = 5
+    CAPPED = 6
 
 
 class CandidateId:

@@ -7,9 +7,8 @@ from typing import Callable, Dict, Set, List, Optional, Union
 
 import Pyro4
 from Pyro4.errors import ConnectionClosedError
-from smac.tae.execute_ta_run import StatusType
 
-from dswizard.core.model import CandidateId, Result, Job
+from dswizard.core.model import CandidateId, Result, Job, StatusType
 
 
 class WorkerProxy:

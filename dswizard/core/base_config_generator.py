@@ -3,10 +3,9 @@ import logging
 from typing import Callable, Optional
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
-from smac.tae.execute_ta_run import StatusType
 
 from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.model import Job, CandidateStructure, CandidateId
+from dswizard.core.model import Job, CandidateStructure, CandidateId, StatusType
 
 
 class BaseConfigGenerator(abc.ABC):
