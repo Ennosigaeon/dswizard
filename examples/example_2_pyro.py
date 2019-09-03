@@ -10,12 +10,6 @@ from collections import OrderedDict
 
 from sklearn import datasets
 
-# Configure logging system before importing smac
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S%z',
-                    stream=sys.stdout)
-
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
