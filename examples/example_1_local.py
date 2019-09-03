@@ -1,5 +1,5 @@
 """
-Example 2 - Sklearn
+Example 1 - Single Threaded
 ================================
 
 """
@@ -19,7 +19,6 @@ logging.basicConfig(level=logging.DEBUG,
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
-from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
@@ -57,7 +56,6 @@ steps['1'] = SubPipeline([sub_wf_2], dataset_properties=dataset_properties)
 steps['2'] = ClassifierChoice()
 
 structure_generator = FixedStructure(steps, dataset_properties, timeout=args.timeout)
-# structure_generator = RandomStructureGenerator(dataset_properties, timeout=args.timeout)
 bandit = GenericBanditLearner(structure_generator,
                               min_budget=args.min_budget,
                               max_budget=args.max_budget)
@@ -68,7 +66,7 @@ master = Master(
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
     local_workers=[w],
     config_generator_class=LayeredHyperopt,
-    config_generator_kwargs={}
+    config_generator_kwargs={'on_the_fly_generation': True}
 )
 res = master.run()
 

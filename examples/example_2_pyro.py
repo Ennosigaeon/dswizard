@@ -1,5 +1,5 @@
 """
-Example 2 - Sklearn
+Example 2 - Local Pyro
 ================================
 
 """
@@ -10,21 +10,23 @@ from collections import OrderedDict
 
 from sklearn import datasets
 
+# Configure logging system before importing smac
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S%z',
+                    stream=sys.stdout)
+
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
-from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
+from dswizard.core.nameserver import NameServer
 from dswizard.optimizers.bandit_learners import GenericBanditLearner
 from dswizard.optimizers.config_generators.layered_hyperopt import LayeredHyperopt
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S%z',
-                    stream=sys.stdout)
 logging.getLogger('Pyro4.core').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
@@ -35,13 +37,17 @@ parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='../logs/')
 args = parser.parse_args()
 
+# Start Nameserver
+NS = NameServer(run_id=args.run_id, host='127.0.0.1', port=None)
+NS.start()
+
 # Start worker
 X, y = datasets.load_breast_cancer(True)
 dataset_properties = {
     'target_type': 'classification'
 }
 
-w = SklearnWorker(run_id=args.run_id, wid='0', workdir=args.log_dir)
+w = SklearnWorker(run_id=args.run_id, wid='0', workdir=args.log_dir, nameserver='127.0.0.1')
 w.set_dataset(X, y, dataset_properties=dataset_properties, test_size=0.3)
 w.run(background=True)
 
@@ -54,10 +60,7 @@ steps = OrderedDict()
 steps['1'] = SubPipeline([sub_wf_2], dataset_properties=dataset_properties)
 steps['2'] = ClassifierChoice()
 
-cfg = ConfigGeneratorCache.instance(clazz=LayeredHyperopt, init_args={})
-
 structure_generator = FixedStructure(steps, dataset_properties, timeout=args.timeout)
-# structure_generator = RandomStructureGenerator(dataset_properties, timeout=args.timeout)
 bandit = GenericBanditLearner(structure_generator,
                               min_budget=args.min_budget,
                               max_budget=args.max_budget)
@@ -66,12 +69,15 @@ master = Master(
     run_id=args.run_id,
     bandit_learner=bandit,
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
-    local_workers=[w],
+    nameserver='127.0.0.1',
+    config_generator_class=LayeredHyperopt,
+    config_generator_kwargs={'on_the_fly_generation': True}
 )
 res = master.run()
 
 # Shutdown
 master.shutdown(shutdown_workers=True)
+NS.shutdown()
 
 # Analysis
 id2config = res.get_id2config_mapping()

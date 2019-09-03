@@ -18,6 +18,7 @@ class BaseConfigGenerator(abc.ABC):
     def __init__(self,
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline = None,
+                 on_the_fly_generation = False,
                  logger: logging.Logger = None):
         """
         :param logger: for some debug output
@@ -31,6 +32,7 @@ class BaseConfigGenerator(abc.ABC):
             self.logger = logger
         self.configspace: ConfigurationSpace = configspace
         self.pipeline = pipeline
+        self.on_the_fly_generation = on_the_fly_generation
         self.cs: Optional[CandidateStructure] = None
 
     def optimize(self,
@@ -39,9 +41,12 @@ class BaseConfigGenerator(abc.ABC):
                  iterations: int = 1):
         self.cs = candidate
         for i in range(iterations):
-            config = self.get_config()
             config_id = candidate.id.with_config(i)
-            starter(config_id, candidate, None)
+            if self.on_the_fly_generation:
+                starter(config_id, candidate, None)
+            else:
+                config = self.get_config()
+                starter(config_id, candidate, config)
 
     @abc.abstractmethod
     def get_config(self, budget: float = None) -> Configuration:

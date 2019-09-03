@@ -36,7 +36,7 @@ class Master:
                  local_workers: List[Worker] = None,
 
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
-                 config_generator_kwargs: dict = None
+                 config_generator_kwargs: dict = None,
                  ):
         """
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
@@ -90,23 +90,35 @@ class Master:
             'time_ref': self.time_ref
         }
 
-        self.cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
-                                                                         init_args=config_generator_kwargs)
         if local_workers is not None:
+            self.logger.info('Starting dswizard in local mode')
             self.dispatcher = LocalDispatcher(local_workers, self.job_callback, queue_callback=self.adjust_queue_size,
                                               run_id=run_id)
+            self.cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
+                                                                             init_kwargs=config_generator_kwargs,
+                                                                             run_id=run_id)
         else:
+            self.logger.info('Starting dswizard in distributed mode')
             self.dispatcher = PyroDispatcher(self.job_callback, queue_callback=self.adjust_queue_size, run_id=run_id,
                                              ping_interval=ping_interval, nameserver=nameserver,
                                              nameserver_port=nameserver_port, host=host)
+            self.cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
+                                                                             init_kwargs=config_generator_kwargs,
+                                                                             run_id=run_id, host=host,
+                                                                             nameserver=nameserver,
+                                                                             nameserver_port=nameserver_port)
 
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
+        self.cache_thread = threading.Thread(target=self.cache.run)
+        self.cache_thread.start()
 
     def shutdown(self, shutdown_workers: bool = False) -> None:
         self.logger.info('shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
         self.dispatcher.shutdown(shutdown_workers)
         self.dispatcher_thread.join()
+
+        self.cache.shutdown()
 
     def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
         """
