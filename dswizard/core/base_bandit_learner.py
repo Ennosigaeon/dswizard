@@ -25,7 +25,6 @@ class BanditLearner(abc.ABC):
         self.iterations: List[BaseIteration] = []
         self.config = {}
         self.max_iterations = 0
-        self.config_generator: ConfigGeneratorCache = ConfigGeneratorCache.instance()
 
     @abc.abstractmethod
     def _get_next_iteration(self, iteration: int, iteration_kwargs: dict) -> BaseIteration:
@@ -49,7 +48,7 @@ class BanditLearner(abc.ABC):
         """
         # noinspection PyTypeChecker
         for candidate, iteration in self._get_next_structure(iteration_kwargs):
-            cg = self.config_generator.get(candidate.pipeline)
+            cg = ConfigGeneratorCache.instance().get(candidate.pipeline)
             cg.optimize(starter, candidate)
 
             self.iterations[iteration].register_result(candidate)

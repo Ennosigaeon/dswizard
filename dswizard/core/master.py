@@ -3,17 +3,20 @@ import logging
 import os
 import threading
 import time
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Type
 
 import math
 from ConfigSpace import Configuration
 
 from dswizard.core.base_bandit_learner import BanditLearner
+from dswizard.core.base_config_generator import BaseConfigGenerator
+from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import CandidateId, Job, CandidateStructure
 from dswizard.core.runhistory import RunHistory
 from dswizard.core.worker import Worker
+from dswizard.optimizers.config_generators import RandomSampling
 
 
 class Master:
@@ -31,6 +34,9 @@ class Master:
                  nameserver_port: int = None,
                  host: str = None,
                  local_workers: List[Worker] = None,
+
+                 config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
+                 config_generator_kwargs: dict = None
                  ):
         """
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
@@ -84,6 +90,8 @@ class Master:
             'time_ref': self.time_ref
         }
 
+        self.cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
+                                                                         init_args=config_generator_kwargs)
         if local_workers is not None:
             self.dispatcher = LocalDispatcher(local_workers, self.job_callback, queue_callback=self.adjust_queue_size,
                                               run_id=run_id)
@@ -214,7 +222,7 @@ class Master:
             if self.result_logger is not None:
                 self.result_logger.log_evaluated_config(job)
 
-            self.bandit_learner.config_generator.register_result(job)
+            self.cache.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')

@@ -27,10 +27,6 @@ from dswizard.optimizers.config_generators.layered_hyperopt import LayeredHypero
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S%z',
-                    stream=sys.stdout)
 logging.getLogger('Pyro4.core').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
@@ -60,8 +56,6 @@ steps = OrderedDict()
 steps['1'] = SubPipeline([sub_wf_2], dataset_properties=dataset_properties)
 steps['2'] = ClassifierChoice()
 
-cfg = ConfigGeneratorCache.instance(clazz=LayeredHyperopt, init_args={})
-
 structure_generator = FixedStructure(steps, dataset_properties, timeout=args.timeout)
 # structure_generator = RandomStructureGenerator(dataset_properties, timeout=args.timeout)
 bandit = GenericBanditLearner(structure_generator,
@@ -73,6 +67,8 @@ master = Master(
     bandit_learner=bandit,
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
     local_workers=[w],
+    config_generator_class=LayeredHyperopt,
+    config_generator_kwargs={}
 )
 res = master.run()
 

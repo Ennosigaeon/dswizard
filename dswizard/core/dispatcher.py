@@ -196,7 +196,7 @@ class PyroDispatcher(Dispatcher):
             worker.runs_job = job.id
 
             worker.proxy.start_computation(self, job.id, config=job.config, pipeline=job.pipeline, budget=job.budget,
-                                           **job.kwargs)
+                                           timeout=job.timeout, **job.kwargs)
 
             job.worker_name = wn
             self.running_jobs[job.id] = job
