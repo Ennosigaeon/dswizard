@@ -1,9 +1,16 @@
-import os
+from __future__ import annotations
 
 import json
+import os
+from typing import TYPE_CHECKING
+
 from ConfigSpace import Configuration
 
 from dswizard.util.util import prefixed_name
+
+if TYPE_CHECKING:
+    from dswizard.core.model import CandidateStructure, Job
+    from dswizard.components.pipeline import FlexiblePipeline
 
 
 class JsonResultLogger:
@@ -48,14 +55,14 @@ class JsonResultLogger:
 
         self.structure_ids = set()
 
-    def new_structure(self, structure) -> None:
+    def new_structure(self, structure: CandidateStructure) -> None:
         if structure.id not in self.structure_ids:
             self.structure_ids.add(structure.id)
             with open(self.structure_fn, 'a') as fh:
                 fh.write(json.dumps(structure.as_dict()))
                 fh.write('\n')
 
-    def log_evaluated_config(self, job) -> None:
+    def log_evaluated_config(self, job: Job) -> None:
         if job.id.without_config() not in self.structure_ids:
             # should never happen! TODO: log warning here!
             self.structure_ids.add(job.id)
@@ -88,7 +95,7 @@ class ProcessLogger:
             fh.write(json.dumps([name, new_params]))
             fh.write('\n')
 
-    def restore_config(self, pipeline):
+    def restore_config(self, pipeline: FlexiblePipeline):
         complete = {}
         missing_steps = set(pipeline.all_steps())
         with open(self.file) as fh:

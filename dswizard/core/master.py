@@ -1,22 +1,27 @@
+from __future__ import annotations
+
 import copy
 import logging
 import os
 import threading
 import time
-from typing import Tuple, Optional, List, Type
+from typing import Tuple, Optional, List, Type, TYPE_CHECKING
 
 import math
 from ConfigSpace import Configuration
 
-from dswizard.core.base_bandit_learner import BanditLearner
-from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.config_generator_cache import ConfigGeneratorCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
-from dswizard.core.logger import JsonResultLogger
-from dswizard.core.model import CandidateId, Job, CandidateStructure
+from dswizard.core.model import Job
 from dswizard.core.runhistory import RunHistory
-from dswizard.core.worker import Worker
 from dswizard.optimizers.config_generators import RandomSampling
+
+if TYPE_CHECKING:
+    from dswizard.core.base_bandit_learner import BanditLearner
+    from dswizard.core.base_config_generator import BaseConfigGenerator
+    from dswizard.core.logger import JsonResultLogger
+    from dswizard.core.model import CandidateId, CandidateStructure
+    from dswizard.core.worker import Worker
 
 
 class Master:

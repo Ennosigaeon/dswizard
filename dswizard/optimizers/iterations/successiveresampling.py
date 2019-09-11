@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import logging
-from typing import List
+from typing import List, TYPE_CHECKING
 
 import numpy as np
 
 from dswizard.core.base_iteration import BaseIteration
-from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.logger import JsonResultLogger
+
+if TYPE_CHECKING:
+    from dswizard.core.logger import JsonResultLogger
+    from dswizard.core.base_structure_generator import BaseStructureGenerator
 
 
 class SuccessiveResampling(BaseIteration):

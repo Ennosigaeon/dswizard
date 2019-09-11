@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 import abc
 import logging
 import queue
 import threading
 import time
-from typing import Callable, Dict, Set, List, Optional, Union
+from typing import Callable, Dict, Set, List, Optional, Union, TYPE_CHECKING
 
 import Pyro4
 from Pyro4.errors import ConnectionClosedError
 
-from dswizard.core.model import CandidateId, Result, Job, StatusType
+from dswizard.core.model import Result, StatusType
 
+if TYPE_CHECKING:
+    from dswizard.core.model import CandidateId, Job
 
 class WorkerProxy:
     def __init__(self, name: str, uri: str):

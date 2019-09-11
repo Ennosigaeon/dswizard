@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import logging
-from typing import Dict, Type
+from typing import Dict, Type, TYPE_CHECKING
 
 import Pyro4
 from ConfigSpace import ConfigurationSpace
 
-from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Job
 from dswizard.util.singleton import Singleton
+
+if TYPE_CHECKING:
+    from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.core.base_config_generator import BaseConfigGenerator
+    from dswizard.core.model import Job
 
 
 @Singleton

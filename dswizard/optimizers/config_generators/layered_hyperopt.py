@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import traceback
-from typing import Optional, Dict
+from typing import Optional, Dict, TYPE_CHECKING
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -9,10 +11,13 @@ import scipy.stats as sps
 import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
-from dswizard.components.pipeline import FlexiblePipeline, SubPipeline
+from dswizard.components.pipeline import SubPipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Job
 from dswizard.util.util import prefixed_name
+
+if TYPE_CHECKING:
+    from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.core.model import Job
 
 
 class KdeType:

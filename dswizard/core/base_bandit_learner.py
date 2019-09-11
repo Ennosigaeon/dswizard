@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import abc
 import logging
-from typing import List, Callable, Optional, Tuple
+from typing import List, Callable, Optional, Tuple, TYPE_CHECKING
 
 from ConfigSpace import Configuration
 
-from dswizard.core.base_iteration import BaseIteration
-from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_generator_cache import ConfigGeneratorCache
-from dswizard.core.model import CandidateStructure, CandidateId
+
+if TYPE_CHECKING:
+    from dswizard.core.base_iteration import BaseIteration
+    from dswizard.core.base_structure_generator import BaseStructureGenerator
+    from dswizard.core.model import CandidateStructure, CandidateId
 
 
 class BanditLearner(abc.ABC):

@@ -1,10 +1,17 @@
+from __future__ import annotations
+
 import abc
 import inspect
 import logging
 
+from typing import TYPE_CHECKING
+
 from dswizard.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
-from dswizard.core.model import CandidateStructure
+
 from dswizard.util import util
+
+if TYPE_CHECKING:
+    from dswizard.core.model import CandidateStructure
 
 
 class BaseStructureGenerator(abc.ABC):

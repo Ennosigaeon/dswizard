@@ -6,6 +6,7 @@ from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 
+# TODO FlexiblePipeline should only be imported for type hinting
 from dswizard.components.pipeline import FlexiblePipeline
 
 

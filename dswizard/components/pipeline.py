@@ -1,4 +1,6 @@
-from typing import Dict, List, Tuple, Union
+from __future__ import annotations
+
+from typing import Dict, List, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace, OrderedDict
@@ -8,9 +10,11 @@ from sklearn.utils import _print_elapsed_time
 from sklearn.utils.validation import check_memory
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
-from dswizard.core.logger import ProcessLogger
 from dswizard.util import util
 from dswizard.util.util import prefixed_name
+
+if TYPE_CHECKING:
+    from dswizard.core.logger import ProcessLogger
 
 
 class FlexiblePipeline(Pipeline, BaseEstimator):

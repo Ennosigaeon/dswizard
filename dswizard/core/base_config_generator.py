@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import abc
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
-from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.model import Job, CandidateStructure, CandidateId, StatusType
+from dswizard.core.model import StatusType
+
+if TYPE_CHECKING:
+    from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.core.model import Job, CandidateStructure, CandidateId
 
 
 class BaseConfigGenerator(abc.ABC):
@@ -18,7 +23,7 @@ class BaseConfigGenerator(abc.ABC):
     def __init__(self,
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline = None,
-                 on_the_fly_generation = False,
+                 on_the_fly_generation: bool = False,
                  logger: logging.Logger = None):
         """
         :param logger: for some debug output

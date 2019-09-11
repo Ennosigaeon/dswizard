@@ -1,22 +1,27 @@
+from __future__ import annotations
+
 import abc
 import logging
 import os
 import socket
 import threading
 import traceback
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import Pyro4
 import pynisher
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 
-from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.config_generator_cache import ConfigGeneratorCache
-from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.logger import ProcessLogger
-from dswizard.core.model import CandidateId, Result, StatusType
+from dswizard.core.model import Result, StatusType
+
+if TYPE_CHECKING:
+    from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.core.base_config_generator import BaseConfigGenerator
+    from dswizard.core.dispatcher import Dispatcher
+    from dswizard.core.model import CandidateId
 
 
 class Worker(abc.ABC):

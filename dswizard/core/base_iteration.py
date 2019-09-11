@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import abc
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, TYPE_CHECKING
 
 import numpy as np
 
-from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.logger import JsonResultLogger
-from dswizard.core.model import CandidateId, CandidateStructure
+from dswizard.core.model import CandidateId
+
+if TYPE_CHECKING:
+    from dswizard.core.base_structure_generator import BaseStructureGenerator
+    from dswizard.core.logger import JsonResultLogger
+    from dswizard.core.model import CandidateStructure
 
 
 class BaseIteration(abc.ABC):
