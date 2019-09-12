@@ -10,7 +10,7 @@ from typing import Tuple, Optional, List, Type, TYPE_CHECKING
 import math
 from ConfigSpace import Configuration
 
-from dswizard.core.config_generator_cache import ConfigGeneratorCache
+from dswizard.core.config_cache import ConfigGeneratorCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.model import Job
 from dswizard.core.runhistory import RunHistory

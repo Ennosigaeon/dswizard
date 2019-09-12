@@ -56,7 +56,9 @@ class LayeredHyperopt(BaseConfigGenerator):
         :param kwargs:
         """
 
-        super().__init__(configspace, pipeline, **kwargs)
+        super().__init__(configspace, **kwargs)
+        self.pipeline = pipeline
+
         self.top_n_percent = top_n_percent
         self.bw_factor = bandwidth_factor
         self.min_bandwidth = min_bandwidth
@@ -237,7 +239,7 @@ class LayeredHyperopt(BaseConfigGenerator):
                                 'using random configuration!'.format(e, sample))
             sample = configspace.sample_configuration()
 
-        return sample, MetaFeatures(X)
+        return sample
 
     def get_config(self, budget: float = None) -> Configuration:
         self.logger.debug('start sampling a new configuration.')

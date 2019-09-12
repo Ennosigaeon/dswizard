@@ -4,7 +4,6 @@ from ConfigSpace import Configuration, ConfigurationSpace
 from smac.facade import smac_facade
 from smac.scenario.scenario import Scenario
 
-from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import Job
 
@@ -13,10 +12,9 @@ class SMAC(BaseConfigGenerator):
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 pipeline: FlexiblePipeline = None,
                  num_samples: int = 20,
                  **kwargs):
-        super().__init__(configspace, pipeline, **kwargs)
+        super().__init__(configspace, **kwargs)
 
         scenario = Scenario({"run_obj": "quality",
                              "cs": configspace,

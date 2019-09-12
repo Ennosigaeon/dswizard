@@ -14,6 +14,7 @@ from dswizard.util import util
 from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
+    from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.logger import ProcessLogger
 
 

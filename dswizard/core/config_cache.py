@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Type, TYPE_CHECKING
+from typing import Dict, Type
+from typing import TYPE_CHECKING
 
 import Pyro4
 from ConfigSpace import ConfigurationSpace
@@ -9,38 +10,30 @@ from ConfigSpace import ConfigurationSpace
 from dswizard.util.singleton import Singleton
 
 if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
 
 
-@Singleton
-class ConfigGeneratorCache:
+class PyroDaemon:
 
     def __init__(self,
-                 clazz: Type[BaseConfigGenerator],
-                 init_kwargs: dict,
                  nameserver: str = None,
                  nameserver_port: int = None,
                  host: str = None,
                  run_id: str = '0',
                  logger: logging.Logger = None
                  ):
-        self.clazz = clazz
-        self.init_kwargs = init_kwargs
+        self.nameserver = nameserver
+        self.nameserver_port = nameserver_port
+        self.host = host
+        self.run_id = run_id
+        self.pyro_daemon = None
+        self.pyro_id = None
 
         if logger is None:
             self.logger = logging.getLogger('ConfigCache')
         else:
             self.logger = logger
-
-        self.nameserver = nameserver
-        self.nameserver_port = nameserver_port
-        self.host = host
-        self.pyro_daemon = None
-        self.pyro_id = '{}.config_generator'.format(run_id)
-
-        self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
 
     def run(self):
         if self.nameserver is None:
@@ -63,11 +56,37 @@ class ConfigGeneratorCache:
         if self.pyro_daemon is not None:
             self.pyro_daemon.shutdown()
 
+
+@Singleton
+class ConfigGeneratorCache(PyroDaemon):
+
+    def __init__(self,
+                 clazz: Type[BaseConfigGenerator],
+                 init_kwargs: dict,
+                 nameserver: str = None,
+                 nameserver_port: int = None,
+                 host: str = None,
+                 run_id: str = '0',
+                 logger: logging.Logger = None
+                 ):
+        super().__init__(nameserver, nameserver_port, host, run_id, logger)
+
+        self.clazz = clazz
+        self.init_kwargs = init_kwargs
+
+        if logger is None:
+            self.logger = logging.getLogger('ConfigCache')
+        else:
+            self.logger = logger
+
+        self.pyro_id = '{}.config_generator'.format(run_id)
+
+        self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
+
     @Pyro4.expose
-    def get(self, pipeline: FlexiblePipeline) -> BaseConfigGenerator:
-        configspace = pipeline.configuration_space
+    def get(self, configspace: ConfigurationSpace, **kwargs) -> BaseConfigGenerator:
         if configspace not in self.cache:
-            cg = self.clazz(configspace, pipeline, **self.init_kwargs)
+            cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
             self.cache[configspace] = cg
         return self.cache[configspace]
 

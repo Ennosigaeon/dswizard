@@ -6,7 +6,7 @@ from typing import List, Callable, Optional, Tuple, TYPE_CHECKING
 
 from ConfigSpace import Configuration
 
-from dswizard.core.config_generator_cache import ConfigGeneratorCache
+from dswizard.core.config_cache import ConfigGeneratorCache
 
 if TYPE_CHECKING:
     from dswizard.core.base_iteration import BaseIteration
@@ -52,7 +52,8 @@ class BanditLearner(abc.ABC):
         """
         # noinspection PyTypeChecker
         for candidate, iteration in self._get_next_structure(iteration_kwargs):
-            cg = ConfigGeneratorCache.instance().get(candidate.pipeline)
+            cache: ConfigGeneratorCache = ConfigGeneratorCache.instance()
+            cg = cache.get(candidate.pipeline.configuration_space, pipeline=candidate.pipeline)
             cg.optimize(starter, candidate)
 
             self.iterations[iteration].register_result(candidate)

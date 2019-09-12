@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import traceback
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -14,14 +14,10 @@ from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import Job
 
-if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
-
 
 class Hyperopt(BaseConfigGenerator):
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 pipeline: FlexiblePipeline = None,
                  min_points_in_model: int = None,
                  top_n_percent: int = 15,
                  num_samples: int = 64,
@@ -45,7 +41,7 @@ class Hyperopt(BaseConfigGenerator):
         :param kwargs:
         """
 
-        super().__init__(configspace, pipeline, **kwargs)
+        super().__init__(configspace, **kwargs)
         self.top_n_percent = top_n_percent
         self.bw_factor = bandwidth_factor
         self.min_bandwidth = min_bandwidth

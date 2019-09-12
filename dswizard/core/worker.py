@@ -13,7 +13,7 @@ import pynisher
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 
-from dswizard.core.config_generator_cache import ConfigGeneratorCache
+from dswizard.core.config_cache import ConfigGeneratorCache
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType
 
@@ -211,7 +211,7 @@ class Worker(abc.ABC):
                 # noinspection PyTypeChecker
                 cache = Pyro4.Proxy(uri[0])
 
-        cfg = cache.get(pipeline)
+        cfg = cache.get(pipeline.configuration_space, pipeline=pipeline)
         self.process_logger = ProcessLogger(self.workdir, cid)
         return cfg
 

@@ -9,7 +9,6 @@ from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 from dswizard.core.model import StatusType
 
 if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
     from dswizard.core.model import Job, CandidateStructure, CandidateId
 
 
@@ -22,7 +21,6 @@ class BaseConfigGenerator(abc.ABC):
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 pipeline: FlexiblePipeline = None,
                  on_the_fly_generation: bool = False,
                  logger: logging.Logger = None):
         """
@@ -36,7 +34,6 @@ class BaseConfigGenerator(abc.ABC):
         else:
             self.logger = logger
         self.configspace: ConfigurationSpace = configspace
-        self.pipeline = pipeline
         self.on_the_fly_generation = on_the_fly_generation
         self.cs: Optional[CandidateStructure] = None
 
