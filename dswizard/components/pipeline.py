@@ -27,14 +27,30 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
 
-    def all_steps(self, prefix: str = None) -> List[str]:
+    def get_step(self, name: str):
+        tokens = name.split(':')
+        step_name = tokens[0]
+
+        estimator = self.steps_[step_name]
+        if isinstance(estimator, SubPipeline):
+            pipeline_name = tokens[1]
+
+            n_prefix = len(step_name) + 1 + len(pipeline_name) + 1
+            return estimator.pipelines[pipeline_name].get_step(name[n_prefix:])
+        return estimator
+
+    def all_names(self, prefix: str = None, exclude_parents: bool = False) -> List[str]:
         res = []
         for name, component in self.steps_.items():
             n = prefixed_name(prefix, name)
-            res.append(n)
             if isinstance(component, SubPipeline):
+                if not exclude_parents:
+                    res.append(n)
+
                 for p_name, p in component.pipelines.items():
-                    res.extend(p.all_steps(prefix=prefixed_name(name, p_name)))
+                    res.extend(p.all_names(prefixed_name(name, p_name), exclude_parents))
+            else:
+                res.append(n)
         return res
 
     def _validate_steps(self):
@@ -143,8 +159,8 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                 raise NotImplementedError('passthrough pipelines are currently not supported')
         return self
 
-    @staticmethod
-    def _get_config_for_step(cfg, name: str, logger: ProcessLogger) -> Configuration:
+    # noinspection PyMethodMayBeStatic
+    def _get_config_for_step(self, cfg: BaseConfigGenerator, name: str, logger: ProcessLogger) -> Configuration:
         config: Configuration = cfg.get_config_for_step(name)
         if logger is not None:
             logger.new_step(name, config)

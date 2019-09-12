@@ -97,7 +97,7 @@ class ProcessLogger:
 
     def restore_config(self, pipeline: FlexiblePipeline):
         complete = {}
-        missing_steps = set(pipeline.all_steps())
+        missing_steps = set(pipeline.all_names())
         with open(self.file) as fh:
             for line in fh:
                 name, values = json.loads(line)
@@ -106,7 +106,7 @@ class ProcessLogger:
 
         # Create random configuration for missing steps
         for name in missing_steps:
-            config = pipeline.steps_[name].get_hyperparameter_search_space(pipeline.dataset_properties) \
+            config = pipeline.get_step(name).get_hyperparameter_search_space(pipeline.dataset_properties) \
                 .sample_configuration()
             for param, value in config.get_dictionary().items():
                 param = prefixed_name(name, param)

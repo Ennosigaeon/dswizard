@@ -236,13 +236,14 @@ class LayeredHyperopt(BaseConfigGenerator):
             self.logger.warning('Error ({}) converting configuration: {} -> '
                                 'using random configuration!'.format(e, sample))
             sample = configspace.sample_configuration()
-        return sample
+
+        return sample, MetaFeatures(X)
 
     def get_config(self, budget: float = None) -> Configuration:
         self.logger.debug('start sampling a new configuration.')
 
         complete_config = {}
-        for name in self.pipeline.all_steps():
+        for name in self.pipeline.all_names():
             config = self.get_config_for_step(name, budget)
 
             for param, value in config.get_dictionary().items():
