@@ -4,21 +4,31 @@ import abc
 import logging
 from typing import List, Callable, Optional, Tuple, TYPE_CHECKING
 
+import Pyro4
 from ConfigSpace import Configuration
 
-from dswizard.core.config_cache import ConfigGeneratorCache
+from dswizard.core.config_cache import ConfigCache
 
 if TYPE_CHECKING:
+    from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.base_iteration import BaseIteration
     from dswizard.core.base_structure_generator import BaseStructureGenerator
     from dswizard.core.model import CandidateStructure, CandidateId
+    from dswizard.components.pipeline import FlexiblePipeline
 
 
 class BanditLearner(abc.ABC):
 
     def __init__(self,
+                 run_id: str,
+                 nameserver: str = None,
+                 nameserver_port: int = None,
                  structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None):
+        self.run_id = run_id
+        self.nameserver = nameserver
+        self.nameserver_port = nameserver_port
+
         self.structure_generator = structure_generator
 
         if logger is None:
@@ -52,8 +62,7 @@ class BanditLearner(abc.ABC):
         """
         # noinspection PyTypeChecker
         for candidate, iteration in self._get_next_structure(iteration_kwargs):
-            cache: ConfigGeneratorCache = ConfigGeneratorCache.instance()
-            cg = cache.get(candidate.pipeline.configuration_space, pipeline=candidate.pipeline)
+            cg = self._get_config_generator(candidate.pipeline)
             cg.optimize(starter, candidate)
 
             self.iterations[iteration].register_result(candidate)
@@ -81,3 +90,17 @@ class BanditLearner(abc.ABC):
                 else:
                     # Done
                     break
+
+    def _get_config_generator(self, pipeline: FlexiblePipeline) -> Optional[BaseConfigGenerator]:
+        cache: Optional[ConfigCache] = None
+        if self.nameserver is None:
+            cache = ConfigCache.instance()
+        else:
+            with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
+                uri = list(ns.list(prefix='{}.config_generator'.format(self.run_id)).values())
+                if len(uri) != 1:
+                    raise ValueError('Expected exactly one ConfigCache but found {}'.format(len(uri)))
+                # noinspection PyTypeChecker
+                cache = Pyro4.Proxy(uri[0])
+
+        return cache.get_config_generator(pipeline.configuration_space, pipeline=pipeline)

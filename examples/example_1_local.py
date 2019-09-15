@@ -29,7 +29,7 @@ from dswizard.workers.sklearn_worker import SklearnWorker
 logging.getLogger('Pyro4.core').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
-parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
+parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.10)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
 parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation in seconds', default=10)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
@@ -56,17 +56,19 @@ steps['1'] = SubPipeline([sub_wf_2], dataset_properties=dataset_properties)
 steps['2'] = ClassifierChoice()
 
 structure_generator = FixedStructure(steps, dataset_properties, timeout=args.timeout)
-bandit = GenericBanditLearner(structure_generator,
-                              min_budget=args.min_budget,
-                              max_budget=args.max_budget)
 
 master = Master(
     run_id=args.run_id,
-    bandit_learner=bandit,
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
     local_workers=[w],
+
     config_generator_class=LayeredHyperopt,
-    config_generator_kwargs={'on_the_fly_generation': True}
+    config_generator_kwargs={'on_the_fly_generation': True},
+
+    bandit_learner_class=GenericBanditLearner,
+    bandit_learner_kwargs={'structure_generator': structure_generator,
+                           'min_budget': args.min_budget,
+                           'max_budget': args.max_budget}
 )
 res = master.run()
 

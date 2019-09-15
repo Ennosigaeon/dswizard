@@ -12,11 +12,10 @@ import scipy.stats as sps
 import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
-from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.config_cache import ConfigResultCache
-from dswizard.core.model import MetaFeatures
-
 from dswizard.components.pipeline import SubPipeline
+from dswizard.core.base_config_generator import BaseConfigGenerator
+from dswizard.core.config_cache import ConfigCache
+from dswizard.core.model import MetaFeatures
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -86,7 +85,7 @@ class LayeredHyperopt(BaseConfigGenerator):
         if estimator == SubPipeline.name():
             return Configuration(ConfigurationSpace(), {}), meta_features
 
-        cache: ConfigResultCache = ConfigResultCache.instance()
+        cache: ConfigCache = ConfigCache.instance()
         ls = cache.get_trainings_data(estimator, meta_features, budget)
         kde_wrapper = self.build_kde_wrapper(configspace, ls)
         sample: Optional[Configuration] = None

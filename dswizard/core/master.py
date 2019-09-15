@@ -10,10 +10,11 @@ from typing import Tuple, Optional, List, Type, TYPE_CHECKING
 import math
 from ConfigSpace import Configuration
 
-from dswizard.core.config_cache import ConfigGeneratorCache, ConfigResultCache
+from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.model import Job
 from dswizard.core.runhistory import RunHistory
+from dswizard.optimizers.bandit_learners import GenericBanditLearner
 from dswizard.optimizers.config_generators import RandomSampling
 
 if TYPE_CHECKING:
@@ -27,7 +28,6 @@ if TYPE_CHECKING:
 class Master:
     def __init__(self,
                  run_id: str,
-                 bandit_learner: BanditLearner,
                  working_directory: str = '.',
                  job_queue_sizes: Tuple[int, int] = (-1, 0),
                  dynamic_queue_size: bool = True,
@@ -35,13 +35,16 @@ class Master:
                  result_logger: JsonResultLogger = None,
 
                  ping_interval: int = 60,
-                 nameserver: str = '127.0.0.1',
+                 nameserver: str = None,
                  nameserver_port: int = None,
                  host: str = None,
                  local_workers: List[Worker] = None,
 
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
                  config_generator_kwargs: dict = None,
+
+                 bandit_learner_class: Type[BanditLearner] = GenericBanditLearner,
+                 bandit_learner_kwargs: dict = None
                  ):
         """
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
@@ -65,6 +68,11 @@ class Master:
         :param local_workers: A list of local workers. If this parameter is not None, a LocalDispatcher will be used.
         """
 
+        if local_workers is not None and nameserver is not None:
+            raise ValueError('Cannot run in both local and distributed mode')
+        if local_workers is None and nameserver is None:
+            nameserver = '127.0.0.1'
+
         self.working_directory = working_directory
         os.makedirs(self.working_directory, exist_ok=True)
 
@@ -76,8 +84,6 @@ class Master:
         self.result_logger = result_logger
 
         self.time_ref: Optional[float] = None
-
-        self.bandit_learner: BanditLearner = bandit_learner
         self.jobs = []
 
         self.num_running_jobs = 0
@@ -99,38 +105,34 @@ class Master:
             self.logger.info('Starting dswizard in local mode')
             self.dispatcher = LocalDispatcher(local_workers, self.job_callback, queue_callback=self.adjust_queue_size,
                                               run_id=run_id)
-            self.generator_cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
-                                                                                       init_kwargs=config_generator_kwargs,
-                                                                                       run_id=run_id)
-            self.result_cache: ConfigResultCache = ConfigResultCache.instance(run_id=run_id)
         else:
             self.logger.info('Starting dswizard in distributed mode')
             self.dispatcher = PyroDispatcher(self.job_callback, queue_callback=self.adjust_queue_size, run_id=run_id,
                                              ping_interval=ping_interval, nameserver=nameserver,
                                              nameserver_port=nameserver_port, host=host)
-            self.generator_cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
-                                                                                       init_kwargs=config_generator_kwargs,
-                                                                                       run_id=run_id, host=host,
-                                                                                       nameserver=nameserver,
-                                                                                       nameserver_port=nameserver_port)
-            self.result_cache: ConfigResultCache = ConfigResultCache.instance(run_id=run_id, host=host,
-                                                                              nameserver=nameserver,
-                                                                              nameserver_port=nameserver_port)
+
+        self.cfg_cache: ConfigCache = ConfigCache.instance(clazz=config_generator_class,
+                                                           init_kwargs=config_generator_kwargs,
+                                                           run_id=run_id,
+                                                           host=host,
+                                                           nameserver=nameserver,
+                                                           nameserver_port=nameserver_port)
+        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id,
+                                                                  nameserver=nameserver,
+                                                                  nameserver_port=nameserver_port,
+                                                                  **bandit_learner_kwargs)
 
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
-        self.generator_cache_thread = threading.Thread(target=self.generator_cache.run)
-        self.generator_cache_thread.start()
-        self.result_cache_thread = threading.Thread(target=self.result_cache.run)
-        self.result_cache_thread.start()
+        self.cfg_cache_thread = threading.Thread(target=self.cfg_cache.run)
+        self.cfg_cache_thread.start()
 
     def shutdown(self, shutdown_workers: bool = False) -> None:
         self.logger.info('shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
         self.dispatcher.shutdown(shutdown_workers)
         self.dispatcher_thread.join()
 
-        self.generator_cache.shutdown()
-        self.result_cache.shutdown()
+        self.cfg_cache.shutdown()
 
     def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
         """
@@ -246,8 +248,7 @@ class Master:
             if self.result_logger is not None:
                 self.result_logger.log_evaluated_config(job)
 
-            self.result_cache.register_result(job)
-            self.generator_cache.register_result(job)
+            self.cfg_cache.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')

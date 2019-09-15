@@ -55,7 +55,9 @@ class SklearnWorker(Worker):
             pipeline.set_hyperparameters(config.get_dictionary())
             pipeline.fit(X, y)
         else:
-            pipeline.fit(X, y, cfg=cfg, budget=budget, logger=self.process_logger)
+            pipeline.cfg = cfg
+            pipeline.budget = budget
+            pipeline.fit(X, y, logger=self.process_logger)
 
         y_pred = pipeline.predict(self.X_test)
         accuracy = metrics.accuracy_score(self.y_test, y_pred)

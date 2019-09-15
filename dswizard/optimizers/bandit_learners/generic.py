@@ -7,6 +7,9 @@ from dswizard.optimizers.iterations import SuccessiveHalving
 
 class GenericBanditLearner(BanditLearner):
     def __init__(self,
+                 run_id: str,
+                 nameserver: str = None,
+                 nameserver_port: int = None,
                  structure_generator: BaseStructureGenerator = None,
                  eta: float = 3,
                  min_budget: float = 1,
@@ -20,7 +23,7 @@ class GenericBanditLearner(BanditLearner):
         :param min_budget: budget for the evaluation
         :param max_budget: budget for the evaluation
         """
-        super().__init__(structure_generator)
+        super().__init__(run_id, nameserver, nameserver_port, structure_generator)
 
         # Hyperband related stuff
         self.eta = eta

@@ -61,20 +61,32 @@ class PyroDaemon:
 
 
 @Singleton
-class ConfigResultCache(PyroDaemon):
+class ConfigCache(PyroDaemon):
 
     def __init__(self,
+                 clazz: Type[BaseConfigGenerator],
+                 init_kwargs: dict,
                  nameserver: str = None,
                  nameserver_port: int = None,
                  host: str = None,
                  run_id: str = '0',
                  logger: logging.Logger = None):
         super().__init__(nameserver, nameserver_port, host, run_id, logger)
+
+        self.clazz = clazz
+        self.init_kwargs = init_kwargs
+        self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
+
         self.result_cache: Dict[float, Dict[str, List[Tuple[PartialConfig, Result]]]] = defaultdict(
             lambda: defaultdict(list))
 
     @Pyro4.expose
     def register_result(self, job: Job):
+        try:
+            self.cache[job.pipeline.configuration_space].register_result(job)
+        except KeyError:
+            pass
+
         budget = job.budget
         configs = job.result.partial_configs
         result = job.result
@@ -98,44 +110,9 @@ class ConfigResultCache(PyroDaemon):
         self.logger.debug('Found {} similar samples'.format(len(ls)))
         return ls
 
-
-@Singleton
-class ConfigGeneratorCache(PyroDaemon):
-
-    def __init__(self,
-                 clazz: Type[BaseConfigGenerator],
-                 init_kwargs: dict,
-                 nameserver: str = None,
-                 nameserver_port: int = None,
-                 host: str = None,
-                 run_id: str = '0',
-                 logger: logging.Logger = None
-                 ):
-        super().__init__(nameserver, nameserver_port, host, run_id, logger)
-
-        self.clazz = clazz
-        self.init_kwargs = init_kwargs
-
-        if logger is None:
-            self.logger = logging.getLogger('ConfigCache')
-        else:
-            self.logger = logger
-
-        self.pyro_id = '{}.config_generator'.format(run_id)
-
-        self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
-
     @Pyro4.expose
-    def get(self, configspace: ConfigurationSpace, **kwargs) -> BaseConfigGenerator:
+    def get_config_generator(self, configspace: ConfigurationSpace = None, **kwargs) -> BaseConfigGenerator:
         if configspace not in self.cache:
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
             self.cache[configspace] = cg
         return self.cache[configspace]
-
-    @Pyro4.expose
-    def register_result(self, job: Job):
-        try:
-            self.cache[job.pipeline.configuration_space].register_result(job)
-        except KeyError:
-            # Should never happen
-            pass

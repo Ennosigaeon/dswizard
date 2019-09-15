@@ -13,7 +13,7 @@ import pynisher
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 
-from dswizard.core.config_cache import ConfigGeneratorCache
+from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType
 
@@ -202,18 +202,18 @@ class Worker(abc.ABC):
         return result
 
     def _get_config_generator(self, cid: CandidateId, pipeline: FlexiblePipeline) -> Optional[BaseConfigGenerator]:
-        cache: Optional[ConfigGeneratorCache] = None
+        cache: Optional[ConfigCache] = None
         if self.nameserver is None:
-            cache: ConfigGeneratorCache = ConfigGeneratorCache.instance()
+            cache = ConfigCache.instance()
         else:
             with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
                 uri = list(ns.list(prefix='{}.config_generator'.format(self.run_id)).values())
                 if len(uri) != 1:
-                    raise ValueError('Expected exactly one ConfigGeneratorCache but found {}'.format(len(uri)))
+                    raise ValueError('Expected exactly one ConfigCache but found {}'.format(len(uri)))
                 # noinspection PyTypeChecker
                 cache = Pyro4.Proxy(uri[0])
 
-        cfg = cache.get(pipeline.configuration_space, pipeline=pipeline)
+        cfg = cache.get_config_generator(pipeline.configuration_space, pipeline=pipeline)
         self.process_logger = ProcessLogger(self.workdir, cid)
         return cfg
 
