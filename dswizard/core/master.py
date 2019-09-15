@@ -10,7 +10,7 @@ from typing import Tuple, Optional, List, Type, TYPE_CHECKING
 import math
 from ConfigSpace import Configuration
 
-from dswizard.core.config_cache import ConfigGeneratorCache
+from dswizard.core.config_cache import ConfigGeneratorCache, ConfigResultCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.model import Job
 from dswizard.core.runhistory import RunHistory
@@ -99,31 +99,38 @@ class Master:
             self.logger.info('Starting dswizard in local mode')
             self.dispatcher = LocalDispatcher(local_workers, self.job_callback, queue_callback=self.adjust_queue_size,
                                               run_id=run_id)
-            self.cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
-                                                                             init_kwargs=config_generator_kwargs,
-                                                                             run_id=run_id)
+            self.generator_cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
+                                                                                       init_kwargs=config_generator_kwargs,
+                                                                                       run_id=run_id)
+            self.result_cache: ConfigResultCache = ConfigResultCache.instance(run_id=run_id)
         else:
             self.logger.info('Starting dswizard in distributed mode')
             self.dispatcher = PyroDispatcher(self.job_callback, queue_callback=self.adjust_queue_size, run_id=run_id,
                                              ping_interval=ping_interval, nameserver=nameserver,
                                              nameserver_port=nameserver_port, host=host)
-            self.cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
-                                                                             init_kwargs=config_generator_kwargs,
-                                                                             run_id=run_id, host=host,
-                                                                             nameserver=nameserver,
-                                                                             nameserver_port=nameserver_port)
+            self.generator_cache: ConfigGeneratorCache = ConfigGeneratorCache.instance(clazz=config_generator_class,
+                                                                                       init_kwargs=config_generator_kwargs,
+                                                                                       run_id=run_id, host=host,
+                                                                                       nameserver=nameserver,
+                                                                                       nameserver_port=nameserver_port)
+            self.result_cache: ConfigResultCache = ConfigResultCache.instance(run_id=run_id, host=host,
+                                                                              nameserver=nameserver,
+                                                                              nameserver_port=nameserver_port)
 
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
-        self.cache_thread = threading.Thread(target=self.cache.run)
-        self.cache_thread.start()
+        self.generator_cache_thread = threading.Thread(target=self.generator_cache.run)
+        self.generator_cache_thread.start()
+        self.result_cache_thread = threading.Thread(target=self.result_cache.run)
+        self.result_cache_thread.start()
 
     def shutdown(self, shutdown_workers: bool = False) -> None:
         self.logger.info('shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
         self.dispatcher.shutdown(shutdown_workers)
         self.dispatcher_thread.join()
 
-        self.cache.shutdown()
+        self.generator_cache.shutdown()
+        self.result_cache.shutdown()
 
     def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
         """
@@ -239,7 +246,8 @@ class Master:
             if self.result_logger is not None:
                 self.result_logger.log_evaluated_config(job)
 
-            self.cache.register_result(job)
+            self.result_cache.register_result(job)
+            self.generator_cache.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')

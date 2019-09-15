@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Tuple, Union, TYPE_CHECKING
 
 import numpy as np
@@ -10,6 +11,7 @@ from sklearn.utils import _print_elapsed_time
 from sklearn.utils.validation import check_memory
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
+from dswizard.core.model import PartialConfig
 from dswizard.util import util
 from dswizard.util.util import prefixed_name
 
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
 
 class FlexiblePipeline(Pipeline, BaseEstimator):
 
-    def __init__(self, steps: Dict[str, EstimatorComponent], dataset_properties: dict):
+    def __init__(self, steps: Dict[str, EstimatorComponent], dataset_properties: dict, logger: logging.Logger = None):
         super().__init__(list(steps.items()))
         self.steps_ = steps
         self.configuration = None
@@ -28,12 +30,17 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
 
+        if logger is None:
+            self.logger = logging.getLogger('Pipeline')
+        else:
+            self.logger = logger
+
     def get_step(self, name: str):
         tokens = name.split(':')
         step_name = tokens[0]
 
         estimator = self.steps_[step_name]
-        if isinstance(estimator, SubPipeline):
+        if isinstance(estimator, SubPipeline) and len(tokens) > 1:
             pipeline_name = tokens[1]
 
             n_prefix = len(step_name) + 1 + len(pipeline_name) + 1
@@ -67,6 +74,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
              cfg=None,
              logger: ProcessLogger = None,
              prefix: str = None,
+             budget: float = None,
              **fit_params: dict):
         # shallow copy of steps - this should really be steps_
         self.steps = list(self.steps)
@@ -93,7 +101,8 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
              name,
              transformer) in self._iter(with_final=False,
                                         filter_passthrough=False):
-            if (transformer is None or transformer == 'passthrough'):
+            self.logger.debug('Processing step {}'.format(name))
+            if transformer is None or transformer == 'passthrough':
                 with _print_elapsed_time('Pipeline',
                                          self._log_message(step_idx)):
                     continue
@@ -107,7 +116,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
             # Configure transformer on the fly if necessary
             if cfg is not None:
-                config: Configuration = self._get_config_for_step(cfg, prefixed_name(prefix, name), logger)
+                config: Configuration = self._get_config_for_step(cfg, prefix, name, Xt, budget, logger)
                 cloned_transformer.set_hyperparameters(configuration=config.get_dictionary())
 
             # Fit or load from cache the current transfomer
@@ -125,6 +134,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                     cfg=cfg,
                     logger=logger,
                     prefix=name,
+                    budget=budget,
                     **fit_params_steps[name])
 
             # Replace the transformer of the step with the fitted
@@ -141,18 +151,20 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             cfg=None,
             logger: ProcessLogger = None,
             prefix: str = None,
+            budget: float = None,
             **fit_params: dict):
         if self.configuration is None and cfg is None:
             raise ValueError(
                 'Pipeline is not configured yet. Either call sef_hyperparameters or provide a ConfigGenerator')
 
-        Xt, fit_params = self._fit(X, y, cfg=cfg, logger=logger, prefix=prefix, **fit_params)
+        Xt, fit_params = self._fit(X, y, cfg=cfg, logger=logger, prefix=prefix, budget=budget, **fit_params)
         with _print_elapsed_time('Pipeline',
                                  self._log_message(len(self.steps) - 1)):
+            self.logger.debug('Processing step {}'.format(self.steps[-1][0]))
             if self._final_estimator != 'passthrough':
                 if cfg is not None:
                     # TODO: Last step can not be a subpipeline
-                    config = self._get_config_for_step(cfg, prefixed_name(prefix, self.steps[-1][0]), logger)
+                    config = self._get_config_for_step(cfg, prefix, self.steps[-1][0], Xt, budget, logger)
                     self._final_estimator.set_hyperparameters(configuration=config.get_dictionary())
 
                 self._final_estimator.fit(Xt, y, **fit_params)
@@ -161,10 +173,18 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         return self
 
     # noinspection PyMethodMayBeStatic
-    def _get_config_for_step(self, cfg: BaseConfigGenerator, name: str, logger: ProcessLogger) -> Configuration:
-        config: Configuration = cfg.get_config_for_step(name)
+    def _get_config_for_step(self, cfg: BaseConfigGenerator, prefix: str, name: str, X: np.ndarray, budget: float,
+                             logger: ProcessLogger) -> Configuration:
+        estimator = self.get_step(name)
+        p_name = prefixed_name(prefix, name)
+
+        config, meta_features = cfg.get_config_for_step(estimator.name(),
+                                                        estimator.get_hyperparameter_search_space(
+                                                            self.dataset_properties), X, budget)
+
         if logger is not None:
-            logger.new_step(name, config)
+            intermediate = PartialConfig(meta_features, config, estimator.name())
+            logger.new_step(p_name, intermediate)
 
         return config
 
@@ -258,10 +278,10 @@ class SubPipeline(EstimatorComponent):
         for idx, wf in enumerate(sorted(ls)):
             self.pipelines['pipeline_{}'.format(idx)] = wf
 
-    def fit(self, X, y=None, cfg=None, logger=None, prefix: str = None, **fit_params):
+    def fit(self, X, y=None, cfg=None, logger=None, prefix: str = None, budget: float = None, **fit_params):
         for p_name, pipeline in self.pipelines.items():
             p_prefix = prefixed_name(prefix, p_name)
-            pipeline.fit(X, y, cfg=cfg, logger=logger, prefix=p_prefix, **fit_params)
+            pipeline.fit(X, y, cfg=cfg, logger=logger, prefix=p_prefix, budget=budget, **fit_params)
         return self
 
     # noinspection PyPep8Naming

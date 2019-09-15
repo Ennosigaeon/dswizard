@@ -207,9 +207,6 @@ class Hyperopt(BaseConfigGenerator):
         self.logger.debug('done sampling a new configuration.')
         return sample
 
-    def get_config_for_step(self, step: str, budget: float = None) -> Configuration:
-        raise NotImplementedError('Hyperopt does not support JIT configuration')
-
     def register_result(self,
                         job: Job,
                         update_model: bool = True) -> None:

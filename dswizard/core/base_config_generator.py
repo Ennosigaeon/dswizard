@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING, Tuple
 
+import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
 from dswizard.core.model import StatusType
 
 if TYPE_CHECKING:
-    from dswizard.core.model import Job, CandidateStructure, CandidateId
+    from dswizard.core.model import Job, CandidateStructure, CandidateId, MetaFeatures
 
 
 class BaseConfigGenerator(abc.ABC):
@@ -54,9 +55,9 @@ class BaseConfigGenerator(abc.ABC):
     def get_config(self, budget: float = None) -> Configuration:
         pass
 
-    @abc.abstractmethod
-    def get_config_for_step(self, step: str, budget: float = None) -> Configuration:
-        pass
+    def get_config_for_step(self, estimator: str, cs: ConfigurationSpace, X: np.ndarray, budget: float = None) -> \
+            Tuple[Configuration, MetaFeatures]:
+        raise NotImplementedError('JIT configuration generation is not supported')
 
     def register_result(self, job: Job, update_model: bool = True) -> None:
         """

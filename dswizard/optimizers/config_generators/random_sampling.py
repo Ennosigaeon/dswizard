@@ -13,6 +13,3 @@ class RandomSampling(BaseConfigGenerator):
             raise ValueError('No configuration space provided. Call set_config_space(ConfigurationSpace) first.')
 
         return self.configspace.sample_configuration()
-
-    def get_config_for_step(self, step: str, budget: float = None) -> Configuration:
-        raise NotImplementedError('RandomSampling does not support JIT configuration')

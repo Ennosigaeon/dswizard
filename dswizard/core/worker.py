@@ -180,16 +180,18 @@ class Worker(abc.ABC):
                 cost = 1
 
             if config is None:
-                config = self.process_logger.restore_config(pipeline)
+                config, partial_configs = self.process_logger.restore_config(pipeline)
+            else:
+                partial_configs = None
 
             runtime = float(wrapper.wall_clock_time)
-            result = Result(status, config, cost, runtime)
+            result = Result(status, config, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
         except Exception:
             # Should never occur, just a safety net
             self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
-            result = Result(StatusType.CRASHED, config, 1, None)
+            result = Result(StatusType.CRASHED, config, 1, None, None)
         finally:
             self.process_logger = None
             self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(cid))

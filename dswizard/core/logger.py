@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TYPE_CHECKING
+import pickle
+from typing import TYPE_CHECKING, List, Tuple
 
 from ConfigSpace import Configuration
 
+from dswizard.core.model import PartialConfig
 from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
@@ -81,28 +83,40 @@ class ProcessLogger:
     def __init__(self, directory: str, config_id):
 
         os.makedirs(directory, exist_ok=True)
-        self.file = os.path.join(directory, '{}-{}-{}.json'.format(*config_id.as_tuple()))
+        self.prefix = os.path.join(directory, '{}-{}-{}'.format(*config_id.as_tuple()))
+
+        self.file = '{}.json'.format(self.prefix)
         with open(self.file, 'w'):
             pass
 
-    def new_step(self, name: str, config: Configuration) -> None:
-        new_params = {}
-        for param, value in config.get_dictionary().items():
-            param = prefixed_name(name, param)
-            new_params[param] = value
-
+    def new_step(self, name: str, config: PartialConfig) -> None:
         with open(self.file, 'a') as fh:
-            fh.write(json.dumps([name, new_params]))
+            fh.write(json.dumps([name, config.as_dict()]))
             fh.write('\n')
+        with open('{}-{}.pickle'.format(self.prefix, name), 'wb') as fh:
+            pickle.dump(config.meta, fh)
 
-    def restore_config(self, pipeline: FlexiblePipeline):
+    def restore_config(self, pipeline: FlexiblePipeline) -> Tuple[Configuration, List[PartialConfig]]:
         complete = {}
+        partial_configs: List[PartialConfig] = []
+
         missing_steps = set(pipeline.all_names())
         with open(self.file) as fh:
             for line in fh:
-                name, values = json.loads(line)
+                name, partial_config = json.loads(line)
+                partial_config = PartialConfig.from_dict(partial_config)
+
+                pickle_file = '{}-{}.pickle'.format(self.prefix, name)
+                with open(pickle_file, 'rb') as fh2:
+                    partial_config.meta = pickle.load(fh2)
+                os.remove(pickle_file)
+
+                for param, value in partial_config.configuration.get_dictionary().items():
+                    param = prefixed_name(name, param)
+                    complete[param] = value
+
                 missing_steps.remove(name)
-                complete.update(values)
+                partial_configs.append(partial_config)
 
         # Create random configuration for missing steps
         for name in missing_steps:
@@ -114,4 +128,4 @@ class ProcessLogger:
 
         config = Configuration(pipeline.configuration_space, complete)
         os.remove(self.file)
-        return config
+        return config, partial_configs

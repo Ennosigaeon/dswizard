@@ -1,9 +1,9 @@
 import abc
+from typing import Tuple, List
 
 import numpy as np
 import scipy.integrate
-from scipy import stats
-from typing import Tuple
+from sklearn.neighbors import KernelDensity
 
 
 class KdeDistribution:
@@ -16,10 +16,12 @@ class KdeDistribution:
         self.min_value = self.samples[0]
         self.max_value = self.samples[-1]
 
-        self.kde = stats.gaussian_kde(self.samples, bandwidth)
+        # TODO KernelDensity stores copy of dataset. Probably very high memory consumption
+        self.kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(samples.reshape(-1, 1))
 
-    def evaluate(self, x: np.ndarray):
-        return self.kde.evaluate(x)
+    def evaluate(self, x: float):
+        y_log = self.kde.score_samples(np.array([[x]]))
+        return np.exp(y_log)
 
 
 class Distance(abc.ABC):
@@ -37,12 +39,16 @@ class Distance(abc.ABC):
         np.atleast_2d(a)
         np.atleast_2d(b)
 
-        n_a = a.shape[1]
-        n_b = b.shape[1]
+        dist_a = [KdeDistribution(a[:, i]) for i in range(a.shape[1])]
+        dist_b = [KdeDistribution(b[:, i]) for i in range(b.shape[1])]
+        return Distance.compute_dist(dist_a, dist_b)
+
+    @staticmethod
+    def compute_dist(dist_a: List[KdeDistribution], dist_b: List[KdeDistribution]) -> Tuple[float, np.ndarray]:
+        n_a = len(dist_a)
+        n_b = len(dist_b)
 
         M = np.zeros((n_a, n_b))
-        dist_a = [KdeDistribution(a[:, i]) for i in range(n_a)]
-        dist_b = [KdeDistribution(b[:, i]) for i in range(n_b)]
 
         for i in range(n_a):
             for j in range(n_b):

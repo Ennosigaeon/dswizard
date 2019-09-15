@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import time
 from enum import Enum
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, TYPE_CHECKING
 
+import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 
-# TODO FlexiblePipeline should only be imported for type hinting
-from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.distance import KdeDistribution, Distance
+
+if TYPE_CHECKING:
+    from dswizard.components.pipeline import FlexiblePipeline
 
 
 class StatusType(Enum):
@@ -72,11 +77,16 @@ class Result:
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
                  loss: Optional[float] = None,
-                 runtime: Optional[float] = None):
+                 runtime: Optional[float] = None,
+                 partial_configs: Optional[List[PartialConfig]] = None):
         self.status = status
         self.config = config
         self.loss = loss
         self.runtime = runtime
+        if partial_configs is None:
+            partial_configs = []
+
+        self.partial_configs: List[PartialConfig] = partial_configs
 
     def as_dict(self):
         return {
@@ -138,7 +148,11 @@ class CandidateStructure:
 
     @staticmethod
     def from_dict(raw: dict) -> 'CandidateStructure':
-        cs = CandidateStructure(config_json.read(raw['configspace']), FlexiblePipeline.from_list(raw['pipeline']),
+        # TODO dataset properties missing
+        # TODO circular imports with FlexiblePipeline
+        # FlexiblePipeline.from_list(raw['pipeline'])
+        # noinspection PyTypeChecker
+        cs = CandidateStructure(config_json.read(raw['configspace']), None,
                                 raw['budget'], raw['timeout'], raw['model_based_pick'])
         cs.id = CandidateId(*raw['id'])
         cs.status = raw['status']
@@ -169,3 +183,51 @@ class Job:
         self.time_started: float = None
         self.time_finished: float = None
         self.result: Result = None
+
+
+class MetaFeatures:
+
+    def __init__(self, X: np.ndarray):
+        self.kde_dist = [KdeDistribution(X[:, i]) for i in range(X.shape[1])]
+
+    def similar(self, other: 'MetaFeatures', epsilon: float = 0.2) -> bool:
+        return True
+        # TODO distance calculation is too slow
+
+        # distance, phi = Distance.compute_dist(self.kde_dist, other.kde_dist)
+        # return distance <= epsilon
+
+
+class PartialConfig:
+
+    def __init__(self, meta: MetaFeatures, configuration: Configuration, estimator: str):
+        self.meta = meta
+        self.configuration: Configuration = configuration
+        self.estimator = estimator
+
+    def as_dict(self):
+        # meta data are serialized via pickle
+        # noinspection PyUnresolvedReferences
+        return {
+            'config': self.configuration.get_dictionary(),
+            'configspace': config_json.write(self.configuration.configuration_space),
+            # 'meta': pickle.dumps(self.meta),
+            'meta': None,
+            'estimator': self.estimator,
+        }
+
+    @staticmethod
+    def from_dict(raw: dict) -> 'PartialConfig':
+        # meta data are deserialized via pickle
+        config = Configuration(config_json.read(raw['configspace']), raw['config'])
+        # noinspection PyTypeChecker
+        return PartialConfig(None, config, raw['estimator'])
+
+    def __eq__(self, other):
+        if isinstance(other, PartialConfig):
+            return self.estimator == other.estimator
+        else:
+            return self.estimator == other
+
+    def __hash__(self):
+        return hash(self.estimator)
