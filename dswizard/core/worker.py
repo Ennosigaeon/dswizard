@@ -6,7 +6,7 @@ import os
 import socket
 import threading
 import traceback
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Tuple
 
 import Pyro4
 import pynisher
@@ -15,7 +15,7 @@ from Pyro4.errors import CommunicationError, NamingError
 
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
-from dswizard.core.model import Result, StatusType
+from dswizard.core.model import Result, StatusType, Runtime
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -169,22 +169,24 @@ class Worker(abc.ABC):
             if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT
                 cost = 1
+                runtime = Runtime(wrapper.wall_clock_time)
             elif wrapper.exit_status is pynisher.MemorylimitException:
                 status = StatusType.MEMOUT
                 cost = 1
+                runtime = Runtime(wrapper.wall_clock_time)
             elif wrapper.exit_status == 0 and c is not None:
                 status = StatusType.SUCCESS
-                cost = c
+                cost, runtime = c
             else:
                 status = StatusType.CRASHED
                 cost = 1
+                runtime = Runtime(wrapper.wall_clock_time)
 
             if config is None:
                 config, partial_configs = self.process_logger.restore_config(pipeline)
             else:
                 partial_configs = None
 
-            runtime = float(wrapper.wall_clock_time)
             result = Result(status, config, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
@@ -224,7 +226,7 @@ class Worker(abc.ABC):
                 cfg: Optional[BaseConfigGenerator],
                 pipeline: FlexiblePipeline,
                 budget: float
-                ) -> float:
+                ) -> Tuple[float, Runtime]:
         """
         The function you have to overload implementing your computation.
         :param config_id: the id of the configuration to be evaluated

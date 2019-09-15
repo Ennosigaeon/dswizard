@@ -1,5 +1,6 @@
 import importlib
-from typing import Optional
+import timeit
+from typing import Optional, Tuple
 
 import math
 from ConfigSpace import Configuration
@@ -8,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import CandidateId
+from dswizard.core.model import CandidateId, Runtime
 from dswizard.core.worker import Worker
 
 
@@ -40,7 +41,9 @@ class SklearnWorker(Worker):
                 config: Optional[Configuration],
                 cfg: Optional[BaseConfigGenerator],
                 pipeline: FlexiblePipeline,
-                budget: float) -> float:
+                budget: float) -> Tuple[float, Runtime]:
+        start = timeit.default_timer()
+
         # Only use budget-percent
         n = math.ceil(len(self.X) * budget)
 
@@ -62,7 +65,7 @@ class SklearnWorker(Worker):
         y_pred = pipeline.predict(self.X_test)
         accuracy = metrics.accuracy_score(self.y_test, y_pred)
 
-        return 1 - accuracy
+        return 1 - accuracy, Runtime(timeit.default_timer() - start, pipeline.fit_time, pipeline.config_time)
 
     def create_estimator(self, conf: dict):
         try:

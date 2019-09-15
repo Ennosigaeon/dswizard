@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+import timeit
 from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
 import numpy as np
@@ -33,6 +34,9 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         self.budget: Optional[float] = None
 
         self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
+
+        self.fit_time = 0
+        self.config_time = 0
 
         if logger is None:
             self.logger = logging.getLogger('Pipeline')
@@ -121,7 +125,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                 config: Configuration = self._get_config_for_step(prefix, name, Xt, logger)
                 cloned_transformer.set_hyperparameters(configuration=config.get_dictionary())
 
-            # Fit or load from cache the current transfomer
+            # Fit or load from cache the current transformer
             if isinstance(transformer, SubPipeline):
                 Xt, fitted_transformer = fit_transform_one_cached(
                     cloned_transformer, Xt, y, None,
@@ -132,12 +136,22 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                     cfg=self.cfg,
                     budget=self.budget,
                     **fit_params_steps[name])
+
+                # Extract time measurements from all sub-pipelines
+                for p in transformer.pipelines.values():
+                    self.fit_time += p.fit_time
+                    self.config_time += p.config_time
+
             else:
+                start = timeit.default_timer()
+
                 Xt, fitted_transformer = fit_transform_one_cached(
                     cloned_transformer, Xt, y, None,
                     message_clsname='Pipeline',
                     message=self._log_message(step_idx),
                     **fit_params_steps[name])
+
+                self.fit_time += timeit.default_timer() - start
 
             # Replace the transformer of the step with the fitted
             # transformer. This is necessary when loading the transformer
@@ -175,7 +189,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
     # noinspection PyMethodMayBeStatic
     def _get_config_for_step(self, prefix: str, name: str, X: np.ndarray, logger: ProcessLogger) -> Configuration:
-        start = time.time()
+        start = timeit.default_timer()
 
         estimator = self.get_step(name)
         p_name = prefixed_name(prefix, name)
@@ -187,7 +201,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             intermediate = PartialConfig(meta_features, config, estimator.name())
             logger.new_step(p_name, intermediate)
 
-        self.logger.debug('Sampled configuration in {} seconds'.format(time.time() - start))
+        self.config_time += timeit.default_timer() - start
         return config
 
     def set_hyperparameters(self, configuration: dict, init_params=None):

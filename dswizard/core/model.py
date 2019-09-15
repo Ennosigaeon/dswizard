@@ -9,7 +9,7 @@ from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 
-from dswizard.core.distance import KdeDistribution, Distance
+from dswizard.core.distance import KdeDistribution
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -71,13 +71,32 @@ class CandidateId:
         return self.as_tuple() < other.as_tuple()
 
 
+class Runtime:
+
+    def __init__(self, total: float, fit: float = 0, config: float = 0):
+        self.total = total
+        self.fit = fit
+        self.config = config
+
+    def as_dict(self):
+        return {
+            'total': self.total,
+            'fit': self.fit,
+            'conf': self.config,
+        }
+
+    @staticmethod
+    def from_dict(raw: dict) -> 'Runtime':
+        return Runtime(**raw)
+
+
 class Result:
 
     def __init__(self,
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
                  loss: Optional[float] = None,
-                 runtime: Optional[float] = None,
+                 runtime: Runtime = None,
                  partial_configs: Optional[List[PartialConfig]] = None):
         self.status = status
         self.config = config
@@ -92,13 +111,13 @@ class Result:
         return {
             'status': str(self.status),
             'loss': self.loss,
-            'runtime': self.runtime,
+            'runtime': self.runtime.as_dict(),
             'config': self.config.get_dictionary()
         }
 
     @staticmethod
     def from_dict(raw: dict) -> 'Result':
-        return Result(**raw)
+        return Result(raw['status'], raw['config'], raw['loss'], Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:
