@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import traceback
 import warnings
-from typing import Optional, Dict, Tuple, TYPE_CHECKING, List
+from typing import Optional, Dict, Tuple, List
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -16,9 +16,6 @@ from dswizard.components.pipeline import SubPipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import MetaFeatures
-
-if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
 
 
 class KdeWrapper:
@@ -39,7 +36,6 @@ class LayeredHyperopt(BaseConfigGenerator):
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 pipeline: FlexiblePipeline = None,
                  min_points_in_model: int = 0,
                  top_n_percent: int = 15,
                  num_samples: int = 64,
@@ -64,7 +60,6 @@ class LayeredHyperopt(BaseConfigGenerator):
         """
 
         super().__init__(configspace, **kwargs)
-        self.pipeline = pipeline
 
         self.top_n_percent = top_n_percent
         self.bw_factor = bandwidth_factor

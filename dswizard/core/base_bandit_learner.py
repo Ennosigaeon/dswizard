@@ -103,4 +103,4 @@ class BanditLearner(abc.ABC):
                 # noinspection PyTypeChecker
                 cache = Pyro4.Proxy(uri[0])
 
-        return cache.get_config_generator(pipeline.configuration_space, pipeline=pipeline)
+        return cache.get_config_generator(pipeline.configuration_space)

@@ -55,9 +55,10 @@ class BaseConfigGenerator(abc.ABC):
     def get_config(self, budget: float = None) -> Configuration:
         pass
 
+    @abc.abstractmethod
     def get_config_for_step(self, estimator: str, cs: ConfigurationSpace, X: np.ndarray, budget: float = None) -> \
             Tuple[Configuration, MetaFeatures]:
-        raise NotImplementedError('JIT configuration generation is not supported')
+        pass
 
     def register_result(self, job: Job, update_model: bool = True) -> None:
         """

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import traceback
-from typing import Optional
+from typing import Optional, Tuple
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -12,7 +12,7 @@ import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Job
+from dswizard.core.model import Job, MetaFeatures
 
 
 class Hyperopt(BaseConfigGenerator):
@@ -206,6 +206,10 @@ class Hyperopt(BaseConfigGenerator):
             sample = self.configspace.sample_configuration()
         self.logger.debug('done sampling a new configuration.')
         return sample
+
+    def get_config_for_step(self, estimator: str, cs: ConfigurationSpace, X: np.ndarray, budget: float = None) -> \
+            Tuple[Configuration, MetaFeatures]:
+        raise NotImplementedError('JIT configuration generation is not supported')
 
     def register_result(self,
                         job: Job,

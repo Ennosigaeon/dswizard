@@ -72,6 +72,10 @@ class Master:
             raise ValueError('Cannot run in both local and distributed mode')
         if local_workers is None and nameserver is None:
             nameserver = '127.0.0.1'
+        if bandit_learner_kwargs is None:
+            bandit_learner_kwargs = {}
+        if config_generator_kwargs is None:
+            config_generator_kwargs = {}
 
         self.working_directory = working_directory
         os.makedirs(self.working_directory, exist_ok=True)

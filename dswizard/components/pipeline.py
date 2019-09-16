@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 import timeit
 from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
