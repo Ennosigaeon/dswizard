@@ -5,6 +5,7 @@ import os
 import pickle
 from typing import TYPE_CHECKING, List, Tuple
 
+import networkx as nx
 from ConfigSpace import Configuration
 
 from dswizard.core.model import PartialConfig
@@ -32,6 +33,7 @@ class JsonResultLogger:
 
         os.makedirs(directory, exist_ok=True)
 
+        self.directory = directory
         self.structure_fn = os.path.join(directory, 'structures.json')
         self.results_fn = os.path.join(directory, 'results.json')
 
@@ -57,12 +59,17 @@ class JsonResultLogger:
 
         self.structure_ids = set()
 
-    def new_structure(self, structure: CandidateStructure) -> None:
+    def new_structure(self, structure: CandidateStructure, draw_structure: bool = False) -> None:
         if structure.id not in self.structure_ids:
             self.structure_ids.add(structure.id)
             with open(self.structure_fn, 'a') as fh:
                 fh.write(json.dumps(structure.as_dict()))
                 fh.write('\n')
+
+            if draw_structure:
+                G = structure.pipeline.to_networkx()
+                H = nx.nx_agraph.to_agraph(G)
+                H.draw('{}/{}.png'.format(self.directory, structure.id), prog='dot')
 
     def log_evaluated_config(self, job: Job) -> None:
         if job.id.without_config() not in self.structure_ids:

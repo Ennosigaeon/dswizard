@@ -4,6 +4,7 @@ import logging
 import timeit
 from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
+import networkx as nx
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace, OrderedDict
 from sklearn.base import BaseEstimator, clone
@@ -41,6 +42,33 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             self.logger = logging.getLogger('Pipeline')
         else:
             self.logger = logger
+
+    def to_networkx(self, prefix: str = None):
+        G = nx.DiGraph()
+        predecessor = None
+        for name, estimator in self.steps_.items():
+            name = prefixed_name(prefix, name)
+
+            if isinstance(estimator, SubPipeline):
+                split = name
+                name = '{}_merge'.format(name)
+
+                G.add_node(split, label='split', name=name)
+                G.add_node(name, label='merge')
+
+                for p_name, p in estimator.pipelines.items():
+                    prefix = prefixed_name(split, p_name)
+                    H = p.to_networkx(prefix=prefix)
+                    G = nx.compose(G, H)
+                    G.add_edge(split, prefixed_name(prefix, p.steps[0][0]))
+                    G.add_edge(prefixed_name(prefix, p.steps[-1][0]), name)
+            else:
+                G.add_node(name, label=estimator.name().split('.')[-1], name=name)
+
+            if predecessor is not None:
+                G.add_edge(predecessor, name)
+            predecessor = name
+        return G
 
     def get_step(self, name: str):
         tokens = name.split(':')
