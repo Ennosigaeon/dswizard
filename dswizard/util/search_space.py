@@ -39,7 +39,7 @@ class StructureSearchSpace:
             for estimator in feature_preprocessing._preprocessors.values():
                 self.candidates.add(estimator.name())
 
-    def get_pipeline(self, node: int, dataset_properties: dict) -> FlexiblePipeline:
+    def get_pipeline(self, node: int, dataset_properties: dict, expand_subpipelines: bool = False) -> FlexiblePipeline:
         # Remove artificial root node
         steps = OrderedDict()
         for idx in nx.shortest_path(self.G, 0, node)[1:]:
@@ -77,7 +77,7 @@ class StructureSearchSpace:
 
     def _expand_node(self, node: int):
         for candidate in self.candidates:
-            self.G.add_node(self.idx, label=candidate.split('.')[-1][:-6], estimator=candidate)
+            self.G.add_node(self.idx, label=candidate.split('.')[-1].replace('Choice', ''), estimator=candidate)
             self.G.add_edge(node, self.idx)
 
             valid = self._valid_pipeline(self.idx)
@@ -91,13 +91,7 @@ class StructureSearchSpace:
         return name.split('.')[-1] if short else name
 
     def _valid_pipeline(self, node: int) -> bool:
-        try:
-            self.get_pipeline(node, {
-                'target_type': 'classification'
-            })
-            return True
-        except TypeError:
-            return False
+        return self.G.nodes[node]['estimator'] == ClassifierChoice.name()
 
     # noinspection PyMethodMayBeStatic
     def _get_style(self, valid: bool) -> dict:
@@ -111,6 +105,9 @@ class StructureSearchSpace:
         try:
             return util.get_object(clazz)
         except TypeError:
+            if clazz == SubPipeline.name():
+                return SubPipeline([])
+
             estimator = util.get_type(clazz)
             if 'predict' in inspect.getmembers(estimator, inspect.isfunction):
                 # noinspection PyTypeChecker
@@ -122,7 +119,7 @@ class StructureSearchSpace:
 
 if __name__ == '__main__':
     search_space = StructureSearchSpace()
-    G = search_space.build()
+    G = search_space.build(max_depth=8)
 
     H = nx.nx_agraph.to_agraph(G)
     H.draw('search_space.pdf', prog='dot')
