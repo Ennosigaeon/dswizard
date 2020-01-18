@@ -14,7 +14,7 @@ from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.model import Job
 from dswizard.core.runhistory import RunHistory
-from dswizard.optimizers.bandit_learners import GenericBanditLearner
+from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ class Master:
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
                  config_generator_kwargs: dict = None,
 
-                 bandit_learner_class: Type[BanditLearner] = GenericBanditLearner,
+                 bandit_learner_class: Type[BanditLearner] = HyperbandLearner,
                  bandit_learner_kwargs: dict = None
                  ):
         """
@@ -52,7 +52,6 @@ class Master:
         budget when.
         :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
             multiple concurrent runs to separate them
-        :param bandit_learner: A hyperparameter optimization procedure
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
         :param job_queue_sizes: min and max size of the job queue. During the run, when the number of jobs in the queue
             reaches the min value, it will be filled up to the max size. Default: (0,1)

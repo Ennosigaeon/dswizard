@@ -26,7 +26,7 @@ class BaseIteration(abc.ABC):
                  num_candidates: List[int],
                  budgets: List[float],
                  timeout: float = None,
-                 sampler: BaseStructureGenerator = None,
+                 structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
         """
@@ -35,7 +35,7 @@ class BaseIteration(abc.ABC):
         :param num_candidates: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
         :param timeout: the maximum timeout for evaluating a single configuration
-        :param sampler: a function that returns a valid configuration. Its only argument should be the budget
+        :param structure_generator: a function that returns a valid configuration. Its only argument should be the budget
             that this config is first scheduled for. This might be used to pick configurations that perform best after
             this particular budget is exhausted to build a better autoML system.
         :param logger: a logger
@@ -50,10 +50,10 @@ class BaseIteration(abc.ABC):
         self.timeout = timeout
         self.num_candidates = num_candidates
         self.actual_num_candidates = [0] * len(num_candidates)
-        self.sampler = sampler
+        self.structure_generator = structure_generator
         self.num_running = 0
         if logger is None:
-            self.logger = logging.getLogger('Iteration')
+            self.logger = logging.getLogger('Bandit')
         else:
             self.logger = logger
         self.result_logger = result_logger
@@ -62,13 +62,12 @@ class BaseIteration(abc.ABC):
         """
         function to register the result of a job
 
-        This function is called from HB_master, don't call this from your script.
         :param cs: Finished CandidateStructure
         :return:
         """
 
         if self.is_finished:
-            raise RuntimeError("This HB iteration is finished, you can't register more results!")
+            raise RuntimeError("This SuccessiveHalving iteration is finished, you can't register more results!")
         cs.status = 'REVIEW'
         self.num_running -= 1
 
@@ -115,7 +114,7 @@ class BaseIteration(abc.ABC):
         :return: The id of the new configuration
         """
         if candidate is None:
-            candidate = self.sampler.get_candidate(self.budgets[self.stage])
+            candidate = self.structure_generator.get_candidate(self.budgets[self.stage])
 
         if self.is_finished:
             raise RuntimeError("This iteration is finished, you can't add more configurations!")

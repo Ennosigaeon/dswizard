@@ -1,1 +1,1 @@
-from dswizard.optimizers.bandit_learners.generic import GenericBanditLearner
+from dswizard.optimizers.bandit_learners.hyperband import HyperbandLearner

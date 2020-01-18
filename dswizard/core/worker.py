@@ -153,7 +153,7 @@ class Worker(abc.ABC):
                 self.thread_cond.wait()
             self.busy = True
 
-        self.logger.info('start processing job {}'.format(cid))
+        self.logger.info('start processing job {} with budget {:.4f}'.format(cid, budget, timeout))
 
         result = None
         try:

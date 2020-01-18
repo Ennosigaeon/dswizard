@@ -19,7 +19,7 @@ class SuccessiveResampling(BaseIteration):
                  num_candidates: List[int],
                  budgets: List[float],
                  timeout: float = None,
-                 sampler: BaseStructureGenerator = None,
+                 structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
                  resampling_rate=0.5,
@@ -29,14 +29,14 @@ class SuccessiveResampling(BaseIteration):
         :param iteration:
         :param num_candidates:
         :param budgets:
-        :param sampler:
+        :param structure_generator:
         :param resampling_rate: fraction of configurations that are resampled at each stage
         :param min_samples_advance: number of samples that are guaranteed to proceed to the next stage regardless of
             the fraction.
         :param kwargs:
         """
 
-        super().__init__(iteration, num_candidates, budgets, timeout, sampler, logger, result_logger)
+        super().__init__(iteration, num_candidates, budgets, timeout, structure_generator, logger, result_logger)
         self.resampling_rate = resampling_rate
         self.min_samples_advance = min_samples_advance
 

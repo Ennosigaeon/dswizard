@@ -5,7 +5,7 @@ from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.optimizers.iterations import SuccessiveHalving
 
 
-class GenericBanditLearner(BanditLearner):
+class HyperbandLearner(BanditLearner):
     def __init__(self,
                  run_id: str,
                  nameserver: str = None,
@@ -25,12 +25,10 @@ class GenericBanditLearner(BanditLearner):
         """
         super().__init__(run_id, nameserver, nameserver_port, structure_generator)
 
-        # Hyperband related stuff
         self.eta = eta
         self.min_budget = min_budget
         self.max_budget = max_budget
 
-        # precompute some HB stuff
         self.max_iterations = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
         self.budgets = max_budget * np.power(eta, -np.linspace(self.max_iterations - 1, 0, self.max_iterations))
 
@@ -61,4 +59,4 @@ class GenericBanditLearner(BanditLearner):
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
 
         return SuccessiveHalving(iteration=iteration, num_candidates=ns, budgets=self.budgets[(-s - 1):],
-                                 sampler=self.structure_generator, **iteration_kwargs)
+                                 structure_generator=self.structure_generator, **iteration_kwargs)
