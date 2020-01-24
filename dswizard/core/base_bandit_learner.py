@@ -4,17 +4,16 @@ import abc
 import logging
 from typing import List, Callable, Optional, Tuple, TYPE_CHECKING
 
-import Pyro4
 from ConfigSpace import Configuration
+from ConfigSpace.configuration_space import ConfigurationSpace
 
-from dswizard.core.config_cache import ConfigCache
+from dswizard import utils
 
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.base_iteration import BaseIteration
     from dswizard.core.base_structure_generator import BaseStructureGenerator
-    from dswizard.core.model import CandidateStructure, CandidateId
-    from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.core.model import CandidateStructure, CandidateId, Dataset, MetaFeatures
 
 
 class BanditLearner(abc.ABC):
@@ -24,12 +23,14 @@ class BanditLearner(abc.ABC):
                  nameserver: str = None,
                  nameserver_port: int = None,
                  structure_generator: BaseStructureGenerator = None,
+                 sample_config: bool = True,
                  logger: logging.Logger = None):
         self.run_id = run_id
         self.nameserver = nameserver
         self.nameserver_port = nameserver_port
 
         self.structure_generator = structure_generator
+        self.sample_config = sample_config
 
         if logger is None:
             self.logger = logging.getLogger('Racing')
@@ -52,18 +53,27 @@ class BanditLearner(abc.ABC):
         """
         pass
 
-    def optimize(self, starter: Callable[[CandidateId, CandidateStructure, Optional[Configuration]], None],
-                 iteration_kwargs: dict) -> None:
+    def optimize(self, starter: Callable[[Dataset, CandidateId, CandidateStructure, Optional[Configuration]], None],
+                 ds: Dataset, iteration_kwargs: dict, iterations: int = 1) -> None:
         """
         Optimize all hyperparameters
         :param starter:
+        :param ds:
+        :param iterations:
         :param iteration_kwargs:
         :return:
         """
         # noinspection PyTypeChecker
         for candidate, iteration in self._get_next_structure(iteration_kwargs):
-            cg = self._get_config_generator(candidate.pipeline)
-            cg.optimize(starter, candidate)
+            # Optimize hyperparameters
+            for i in range(iterations):
+                config_id = candidate.id.with_config(i)
+                if self.sample_config:
+                    cg = self._get_config_generator(candidate.budget, candidate.pipeline.configuration_space, ds.meta_features)
+                    config = cg.sample_config()
+                    starter(ds, config_id, candidate, config)
+                else:
+                    starter(ds, config_id, candidate, None)
 
             self.iterations[iteration].register_result(candidate)
             self.structure_generator.new_result(candidate)
@@ -91,16 +101,7 @@ class BanditLearner(abc.ABC):
                     # Done
                     break
 
-    def _get_config_generator(self, pipeline: FlexiblePipeline) -> Optional[BaseConfigGenerator]:
-        cache: Optional[ConfigCache] = None
-        if self.nameserver is None:
-            cache = ConfigCache.instance()
-        else:
-            with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                uri = list(ns.list(prefix='{}.config_generator'.format(self.run_id)).values())
-                if len(uri) != 1:
-                    raise ValueError('Expected exactly one ConfigCache but found {}'.format(len(uri)))
-                # noinspection PyTypeChecker
-                cache = Pyro4.Proxy(uri[0])
-
-        return cache.get_config_generator(pipeline.configuration_space)
+    def _get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures) -> \
+            Optional[BaseConfigGenerator]:
+        cache = utils.get_config_generator_cache(self.nameserver, self.nameserver_port, self.run_id)
+        return cache.get_config_generator(budget, configspace, meta_features)

@@ -13,7 +13,8 @@ class HyperbandLearner(BanditLearner):
                  structure_generator: BaseStructureGenerator = None,
                  eta: float = 3,
                  min_budget: float = 1,
-                 max_budget: float = 1):
+                 max_budget: float = 1,
+                 **kwargs):
         """
         Implements a random search across the search space for comparison. Candidates are sampled at random and run on
         the maximum budget.
@@ -23,7 +24,7 @@ class HyperbandLearner(BanditLearner):
         :param min_budget: budget for the evaluation
         :param max_budget: budget for the evaluation
         """
-        super().__init__(run_id, nameserver, nameserver_port, structure_generator)
+        super().__init__(run_id, nameserver, nameserver_port, structure_generator, **kwargs)
 
         self.eta = eta
         self.min_budget = min_budget

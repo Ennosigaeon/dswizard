@@ -8,6 +8,7 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
+from sklearn.model_selection import train_test_split
 
 from dswizard.core.distance import KdeDistribution
 
@@ -149,7 +150,9 @@ class CandidateStructure:
             budget = max(self.results.keys())
         return min(self.results[budget], key=lambda res: res.loss)
 
-    def add_result(self, budget: float, result: Result):
+    def add_result(self, result: Result, budget: float = None):
+        if budget is None:
+            budget = self.budget
         self.results.setdefault(budget, []).append(result)
 
     def as_dict(self):
@@ -183,18 +186,17 @@ class CandidateStructure:
 class Job:
     # noinspection PyTypeChecker
     def __init__(self,
+                 ds: Dataset,
                  candidate_id: CandidateId,
-                 config: Optional[Configuration],
-                 pipeline: FlexiblePipeline,
-                 budget: float,
-                 timout: float,
+                 cs: CandidateStructure,
+                 config: Optional[Configuration] = None,
                  **kwargs):
+        self.ds = ds
+        # TODO rename to cid
         self.id = candidate_id
+        self.cs = cs
         self.config = config
 
-        self.pipeline = pipeline
-        self.budget = budget
-        self.timeout = timout
         self.kwargs = kwargs
 
         self.worker_name: str = None
@@ -203,18 +205,58 @@ class Job:
         self.time_finished: float = None
         self.result: Result = None
 
+    # Decorator pattern only used for better readability
+    @property
+    def pipeline(self) -> FlexiblePipeline:
+        return self.cs.pipeline
+
+    @property
+    def budget(self) -> float:
+        return self.cs.budget
+
+    @property
+    def timeout(self) -> float:
+        return self.cs.timeout
+
 
 class MetaFeatures:
 
+    # TODO implement real meta_features
     def __init__(self, X: np.ndarray):
         self.kde_dist = [KdeDistribution(X[:, i]) for i in range(X.shape[1])]
 
     def similar(self, other: 'MetaFeatures', epsilon: float = 0.2) -> bool:
-        return True
+        return False
         # TODO distance calculation is too slow
 
         # distance, phi = Distance.compute_dist(self.kde_dist, other.kde_dist)
         # return distance <= epsilon
+
+    def __hash__(self):
+        return 0
+
+    def __eq__(self, other):
+        return isinstance(other, MetaFeatures)
+
+
+class Dataset:
+
+    # TODO only temporary. Check concrete parameters. Switch to cross-validation
+    # TODO remove dataset_properties from core components
+
+    def __init__(self,
+                 X: np.ndarray,
+                 y: np.ndarray,
+                 dataset_properties: dict = None,
+                 test_size: float = 0.3):
+        if dataset_properties is None:
+            dataset_properties = {}
+        self.dataset_properties = dataset_properties
+
+        self.X, self.X_test, self.y, self.y_test = train_test_split(X, y, test_size=test_size)
+
+        # TODO calculate meta-features
+        self.meta_features: MetaFeatures = MetaFeatures(self.X)
 
 
 class PartialConfig:

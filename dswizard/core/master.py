@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import copy
 import logging
+import multiprocessing
 import os
 import threading
 import time
+from multiprocessing.managers import SyncManager
 from typing import Tuple, Optional, List, Type, TYPE_CHECKING
 
 import math
 from ConfigSpace import Configuration
 
+from dswizard import utils
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
-from dswizard.core.model import Job
+from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
@@ -114,12 +117,18 @@ class Master:
                                              ping_interval=ping_interval, nameserver=nameserver,
                                              nameserver_port=nameserver_port, host=host)
 
-        self.cfg_cache: ConfigCache = ConfigCache.instance(clazz=config_generator_class,
-                                                           init_kwargs=config_generator_kwargs,
-                                                           run_id=run_id,
-                                                           host=host,
-                                                           nameserver=nameserver,
-                                                           nameserver_port=nameserver_port)
+        # TODO Only quick and dirty. Fix this!
+        SyncManager.register('ConfigCache', ConfigCache)
+        mgr = multiprocessing.Manager()
+
+        utils._cfg_cache_instance = mgr.ConfigCache(clazz=config_generator_class,
+                                                    init_kwargs=config_generator_kwargs,
+                                                    run_id=run_id,
+                                                    host=host,
+                                                    nameserver=nameserver,
+                                                    nameserver_port=nameserver_port)
+
+        self.cfg_cache: ConfigCache = utils._cfg_cache_instance
         self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id,
                                                                   nameserver=nameserver,
                                                                   nameserver_port=nameserver_port,
@@ -137,9 +146,10 @@ class Master:
 
         self.cfg_cache.shutdown()
 
-    def run(self, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
+    def run(self, ds: Dataset, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
         """
         run optimization
+        :param ds:
         :param min_n_workers: minimum number of workers before starting the run
         :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
         :return:
@@ -170,7 +180,7 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        self.bandit_learner.optimize(self._submit_job, iteration_kwargs)
+        self.bandit_learner.optimize(self._submit_job, ds, iteration_kwargs)
 
         self.thread_cond.release()
         self.logger.info('Finished run after {} seconds'.format(math.ceil(time.time() - self.time_ref)))
@@ -196,6 +206,7 @@ class Master:
         self.logger.debug('Enough workers to start this run!')
 
     def _submit_job(self,
+                    ds: Dataset,
                     cid: CandidateId,
                     cs: CandidateStructure,
                     config: Configuration = None
@@ -207,7 +218,7 @@ class Master:
         """
         self.logger.debug('submitting job {} to dispatcher'.format(cid))
         with self.thread_cond:
-            job = Job(cid, config, cs.pipeline, cs.budget, cs.timeout)
+            job = Job(ds, cid, cs, config)
 
             self.dispatcher.submit_job(job)
             self.num_running_jobs += 1
@@ -251,6 +262,7 @@ class Master:
             if self.result_logger is not None:
                 self.result_logger.log_evaluated_config(job)
 
+            job.cs.add_result(job.result)
             self.cfg_cache.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:

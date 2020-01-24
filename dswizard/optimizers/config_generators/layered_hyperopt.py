@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import traceback
 import warnings
-from typing import Optional, Dict, Tuple, List
+from typing import Dict, List, Optional
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -12,10 +12,8 @@ import scipy.stats as sps
 import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
-from dswizard.components.pipeline import SubPipeline
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.config_cache import ConfigCache
-from dswizard.core.model import MetaFeatures
+from dswizard.core.model import StatusType
 
 
 class KdeWrapper:
@@ -24,6 +22,11 @@ class KdeWrapper:
         self.kde_vartypes: str = kde_vartypes
         self.vartypes: np.ndarray = vartypes
         self.kde_models: Dict[str, sm.nonparametric.KDEMultivariate] = {}
+        self.configs: List[np.ndarray] = []
+        self.losses: List[float] = []
+
+    def is_trained(self) -> bool:
+        return 'good' in self.kde_models and 'bad' in self.kde_models
 
     def good_kde(self):
         return self.kde_models['good']
@@ -69,158 +72,125 @@ class LayeredHyperopt(BaseConfigGenerator):
         self.num_samples = num_samples
         self.random_fraction = random_fraction
 
-    def get_config(self, budget: float = None) -> Configuration:
-        raise NotImplementedError()
+        self.kde: KdeWrapper = self._build_kde_wrapper(self.configspace)
 
-    def get_config_for_step(self, estimator: str, configspace: ConfigurationSpace, X: np.ndarray,
-                            budget: float = None) -> Tuple[Configuration, MetaFeatures]:
-        meta_features = MetaFeatures(X)
+    def sample_config(self, budget: float = None) -> Configuration:
+        try:
+            sample = None
+            if self.kde.is_trained():
+                sample = self._draw_sample()
 
-        # Subsequent steps in SubPipeline are handled individually
-        if estimator == SubPipeline.name():
-            return Configuration(ConfigurationSpace(), {}), meta_features
+            if sample is None:
+                self.logger.debug('Generating random configuration')
+                sample = self.configspace.sample_configuration()
+        except:
+            self.logger.warning(
+                'Sampling based optimization with {} samples failed\n {} \nUsing random configuration'.format(
+                    self.num_samples, traceback.format_exc()))
+            sample = self.configspace.sample_configuration()
+        # try:
+        #     sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
+        #         configuration_space=self.configspace,
+        #         configuration=sample.get_dictionary()
+        #     )
+        # except Exception as e:
+        #     self.logger.warning(
+        #         'Error ({}) converting configuration: {} -> using random configuration!'.format(e, sample))
+        #     sample = self.configspace.sample_configuration()
 
-        cache: ConfigCache = ConfigCache.instance()
-        ls = cache.get_trainings_data(estimator, meta_features, budget)
-        kde_wrapper = self.build_kde_wrapper(configspace, ls)
-        sample: Optional[Configuration] = None
+        return sample
 
-        # If no model is available, sample from prior
-        # also mix in a fraction of random configs
-        if len(kde_wrapper.kde_models.keys()) == 0 or np.random.rand() < self.random_fraction:
-            sample = configspace.sample_configuration()
-
+    def _draw_sample(self) -> Optional[Configuration]:
         best_ei = np.inf
         best_vector = None
 
-        if sample is None:
-            try:
-                l = kde_wrapper.good_kde().pdf
-                g = kde_wrapper.bad_kde().pdf
+        l = self.kde.good_kde().pdf
+        g = self.kde.bad_kde().pdf
 
-                kde_good = kde_wrapper.good_kde()
-                kde_bad = kde_wrapper.bad_kde()
+        kde_good = self.kde.good_kde()
+        kde_bad = self.kde.bad_kde()
 
-                for i in range(self.num_samples):
-                    idx = np.random.randint(0, len(kde_good.data))
-                    datum = kde_good.data[idx]
-                    vector = []
+        for i in range(self.num_samples):
+            idx = np.random.randint(0, len(kde_good.data))
+            datum = kde_good.data[idx]
+            vector = []
 
-                    for m, bw, t in zip(datum, kde_good.bw, kde_wrapper.vartypes):
-                        bw = max(bw, self.min_bandwidth)
-                        if t == 0:
-                            bw = self.bw_factor * bw
-                            try:
-                                vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
-                            except:
-                                self.logger.warning(
-                                    'Truncated Normal failed for:\ndatum={}\nbandwidth={}\nfor entry with value {}'.format(
-                                        datum, kde_good.bw, m))
-                                self.logger.warning('data in the KDE:\n{}'.format(kde_good.data))
-                        else:
-                            if np.random.rand() < (1 - bw):
-                                vector.append(int(m))
-                            else:
-                                vector.append(np.random.randint(t))
-
-                    # DivideByZero in pdf evaluation if all values of categorical variable are identical
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        # Calculate expected improvement
-                        ei = max(1e-32, g(vector)) / max(l(vector), 1e-32)
-
-                        if not np.isfinite(ei):
-                            self.logger.warning('sampled vector: {} has EI value {}'.format(vector, ei))
-                            self.logger.warning('data in the KDEs:\n{}\n{}'.format(kde_good.data, kde_bad.data))
-                            self.logger.warning('bandwidth of the KDEs:\n{}\n{}'.format(kde_good.bw, kde_bad.bw))
-                            self.logger.warning('l(x) = {}'.format(l(vector)))
-                            self.logger.warning('g(x) = {}'.format(g(vector)))
-
-                            # right now, this happens because a KDE does not contain all values for a categorical
-                            # parameter this cannot be fixed with the statsmodels KDE, so for now, we are just going to
-                            # evaluate this one if the good_kde has a finite value, i.e. there is no config with that
-                            # value in the bad kde, so it shouldn't be terrible.
-                            if np.isfinite(l(vector)):
-                                best_vector = vector
-                                break
-
-                    if ei < best_ei:
-                        best_ei = ei
-                        best_vector = vector
-
-                if best_vector is None:
-                    self.logger.debug(
-                        'Sampling based optimization with {} samples failed -> using random configuration'.format(
-                            self.num_samples))
-                    sample = configspace.sample_configuration()
-                else:
-                    # DivideByZero in pdf evaluation if all values of categorical variable are identical
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        self.logger.debug(
-                            'Sampled x={} with EI(x)={}, l(x)={}, g(x)={}'.format(best_vector, best_ei,
-                                                                                  l(best_vector), g(best_vector)))
-                    for i, hp_value in enumerate(best_vector):
-                        if isinstance(configspace.get_hyperparameter(configspace.get_hyperparameter_by_idx(i)),
-                                      ConfigSpace.hyperparameters.CategoricalHyperparameter
-                                      ):
-                            best_vector[i] = int(np.rint(best_vector[i]))
-                    # noinspection PyTypeChecker
-                    sample = ConfigSpace.Configuration(configspace, vector=best_vector)
-
+            for m, bw, t in zip(datum, kde_good.bw, self.kde.vartypes):
+                bw = max(bw, self.min_bandwidth)
+                if t == 0:
+                    bw = self.bw_factor * bw
                     try:
-                        sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
-                            configuration_space=configspace,
-                            configuration=sample.get_dictionary()
-                        )
-                    except Exception as e:
-                        self.logger.warning(("=" * 50 + "\n") * 3 +
-                                            'Error converting configuration:\n{}'.format(sample.get_dictionary()) +
-                                            '\n here is a traceback:' +
-                                            traceback.format_exc())
-                        raise e
-            except:
-                self.logger.warning(
-                    'Sampling based optimization with {} samples failed\n {} \nUsing random configuration'.format(
-                        self.num_samples, traceback.format_exc()))
-                sample = configspace.sample_configuration()
-        try:
-            sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
-                configuration_space=configspace,
-                configuration=sample.get_dictionary()
-            )
-        except Exception as e:
-            self.logger.warning('Error ({}) converting configuration: {} -> '
-                                'using random configuration!'.format(e, sample))
-            sample = configspace.sample_configuration()
+                        vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
+                    except:
+                        self.logger.warning(
+                            'Truncated Normal failed for:\ndatum={}\nbandwidth={}\nfor entry with value {}'.format(
+                                datum, kde_good.bw, m))
+                        self.logger.warning('data in the KDE:\n{}'.format(kde_good.data))
+                else:
+                    if np.random.rand() < (1 - bw):
+                        vector.append(int(m))
+                    else:
+                        vector.append(np.random.randint(t))
 
-        return sample, meta_features
+            # DivideByZero in pdf evaluation if all values of categorical variable are identical
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # Calculate expected improvement
+                ei = max(1e-32, g(vector)) / max(l(vector), 1e-32)
 
-    def build_kde_wrapper(self, cs: ConfigurationSpace, ls: List[Tuple[Configuration, float]]) -> KdeWrapper:
-        kde_wrapper = self._build_kde_wrapper(cs)
+                if not np.isfinite(ei):
+                    self.logger.warning('sampled vector: {} has EI value {}'.format(vector, ei))
+                    self.logger.warning('data in the KDEs:\n{}\n{}'.format(kde_good.data, kde_bad.data))
+                    self.logger.warning('bandwidth of the KDEs:\n{}\n{}'.format(kde_good.bw, kde_bad.bw))
+                    self.logger.warning('l(x) = {}'.format(l(vector)))
+                    self.logger.warning('g(x) = {}'.format(g(vector)))
 
-        losses = []
-        configs = []
-        for config, loss in ls:
-            if loss is None:
-                # One could skip crashed results, but we decided to
-                # assign a +inf loss and count them as bad configurations
-                loss = np.inf
-            else:
-                # same for non numeric losses.
-                # Note that this means losses of minus infinity will count as bad!
-                loss = loss if loss is not None and np.isfinite(loss) else np.inf
-            losses.append(loss)
+                    # right now, this happens because a KDE does not contain all values for a categorical
+                    # parameter this cannot be fixed with the statsmodels KDE, so for now, we are just going to
+                    # evaluate this one if the good_kde has a finite value, i.e. there is no config with that
+                    # value in the bad kde, so it shouldn't be terrible.
+                    if np.isfinite(l(vector)):
+                        best_vector = vector
+                        break
 
-            configs.append(config.get_array())
+            if ei < best_ei:
+                best_ei = ei
+                best_vector = vector
 
-        min_points_in_model = max(len(cs.get_hyperparameters()) + 1, self.min_points_in_model)
+        if best_vector is None:
+            return None
 
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.logger.debug('Sampled x={} with EI(x)={}, l(x)={}, g(x)={}'.format(best_vector, best_ei,
+                                                                                    l(best_vector),
+                                                                                    g(best_vector)))
+        for i, hp_value in enumerate(best_vector):
+            if isinstance(self.configspace.get_hyperparameter(self.configspace.get_hyperparameter_by_idx(i)),
+                          ConfigSpace.hyperparameters.CategoricalHyperparameter):
+                best_vector[i] = int(np.rint(best_vector[i]))
+        # noinspection PyTypeChecker
+        return ConfigSpace.Configuration(self.configspace, vector=best_vector)
+
+    def register_result(self, config: Configuration, loss: float, status: StatusType, budget: float = None,
+                        update_model: bool = True) -> None:
+        super().register_result(config, loss, status)
+
+        if loss is None or not np.isfinite(loss):
+            # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations
+            # Same for non numeric losses. Note that this means losses of minus infinity will count as bad!
+            loss = np.inf
+
+        self.kde.losses.append(loss)
+        self.kde.configs.append(config.get_array())
+
+        min_points_in_model = max(len(self.configspace.get_hyperparameters()) + 1, self.min_points_in_model)
         # skip model building if not enough points are available
-        if len(losses) < min_points_in_model:
-            return kde_wrapper
+        if len(self.kde.losses) < min_points_in_model:
+            self.logger.debug('{}/{} samples. Skipping training.'.format(len(self.kde.losses), min_points_in_model))
+            return
 
-        train_losses = np.array(losses)
+        train_losses = np.array(self.kde.losses)
 
         n_good = max(min_points_in_model, (self.top_n_percent * train_losses.shape[0]) // 100)
         # TODO use this??? Is bad trainings data complete set without n_good?
@@ -228,17 +198,17 @@ class LayeredHyperopt(BaseConfigGenerator):
         n_bad = max(min_points_in_model, ((100 - self.top_n_percent) * train_losses.shape[0]) // 100)
 
         idx = np.argsort(train_losses)
-        train_configs = np.array(configs)
+        train_configs = np.array(self.kde.configs)
         train_data_good = np.array(train_configs[idx[:n_good]])
         train_data_bad = np.array(train_configs[idx[-n_bad:]])
 
-        train_data_good = self._impute_conditional_data(train_data_good, kde_wrapper.vartypes)
-        train_data_bad = self._impute_conditional_data(train_data_bad, kde_wrapper.vartypes)
+        train_data_good = self._impute_conditional_data(train_data_good, self.kde.vartypes)
+        train_data_bad = self._impute_conditional_data(train_data_bad, self.kde.vartypes)
 
         if train_data_good.shape[0] <= train_data_good.shape[1]:
-            return kde_wrapper
+            return
         if train_data_bad.shape[0] <= train_data_bad.shape[1]:
-            return kde_wrapper
+            return
 
         # more expensive cross-validation method
         # bw_estimation = 'cv_ls'
@@ -246,15 +216,15 @@ class LayeredHyperopt(BaseConfigGenerator):
         # quick rule of thumb
         bw_estimation = 'normal_reference'
 
-        bad_kde = sm.nonparametric.KDEMultivariate(data=train_data_bad, var_type=kde_wrapper.kde_vartypes,
+        bad_kde = sm.nonparametric.KDEMultivariate(data=train_data_bad, var_type=self.kde.kde_vartypes,
                                                    bw=bw_estimation)
-        good_kde = sm.nonparametric.KDEMultivariate(data=train_data_good, var_type=kde_wrapper.kde_vartypes,
+        good_kde = sm.nonparametric.KDEMultivariate(data=train_data_good, var_type=self.kde.kde_vartypes,
                                                     bw=bw_estimation)
 
         bad_kde.bw = np.clip(bad_kde.bw, self.min_bandwidth, None)
         good_kde.bw = np.clip(good_kde.bw, self.min_bandwidth, None)
 
-        kde_wrapper.kde_models = {
+        self.kde.kde_models = {
             'good': good_kde,
             'bad': bad_kde
         }
@@ -263,7 +233,6 @@ class LayeredHyperopt(BaseConfigGenerator):
         self.logger.debug(
             'done building a new model based on {}/{} split. Best loss for this budget:{}'.format(
                 n_good, n_bad, np.min(train_losses)))
-        return kde_wrapper
 
     # noinspection PyMethodMayBeStatic
     def _build_kde_wrapper(self, configspace: ConfigurationSpace) -> KdeWrapper:

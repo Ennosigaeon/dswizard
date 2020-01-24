@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import traceback
-from typing import Optional, Tuple
+from typing import Optional
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -12,7 +12,7 @@ import statsmodels.api as sm
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import Job, MetaFeatures
+from dswizard.core.model import StatusType
 
 
 class Hyperopt(BaseConfigGenerator):
@@ -87,7 +87,7 @@ class Hyperopt(BaseConfigGenerator):
             return -float('inf')
         return max(self.kde_models.keys())
 
-    def get_config(self, budget: float = None) -> Configuration:
+    def sample_config(self, budget: float = None) -> Configuration:
         if self.configspace is None:
             raise ValueError('No configuration space provided. Call set_config_space(ConfigurationSpace) first.')
 
@@ -207,35 +207,23 @@ class Hyperopt(BaseConfigGenerator):
         self.logger.debug('done sampling a new configuration.')
         return sample
 
-    def get_config_for_step(self, estimator: str, cs: ConfigurationSpace, X: np.ndarray, budget: float = None) -> \
-            Tuple[Configuration, MetaFeatures]:
-        raise NotImplementedError('JIT configuration generation is not supported')
-
-    def register_result(self,
-                        job: Job,
+    def register_result(self, config: Configuration, loss: float, status: StatusType, budget: float = None,
                         update_model: bool = True) -> None:
         """
         function to register finished runs
 
         Every time a run has finished, this function should be called to register it with the result logger. If
         overwritten, make sure to call this method from the base class to ensure proper logging.
-        :param job: contains all the info about the run
-        :param update_model:
         :return:
         """
+        # TODO remove budget parameter
 
-        super().register_result(job)
+        super().register_result(config, loss, status)
 
-        if job.result is None:
-            # One could skip crashed results, but we decided to
-            # assign a +inf loss and count them as bad configurations
+        if loss is None or not np.isfinite(loss):
+            # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations
+            # Same for non numeric losses. Note that this means losses of minus infinity will count as bad!
             loss = np.inf
-        else:
-            # same for non numeric losses.
-            # Note that this means losses of minus infinity will count as bad!
-            loss = job.result.loss if job.result.loss is not None and np.isfinite(job.result.loss) else np.inf
-
-        budget = job.budget
 
         if budget not in self.configs.keys():
             self.configs[budget] = []
@@ -247,8 +235,7 @@ class Hyperopt(BaseConfigGenerator):
 
         # We want to get a numerical representation of the configuration in the original space
 
-        conf = ConfigSpace.Configuration(self.configspace, job.config)
-        self.configs[budget].append(conf.get_array())
+        self.configs[budget].append(config.get_array())
         self.losses[budget].append(loss)
 
         # skip model building:

@@ -164,7 +164,11 @@ class BaseIteration(abc.ABC):
 
         for i, cid in enumerate(candidate_ids):
             if advance[i]:
-                self.logger.debug('Advancing candidate {} to next budget {}'.format(cid, self.budgets[self.stage]))
+                # Only structure candidates are advanced to next iteration. Specific config does not matter and is
+                # ignored
+                # TODO check if it reasonable to ignore best performing hyperparameter configurations
+                self.logger.debug('Advancing candidate structure {} to next budget {}'
+                                  .format(cid, self.budgets[self.stage]))
 
                 candidate = self.data[cid]
                 candidate.status = 'QUEUED'

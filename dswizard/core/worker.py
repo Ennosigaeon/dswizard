@@ -13,13 +13,13 @@ import pynisher
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 
+from dswizard import utils
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
-from dswizard.core.model import Result, StatusType, Runtime
+from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
-    from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.dispatcher import Dispatcher
     from dswizard.core.model import CandidateId
 
@@ -143,28 +143,20 @@ class Worker(abc.ABC):
     @Pyro4.oneway
     def start_computation(self,
                           callback: Dispatcher,
-                          cid: CandidateId,
-                          config: Optional[Configuration],
-                          pipeline: FlexiblePipeline,
-                          budget: float,
-                          timeout: float = None) -> Result:
+                          job: Job) -> Result:
         with self.thread_cond:
             while self.busy:
                 self.thread_cond.wait()
             self.busy = True
 
-        self.logger.info('start processing job {} with budget {:.4f}'.format(cid, budget, timeout))
+        self.logger.info('start processing job {} with budget {:.4f}'.format(job.id, job.budget))
 
         result = None
         try:
-            # On the fly configuration of pipeline
-            if config is None:
-                cfg = self._get_config_generator(cid, pipeline)
-            else:
-                cfg = None
-
-            wrapper = pynisher.enforce_limits(wall_time_in_s=timeout)(self.compute)
-            c = wrapper(cid, config, cfg, pipeline, budget)
+            self.process_logger = ProcessLogger(self.workdir, job.id)
+            wrapper = pynisher.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
+            cfg_cache = utils.get_config_generator_cache(self.nameserver, self.nameserver_port, self.run_id)
+            c = wrapper(job.ds, job.id, job.config, cfg_cache, job.pipeline, job.budget, **job.kwargs)
 
             if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -182,9 +174,10 @@ class Worker(abc.ABC):
                 cost = 1
                 runtime = Runtime(wrapper.wall_clock_time)
 
-            if config is None:
-                config, partial_configs = self.process_logger.restore_config(pipeline)
+            if job.config is None:
+                config, partial_configs = self.process_logger.restore_config(job.pipeline)
             else:
+                config = job.config
                 partial_configs = None
 
             result = Result(status, config, cost, runtime, partial_configs)
@@ -193,45 +186,31 @@ class Worker(abc.ABC):
         except Exception:
             # Should never occur, just a safety net
             self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
-            result = Result(StatusType.CRASHED, config, 1, None, None)
+            result = Result(StatusType.CRASHED, job.config, 1, None, None)
         finally:
             self.process_logger = None
-            self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(cid))
+            self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(job.id))
             with self.thread_cond:
                 self.busy = False
-                callback.register_result(cid, result)
+                callback.register_result(job.id, result)
                 self.thread_cond.notify()
         return result
 
-    def _get_config_generator(self, cid: CandidateId, pipeline: FlexiblePipeline) -> Optional[BaseConfigGenerator]:
-        cache: Optional[ConfigCache] = None
-        if self.nameserver is None:
-            cache = ConfigCache.instance()
-        else:
-            with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                uri = list(ns.list(prefix='{}.config_generator'.format(self.run_id)).values())
-                if len(uri) != 1:
-                    raise ValueError('Expected exactly one ConfigCache but found {}'.format(len(uri)))
-                # noinspection PyTypeChecker
-                cache = Pyro4.Proxy(uri[0])
-
-        cfg = cache.get_config_generator(pipeline.configuration_space, pipeline=pipeline)
-        self.process_logger = ProcessLogger(self.workdir, cid)
-        return cfg
-
     @abc.abstractmethod
     def compute(self,
+                ds: Dataset,
                 config_id: CandidateId,
                 config: Optional[Configuration],
-                cfg: Optional[BaseConfigGenerator],
+                cfg_cache: Optional[ConfigCache],
                 pipeline: FlexiblePipeline,
                 budget: float
                 ) -> Tuple[float, Runtime]:
         """
         The function you have to overload implementing your computation.
+        :param ds:
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
-        :param cfg:
+        :param cfg_cache:
         :param pipeline: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         """

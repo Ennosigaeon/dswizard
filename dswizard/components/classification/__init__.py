@@ -65,7 +65,7 @@ class ClassifierChoice(ComponentChoice, PredictionMixin):
 
     def get_hyperparameter_search_space(self, dataset_properties=None,
                                         default=None,
-                                        include=None,
+                                        include=['decision_tree'],
                                         exclude=None):
         if dataset_properties is None:
             dataset_properties = {}

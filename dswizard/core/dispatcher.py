@@ -15,6 +15,7 @@ from dswizard.core.model import Result, StatusType
 if TYPE_CHECKING:
     from dswizard.core.model import CandidateId, Job
 
+
 class WorkerProxy:
     def __init__(self, name: str, uri: str):
         self.name = name
@@ -198,8 +199,7 @@ class PyroDispatcher(Dispatcher):
             job.time_started = time.time()
             worker.runs_job = job.id
 
-            worker.proxy.start_computation(self, job.id, config=job.config, pipeline=job.pipeline, budget=job.budget,
-                                           timeout=job.timeout, **job.kwargs)
+            worker.proxy.start_computation(self, job)
 
             job.worker_name = wn
             self.running_jobs[job.id] = job
@@ -392,9 +392,7 @@ class LocalDispatcher(Dispatcher):
             job.worker_name = worker.worker_id
             self.running_jobs[job.id] = job
 
-            t = threading.Thread(target=worker.start_computation,
-                                 args=(self, job.id, job.config, job.pipeline, job.budget, job.timeout),
-                                 kwargs=job.kwargs)
+            t = threading.Thread(target=worker.start_computation, args=(self, job))
             t.start()
 
     def shutdown(self, shutdown_workers: bool = False) -> None:

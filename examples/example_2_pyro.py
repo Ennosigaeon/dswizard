@@ -11,6 +11,8 @@ from collections import OrderedDict
 from sklearn import datasets
 
 # Configure logging system before importing smac
+from dswizard.core.model import Dataset
+
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S%z',
@@ -22,7 +24,7 @@ from dswizard.components.pipeline import SubPipeline
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.core.nameserver import NameServer
-from dswizard.optimizers.bandit_learners import GenericBanditLearner
+from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators.layered_hyperopt import LayeredHyperopt
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
@@ -48,7 +50,6 @@ dataset_properties = {
 }
 
 w = SklearnWorker(run_id=args.run_id, wid='0', workdir=args.log_dir, nameserver='127.0.0.1')
-w.set_dataset(X, y, dataset_properties=dataset_properties, test_size=0.3)
 w.run(background=True)
 
 # Instantiate optimizer
@@ -61,9 +62,9 @@ steps['1'] = SubPipeline([sub_wf_2], dataset_properties=dataset_properties)
 steps['2'] = ClassifierChoice()
 
 structure_generator = FixedStructure(steps, dataset_properties, timeout=args.timeout)
-bandit = GenericBanditLearner(structure_generator,
-                              min_budget=args.min_budget,
-                              max_budget=args.max_budget)
+bandit = HyperbandLearner(structure_generator,
+                          min_budget=args.min_budget,
+                          max_budget=args.max_budget)
 
 master = Master(
     run_id=args.run_id,
@@ -73,7 +74,9 @@ master = Master(
     config_generator_class=LayeredHyperopt,
     config_generator_kwargs={'on_the_fly_generation': True}
 )
-res = master.run()
+
+ds = Dataset(X, y, dataset_properties=dataset_properties, test_size=0.3)
+res = master.run(ds)
 
 # Shutdown
 master.shutdown(shutdown_workers=True)

@@ -130,7 +130,7 @@ def logged_results_to_runhistory(directory: str) -> RunHistory:
             if result is not None:
                 res = Result(result.get('status'), Configuration(data[cid].configspace, result.get('config')),
                              result.get('loss'), result.get('runtime'))
-                data[cid].add_result(budget, res)
+                data[cid].add_result(res, budget)
                 budget_set.add(budget)
 
         # infer the hyperband configuration from the data

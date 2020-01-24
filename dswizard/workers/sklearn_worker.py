@@ -5,11 +5,10 @@ from typing import Optional, Tuple
 import math
 from ConfigSpace import Configuration
 from sklearn import metrics
-from sklearn.model_selection import train_test_split
 
 from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import CandidateId, Runtime
+from dswizard.core.config_cache import ConfigCache
+from dswizard.core.model import CandidateId, Runtime, Dataset
 from dswizard.core.worker import Worker
 
 
@@ -17,53 +16,40 @@ class SklearnWorker(Worker):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dataset_properties = None
-        self.X = None
-        self.X_test = None
-        self.y = None
-        self.y_test = None
-
-    def set_dataset(self, X, y, X_test=None, y_test=None, dataset_properties: dict = None, test_size: float = 0.3):
-        if dataset_properties is None:
-            dataset_properties = {}
-        self.dataset_properties = dataset_properties
-
-        if X_test is None:
-            self.X, self.X_test, self.y, self.y_test = train_test_split(X, y, test_size=test_size)
-        else:
-            self.X = X
-            self.X_test = X_test
-            self.y = y
-            self.y_test = y_test
 
     def compute(self,
+                ds: Dataset,
                 config_id: CandidateId,
                 config: Optional[Configuration],
-                cfg: Optional[BaseConfigGenerator],
+                cfg_cache: Optional[ConfigCache],
                 pipeline: FlexiblePipeline,
                 budget: float) -> Tuple[float, Runtime]:
         start = timeit.default_timer()
 
         # Only use budget-percent
-        n = math.ceil(len(self.X) * budget)
+        # TODO use cross-validation
+        # TODO shuffle dataset before truncating
+        n = math.ceil(len(ds.X) * budget)
 
         # TODO for iris dataset not reasonable
-        n = len(self.X)
+        n = len(ds.X)
 
-        X = self.X[:n]
-        y = self.y[:n]
+        X = ds.X[:n]
+        y = ds.y[:n]
 
         self.logger.debug('starting to fit pipeline and predict values')
+
         if config is not None:
             pipeline.set_hyperparameters(config.get_dictionary())
-            pipeline.fit(X, y)
+            pipeline.fit(X, y, budget=budget)
         else:
-            pipeline.cfg = cfg
-            pipeline.budget = budget
-            pipeline.fit(X, y, logger=self.process_logger)
+            pipeline.cfg_cache = cfg_cache
+            pipeline.fit(X, y, budget=budget, logger=self.process_logger)
 
-        y_pred = pipeline.predict(self.X_test)
-        accuracy = metrics.accuracy_score(self.y_test, y_pred)
+        y_pred = pipeline.predict(ds.X_test)
+
+        # TODO make metric flexible
+        accuracy = metrics.accuracy_score(ds.y_test, y_pred)
 
         return 1 - accuracy, Runtime(timeit.default_timer() - start, pipeline.fit_time, pipeline.config_time)
 

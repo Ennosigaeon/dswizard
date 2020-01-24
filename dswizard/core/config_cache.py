@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Dict, Type, List, Tuple
+from typing import Dict, Type
 from typing import TYPE_CHECKING
 
 import Pyro4
@@ -10,11 +10,10 @@ from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 
 from dswizard.core.model import MetaFeatures
-from dswizard.util.singleton import Singleton
 
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
-    from dswizard.core.model import Job, PartialConfig, Result
+    from dswizard.core.model import Job
 
 
 class PyroDaemon:
@@ -60,7 +59,7 @@ class PyroDaemon:
             self.pyro_daemon.shutdown()
 
 
-@Singleton
+# @Singleton
 class ConfigCache(PyroDaemon):
 
     def __init__(self,
@@ -75,44 +74,48 @@ class ConfigCache(PyroDaemon):
 
         self.clazz = clazz
         self.init_kwargs = init_kwargs
-        self.cache: Dict[ConfigurationSpace, BaseConfigGenerator] = {}
 
-        self.result_cache: Dict[float, Dict[str, List[Tuple[PartialConfig, Result]]]] = defaultdict(
-            lambda: defaultdict(list))
+        self.cache: Dict[float, Dict[ConfigurationSpace, Dict[MetaFeatures, BaseConfigGenerator]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict()))
 
     @Pyro4.expose
-    def register_result(self, job: Job):
+    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures,
+                             **kwargs) -> BaseConfigGenerator:
         try:
-            self.cache[job.pipeline.configuration_space].register_result(job)
-        except KeyError:
-            pass
-
-        budget = job.budget
-        configs = job.result.partial_configs
-        result = job.result
-
-        for config in configs:
-            self.result_cache[budget][config.estimator].append((config, result))
-
-    @Pyro4.expose
-    def get_trainings_data(self, estimator: str, meta: MetaFeatures, budget: float) -> \
-            List[Tuple[Configuration, float]]:
-        if budget is None and len(self.result_cache.keys()) > 0:
-            budget = max(self.result_cache.keys())
-
-        results = self.result_cache[budget][estimator]
-
-        ls = []
-        for partial_config, res in results:
-            if meta.similar(partial_config.meta):
-                ls.append((partial_config.configuration, res.loss))
-
-        self.logger.debug('Found {} similar samples'.format(len(ls)))
-        return ls
+            # TODO BaseConfigGenerator objects are not shared across processes
+            for mf, cg in self.cache[budget][configspace].items():
+                if mf.similar(meta_features):
+                    return self.cache[budget][configspace][meta_features]
+            else:
+                cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
+                self.cache[budget][configspace][meta_features] = cg
+                return cg
+        except Exception as ex:
+            self.logger.exception(ex)
+            raise ex
 
     @Pyro4.expose
-    def get_config_generator(self, configspace: ConfigurationSpace = None, **kwargs) -> BaseConfigGenerator:
-        if configspace not in self.cache:
-            cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
-            self.cache[configspace] = cg
-        return self.cache[configspace]
+    def sample_configuration(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures,
+                             **kwargs) -> Configuration:
+        return self.get_config_generator(budget, configspace, meta_features, **kwargs).sample_config(budget)
+
+    # noinspection PyUnresolvedReferences
+    @Pyro4.expose
+    def register_result(self, job: Job) -> None:
+        try:
+            budget = job.budget
+            mf = job.ds.meta_features
+            loss = job.result.loss
+            status = job.result.status
+
+            if len(job.result.partial_configs) > 0:
+                for config in job.result.partial_configs:
+                    if len(config.configuration.configuration_space.get_hyperparameters()) > 0:
+                        self.cache[budget][config.configuration.configuration_space][mf].register_result(
+                            config.configuration, loss, status, budget)
+            else:
+                self.cache[budget][job.pipeline.configuration_space][mf].register_result(job.config, loss,
+                                                                                         status, budget)
+        except Exception as ex:
+            self.logger.exception(ex)
+            raise ex

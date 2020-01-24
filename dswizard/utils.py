@@ -1,7 +1,10 @@
 import threading
+from typing import Optional
 
 import Pyro4
 import Pyro4.naming
+
+from dswizard.core.config_cache import ConfigCache
 
 
 def nic_name_to_host(nic_name):
@@ -34,3 +37,18 @@ def start_local_nameserver(host=None, port=0, nic_name=None):
 
     thread.start()
     return host, int(port)
+
+
+_cfg_cache_instance: ConfigCache = None
+
+
+def get_config_generator_cache(nameserver: str, port: int, run_id: str) -> Optional[ConfigCache]:
+    if nameserver is None:
+        return _cfg_cache_instance
+    else:
+        with Pyro4.locateNS(host=nameserver, port=port) as ns:
+            uri = list(ns.list(prefix='{}.config_generator'.format(run_id)).values())
+            if len(uri) != 1:
+                raise ValueError('Expected exactly one ConfigCache but found {}'.format(len(uri)))
+            # noinspection PyTypeChecker
+            return Pyro4.Proxy(uri[0])

@@ -4,8 +4,8 @@ import ConfigSpace as CS
 from ConfigSpace import Configuration
 
 from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import CandidateId
+from dswizard.core.config_cache import ConfigCache
+from dswizard.core.model import CandidateId, Dataset
 from dswizard.core.worker import Worker
 
 
@@ -33,9 +33,10 @@ class HPOlib2Worker(Worker):
         self.measure_test_loss = measure_test_loss
 
     def compute(self,
+                ds: Dataset,
                 config_id: CandidateId,
                 config: Optional[Configuration],
-                cfg: Optional[BaseConfigGenerator],
+                cfg_cache: Optional[ConfigCache],
                 pipeline: FlexiblePipeline,
                 budget: float) -> float:
         if self.config_as_array:
