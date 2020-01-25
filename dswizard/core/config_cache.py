@@ -75,20 +75,23 @@ class ConfigCache(PyroDaemon):
         self.clazz = clazz
         self.init_kwargs = init_kwargs
 
-        self.cache: Dict[float, Dict[ConfigurationSpace, Dict[MetaFeatures, BaseConfigGenerator]]] = defaultdict(
-            lambda: defaultdict(lambda: defaultdict()))
+        # TODO add budget again
+        # self.cache: Dict[float, Dict[ConfigurationSpace, Dict[MetaFeatures, BaseConfigGenerator]]] = defaultdict(
+        #     lambda: defaultdict(lambda: defaultdict()))
+        self.cache: Dict[ConfigurationSpace, Dict[MetaFeatures, BaseConfigGenerator]] = defaultdict(lambda: defaultdict())
 
     @Pyro4.expose
     def get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures,
                              **kwargs) -> BaseConfigGenerator:
         try:
             # TODO BaseConfigGenerator objects are not shared across processes
-            for mf, cg in self.cache[budget][configspace].items():
+            for mf, cg in self.cache[configspace].items():
                 if mf.similar(meta_features):
-                    return self.cache[budget][configspace][meta_features]
+                    return self.cache[configspace][meta_features]
             else:
+                # cg = self.mgr.ConfigGenerator(configspace, **{**self.init_kwargs, **kwargs})
                 cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
-                self.cache[budget][configspace][meta_features] = cg
+                self.cache[configspace][meta_features] = cg
                 return cg
         except Exception as ex:
             self.logger.exception(ex)
@@ -111,10 +114,10 @@ class ConfigCache(PyroDaemon):
             if len(job.result.partial_configs) > 0:
                 for config in job.result.partial_configs:
                     if len(config.configuration.configuration_space.get_hyperparameters()) > 0:
-                        self.cache[budget][config.configuration.configuration_space][mf].register_result(
+                        self.cache[config.configuration.configuration_space][mf].register_result(
                             config.configuration, loss, status, budget)
             else:
-                self.cache[budget][job.pipeline.configuration_space][mf].register_result(job.config, loss,
+                self.cache[job.pipeline.configuration_space][mf].register_result(job.config, loss,
                                                                                          status, budget)
         except Exception as ex:
             self.logger.exception(ex)
