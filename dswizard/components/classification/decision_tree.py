@@ -10,12 +10,23 @@ from dswizard.util.util import convert_multioutput_multiclass_to_multilabel
 
 
 class DecisionTree(PredictionAlgorithm):
-    def __init__(self, criterion, max_features, max_depth_factor, min_samples_split, min_samples_leaf,
-                 min_weight_fraction_leaf, max_leaf_nodes, min_impurity_decrease, class_weight=None, random_state=None):
+
+    def __init__(self,
+                 criterion: str = "gini",
+                 max_depth: float = None,
+                 min_samples_split: int = 2,
+                 min_samples_leaf: int = 1,
+                 min_weight_fraction_leaf: float = 0.,
+                 max_features: float = None,
+                 random_state=None,
+                 max_leaf_nodes: int = None,
+                 min_impurity_decrease: float = 0.,
+                 class_weight=None,
+                 ):
         super().__init__()
         self.criterion = criterion
         self.max_features = max_features
-        self.max_depth_factor = max_depth_factor
+        self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.max_leaf_nodes = max_leaf_nodes
@@ -29,14 +40,12 @@ class DecisionTree(PredictionAlgorithm):
 
         self.max_features = float(self.max_features)
         # Heuristic to set the tree depth
-        if check_none(self.max_depth_factor):
-            max_depth_factor = self.max_depth_factor = None
+        if check_none(self.max_depth):
+            max_depth = self.max_depth = None
         else:
             num_features = X.shape[1]
-            self.max_depth_factor = int(self.max_depth_factor)
-            max_depth_factor = max(
-                1,
-                int(np.round(self.max_depth_factor * num_features, 0)))
+            self.max_depth = int(self.max_depth)
+            max_depth = max(1, int(np.round(self.max_depth * num_features, 0)))
         self.min_samples_split = int(self.min_samples_split)
         self.min_samples_leaf = int(self.min_samples_leaf)
         if check_none(self.max_leaf_nodes):
@@ -48,7 +57,7 @@ class DecisionTree(PredictionAlgorithm):
 
         self.estimator = DecisionTreeClassifier(
             criterion=self.criterion,
-            max_depth=max_depth_factor,
+            max_depth=max_depth,
             min_samples_split=self.min_samples_split,
             min_samples_leaf=self.min_samples_leaf,
             max_leaf_nodes=self.max_leaf_nodes,
@@ -89,7 +98,7 @@ class DecisionTree(PredictionAlgorithm):
         cs = ConfigurationSpace()
 
         criterion = CategoricalHyperparameter("criterion", ["gini", "entropy"], default_value="gini")
-        max_depth_factor = UniformFloatHyperparameter('max_depth_factor', 0., 2., default_value=0.5)
+        max_depth_factor = UniformFloatHyperparameter('max_depth', 0., 2., default_value=0.5)
         min_samples_split = UniformIntegerHyperparameter("min_samples_split", 2, 20, default_value=2)
         min_samples_leaf = UniformIntegerHyperparameter("min_samples_leaf", 1, 20, default_value=1)
         min_weight_fraction_leaf = Constant("min_weight_fraction_leaf", 0.0)

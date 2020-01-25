@@ -263,7 +263,7 @@ class ComponentChoice(EstimatorComponent):
         self.dataset_properties_: Optional[Dict] = None
         self.new_params = None
 
-    def get_components(self) -> Dict[str, Any]:
+    def get_components(self) -> Dict[str, Type[EstimatorComponent]]:
         raise NotImplementedError()
 
     def get_available_components(self, dataset_properties: dict = None,
@@ -315,7 +315,7 @@ class ComponentChoice(EstimatorComponent):
         new_params['random_state'] = self.random_state
 
         self.new_params = new_params
-        self.choice = self.get_components()[choice](**new_params)
+        self.choice = self.get_components()[choice]().set_hyperparameters(new_params)
 
         return self
 

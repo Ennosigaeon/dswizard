@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Type
 
 __author__ = 'feurerm'
 
@@ -8,7 +8,7 @@ from collections import OrderedDict
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter
 
-from dswizard.components.base import PredictionAlgorithm, find_components, ComponentChoice, PredictionMixin
+from dswizard.components.base import PredictionAlgorithm, find_components, ComponentChoice, PredictionMixin, EstimatorComponent
 
 classifier_directory = os.path.split(__file__)[0]
 _classifiers = find_components(__package__, classifier_directory, PredictionAlgorithm)
@@ -16,7 +16,7 @@ _classifiers = find_components(__package__, classifier_directory, PredictionAlgo
 
 class ClassifierChoice(ComponentChoice, PredictionMixin):
 
-    def get_components(self) -> Dict[str, Any]:
+    def get_components(self) -> Dict[str, Type[EstimatorComponent]]:
         components = OrderedDict()
         components.update(_classifiers)
         return components
@@ -65,7 +65,7 @@ class ClassifierChoice(ComponentChoice, PredictionMixin):
 
     def get_hyperparameter_search_space(self, dataset_properties=None,
                                         default=None,
-                                        include=['decision_tree'],
+                                        include=None,
                                         exclude=None):
         if dataset_properties is None:
             dataset_properties = {}

@@ -1,11 +1,11 @@
 import os
 from collections import OrderedDict
-from typing import Any, Dict
+from typing import Dict, Type
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter
 
-from dswizard.components.base import PreprocessingAlgorithm, find_components, ComponentChoice
+from dswizard.components.base import PreprocessingAlgorithm, find_components, ComponentChoice, EstimatorComponent
 
 preprocessor_directory = os.path.split(__file__)[0]
 _preprocessors = find_components(__package__,
@@ -15,7 +15,7 @@ _preprocessors = find_components(__package__,
 
 class DataPreprocessorChoice(ComponentChoice):
 
-    def get_components(self) -> Dict[str, Any]:
+    def get_components(self) -> Dict[str, Type[EstimatorComponent]]:
         components = OrderedDict()
         components.update(_preprocessors)
         return components

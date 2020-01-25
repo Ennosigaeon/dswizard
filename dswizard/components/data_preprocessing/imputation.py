@@ -5,7 +5,9 @@ from dswizard.components.base import PreprocessingAlgorithm
 
 
 class Imputation(PreprocessingAlgorithm):
-    def __init__(self, strategy='median', random_state=None):
+    def __init__(self,
+                 strategy: str = 'median',
+                 random_state=None):
         super().__init__()
         self.strategy = strategy
 

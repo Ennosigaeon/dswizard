@@ -6,7 +6,9 @@ from dswizard.components.base import PreprocessingAlgorithm
 
 
 class OneHotEncoder(PreprocessingAlgorithm):
-    def __init__(self, categorical_features=None, random_state=None):
+    def __init__(self,
+                 categorical_features=None,
+                 random_state=None):
         super().__init__()
         self.categorical_features = categorical_features
 

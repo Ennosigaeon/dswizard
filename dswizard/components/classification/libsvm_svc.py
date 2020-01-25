@@ -12,9 +12,20 @@ from dswizard.util.common import check_none, check_for_bool
 from dswizard.util.util import softmax
 
 
+# noinspection PyPep8Naming
 class LibSVM_SVC(PredictionAlgorithm):
-    def __init__(self, C, kernel, gamma, shrinking, tol, max_iter, class_weight=None, degree=3, coef0=0,
-                 random_state=None):
+    def __init__(self,
+                 C: float = 1.0,
+                 kernel: str = 'rbf',
+                 degree: int = 3,
+                 gamma: str = 'auto_deprecated',
+                 coef0: float = 0.0,
+                 shrinking: bool = True,
+                 tol: float = 1e-3,
+                 max_iter: int = -1,
+                 class_weight=None,
+                 random_state=None,
+                 ):
         super().__init__()
         self.C = C
         self.kernel = kernel

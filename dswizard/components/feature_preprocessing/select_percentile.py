@@ -6,7 +6,10 @@ from dswizard.components.base import PreprocessingAlgorithm
 
 class SelectPercentileClassification(PreprocessingAlgorithm):
 
-    def __init__(self, percentile, score_func="chi2", random_state=None):
+    def __init__(self,
+                 percentile: float = 10,
+                 score_func: str = "chi2",
+                 random_state=None):
         """ Parameters:
         random state : ignored
 
@@ -17,7 +20,7 @@ class SelectPercentileClassification(PreprocessingAlgorithm):
         super().__init__()
 
         self.random_state = random_state  # We don't use this
-        self.percentile = int(float(percentile))
+        self.percentile = percentile
         if score_func == "chi2":
             self.score_func = sklearn.feature_selection.chi2
         elif score_func == "f_classif":
@@ -87,14 +90,10 @@ class SelectPercentileClassification(PreprocessingAlgorithm):
 
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
-        percentile = UniformFloatHyperparameter(
-            name="percentile", lower=1, upper=99, default_value=50)
+        percentile = UniformFloatHyperparameter(name="percentile", lower=1, upper=99, default_value=50)
 
-        score_func = CategoricalHyperparameter(
-            name="score_func",
-            choices=["chi2", "f_classif", "mutual_info"],
-            default_value="chi2"
-        )
+        score_func = CategoricalHyperparameter(name="score_func", choices=["chi2", "f_classif", "mutual_info"],
+                                               default_value="chi2")
         if dataset_properties is not None:
             # Chi2 can handle sparse data, so we respect this
             if 'sparse' in dataset_properties and dataset_properties['sparse']:

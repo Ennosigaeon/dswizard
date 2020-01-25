@@ -6,7 +6,9 @@ from dswizard.components.base import PreprocessingAlgorithm
 
 
 class Balancing(PreprocessingAlgorithm):
-    def __init__(self, strategy='none', random_state=None):
+    def __init__(self,
+                 strategy='none',
+                 random_state=None):
         super().__init__()
         self.strategy = strategy
 
