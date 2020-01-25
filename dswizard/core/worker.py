@@ -223,7 +223,7 @@ class Worker(abc.ABC):
     @Pyro4.expose
     @Pyro4.oneway
     def shutdown(self) -> None:
-        self.logger.debug('shutting down')
+        self.logger.info('shutting down')
 
         if self.pyro_daemon is not None:
             self.pyro_daemon.shutdown()

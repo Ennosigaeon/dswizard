@@ -282,7 +282,7 @@ class PyroDispatcher(Dispatcher):
             self.discover_cond.wait(self.ping_interval)
 
             if self.shutdown_all_threads:
-                self.logger.debug('\'discover_worker\' thread shutting down')
+                self.logger.info('\'discover_worker\' thread shutting down')
                 self.runner_cond.notify()
                 self.discover_cond.release()
                 return

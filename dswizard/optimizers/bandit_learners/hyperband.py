@@ -32,6 +32,7 @@ class HyperbandLearner(BanditLearner):
 
         self.max_iterations = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
         self.budgets = max_budget * np.power(eta, -np.linspace(self.max_iterations - 1, 0, self.max_iterations))
+        self.logger.info('Using budgets {}'.format(self.budgets))
 
         self.config.update({
             'eta': eta,
