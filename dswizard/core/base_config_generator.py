@@ -31,11 +31,11 @@ class BaseConfigGenerator(abc.ABC):
         self.configspace: ConfigurationSpace = configspace
 
     @abc.abstractmethod
-    def sample_config(self, budget: float = None) -> Configuration:
+    def sample_config(self) -> Configuration:
         pass
 
-    def register_result(self, config: Configuration, loss: float, status: StatusType, budget: float = None,
-                        update_model: bool = True) -> None:
+    def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
+                        **kwargs) -> None:
         """
         registers finished runs
 
@@ -45,7 +45,6 @@ class BaseConfigGenerator(abc.ABC):
         :param config:
         :param loss:
         :param status:
-        :param budget:
         :param update_model: determines whether a model inside the config_generator should be updated
         :return:
         """

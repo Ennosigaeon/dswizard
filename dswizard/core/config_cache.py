@@ -100,7 +100,7 @@ class ConfigCache(PyroDaemon):
     @Pyro4.expose
     def sample_configuration(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures,
                              **kwargs) -> Configuration:
-        return self.get_config_generator(budget, configspace, meta_features, **kwargs).sample_config(budget)
+        return self.get_config_generator(budget, configspace, meta_features, **kwargs).sample_config()
 
     # noinspection PyUnresolvedReferences
     @Pyro4.expose
@@ -115,10 +115,9 @@ class ConfigCache(PyroDaemon):
                 for config in job.result.partial_configs:
                     if len(config.configuration.configuration_space.get_hyperparameters()) > 0:
                         self.cache[config.configuration.configuration_space][mf].register_result(
-                            config.configuration, loss, status, budget)
+                            config.configuration, loss, status)
             else:
-                self.cache[job.pipeline.configuration_space][mf].register_result(job.config, loss,
-                                                                                         status, budget)
+                self.cache[job.pipeline.configuration_space][mf].register_result(job.config, loss, status)
         except Exception as ex:
             self.logger.exception(ex)
             raise ex

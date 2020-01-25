@@ -26,7 +26,7 @@ from dswizard.components.pipeline import SubPipeline
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.optimizers.bandit_learners import HyperbandLearner
-from dswizard.optimizers.config_generators.layered_hyperopt import LayeredHyperopt
+from dswizard.optimizers.config_generators.hyperopt import Hyperopt
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
 
@@ -66,8 +66,7 @@ master = Master(
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
     local_workers=[w],
 
-    config_generator_class=LayeredHyperopt,
-    config_generator_kwargs={'on_the_fly_generation': True},
+    config_generator_class=Hyperopt,
 
     bandit_learner_class=HyperbandLearner,
     bandit_learner_kwargs={'structure_generator': structure_generator,
