@@ -2,14 +2,19 @@ import random
 from abc import ABC
 from collections import OrderedDict
 from copy import deepcopy
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Set
 
 import math
 import networkx as nx
+import numpy as np
 
+from dswizard.components.base import EstimatorComponent
 from dswizard.components.classification import ClassifierChoice
 from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.feature_preprocessing import FeaturePreprocessorChoice
+from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.core.base_structure_generator import BaseStructureGenerator
+from dswizard.core.model import CandidateStructure, Result
 
 
 # Ideas
@@ -43,12 +48,15 @@ class Node(ABC):
 
     def __init__(self,
                  id: int,
-                 estimator: str,
-                 pipeline_prefix: Dict[str, str] = None
+                 estimator: Optional[EstimatorComponent],
+                 pipeline_prefix: Dict[str, EstimatorComponent] = None
                  ):
         self.id = id
-        self.label = estimator.split('.')[-1].replace('Choice', '')
         self.estimator = estimator
+        if estimator is None:
+            self.label = ''
+        else:
+            self.label = estimator.name()
 
         if pipeline_prefix is None:
             pipeline_prefix = OrderedDict()
@@ -56,20 +64,20 @@ class Node(ABC):
             pipeline_prefix = deepcopy(pipeline_prefix)
             pipeline_prefix[str(id)] = estimator
 
-        self.steps: Dict[str, str] = pipeline_prefix
+        self.steps: Dict[str, EstimatorComponent] = pipeline_prefix
 
         self.visits = 0
         self.reward = 0
 
     def is_terminal(self):
-        return self.estimator == ClassifierChoice.name()
+        return self.label == ClassifierChoice.name()
 
     # noinspection PyMethodMayBeStatic
-    def all_available_actions(self):
+    def all_available_actions(self) -> Set[EstimatorComponent]:
         return {
-            ClassifierChoice.name(),
-            DataPreprocessorChoice.name(),
-            FeaturePreprocessorChoice.name(),
+            ClassifierChoice(),
+            DataPreprocessorChoice(),
+            FeaturePreprocessorChoice(),
             # SubPipeline.name()
         }
 
@@ -86,7 +94,7 @@ class Tree:
     def __init__(self):
         self.G = nx.DiGraph()
         self.id_count = -1
-        self.add_node('')
+        self.add_node(None)
 
         self.coef_progressive_widening = 0.6020599913279623
 
@@ -95,7 +103,7 @@ class Tree:
         return self.id_count
 
     def add_node(self,
-                 estimator: Optional[str],
+                 estimator: Optional[EstimatorComponent],
                  parent_node: Node = None) -> Node:
         new_id = self.get_new_id()
         node = Node(new_id, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
@@ -143,7 +151,7 @@ class Policy:
         self.exploration_weight = exploration_weight
 
     # noinspection PyMethodMayBeStatic
-    def get_next_action(self, n: Node, current_children: List[Node]) -> Optional[str]:
+    def get_next_action(self, n: Node, current_children: List[Node]) -> Optional[EstimatorComponent]:
         actions = n.all_available_actions()
         exhausted_actions = [n.estimator for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
@@ -168,19 +176,51 @@ class Policy:
         return max(tree.get_children(node.id), key=uct)
 
 
-class MCTS:
+class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self):
+    def __init__(self, dataset_properties: dict = None, timeout: int = None):
+        super().__init__(dataset_properties, timeout)
         self.tree = Tree()
         self.policy = Policy()
+
+    def get_candidate(self, budget: float) -> CandidateStructure:
+        # traverse from root to a leaf node
+        path = self._select()
+
+        # expand last node in path if possible
+        expansion = self._expand(path[-1])
+        if expansion is not None:
+            path.append(expansion)
+
+        for i in range(10):
+            node = self._simulate(path)
+            if node is not None:
+                break
+        else:
+            raise ValueError(
+                'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
+                    ', '.join([n.label for n in path])))
+
+        pipeline = FlexiblePipeline(node.steps, self.dataset_properties)
+
+        return CandidateStructure(pipeline.configuration_space, pipeline, budget, timeout=self.timeout)
+
+    def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
+                        **kwargs) -> None:
+        reward = result.loss
+
+        if reward is None or not np.isfinite(reward):
+            # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations
+            # Same for non numeric losses. Note that this means losses of minus infinity will count as bad!
+            reward = np.inf
+
+        self._backpropagate(candidate.pipeline.steps_.keys(), reward)
 
     def choose(self, node: Node = None):
         """Choose the best successor of node. (Choose a move in the game)"""
         if node is None:
             node = self.tree.get_node(Tree.ROOT)
-
-        nx.dfs_successors(self.tree.G, )
 
         children = self.tree.get_all_children(node.id)
         if len(children) == 0:
@@ -192,20 +232,6 @@ class MCTS:
             return n.reward / n.visits  # average reward
 
         return min(children, key=score)
-
-    def do_rollout(self):
-        """Make the tree one layer better. (Train for one iteration.)"""
-
-        # traverse from root to a leaf node
-        path = self._select()
-
-        # expand last node in path if possible
-        expansion = self._expand(path[-1])
-        if expansion is not None:
-            path.append(expansion)
-
-        reward = self._simulate(path)
-        self._backpropagate(path, reward)
 
     def _select(self) -> List[Node]:
         """Find an unexplored descendent of `node`"""
@@ -234,46 +260,32 @@ class MCTS:
         return self.tree.add_node(estimator=action, parent_node=node)
 
     # noinspection PyMethodMayBeStatic
-    def _simulate(self, path: List[Node], max_depths: int = 10) -> float:
+    def _simulate(self, path: List[Node], max_depths: int = 10) -> Optional[Node]:
         """Returns the reward for a random simulation (to completion) of `node`"""
         node = path[-1]
         for i in range(max_depths):
             if node.is_terminal():
-                # TODO build pipeline structure and optimize hyperparamters
-                reward = random.uniform(0, 1)
-                return reward
+                return node
 
-            action = self.policy.get_next_action(node, self.tree.get_children(node.id))
+            action = self.policy.get_next_action(node, [])
             if action is None:
                 break
 
-            node = Node(id=0, estimator=action)
-        return 1
+            node = Node(id=-(i + 1), estimator=action, pipeline_prefix=node.steps)
+
+        self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
+        return None
 
     # noinspection PyMethodMayBeStatic
-    def _backpropagate(self, path: List[Node], reward: float) -> None:
+    def _backpropagate(self, path: List[str], reward: float) -> None:
         """Send the reward back up to the ancestors of the leaf"""
+        # Also update root node
 
-        for node in reversed(path):
-            node.visits += 1
-            node.reward += reward
-
-
-if __name__ == '__main__':
-    search = MCTS()
-    tree = search.tree
-
-    for i in range(20):
-        search.do_rollout()
-
-    best = search.choose()
-    print(best.steps)
-    tree.highlight_path(best.id)
-
-    for id in tree.G.nodes:
-        node = tree.G.nodes[id]
-        node['label'] = '{}\nn={}\nq={}'.format(node['value'].label, node['value'].visits,
-                                                node['value'].reward / node['value'].visits)
-
-    H = nx.nx_agraph.to_agraph(search.tree.G)
-    H.draw('mcts.png', prog='dot')
+        ls = list(path)
+        ls.append('0')
+        for name in ls:
+            id = int(name)
+            if id >= 0:
+                n = self.tree.get_node(id)
+                n.visits += 1
+                n.reward += reward

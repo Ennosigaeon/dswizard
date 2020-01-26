@@ -184,6 +184,9 @@ class EstimatorComponent(BaseEstimator, MetaData, ABC):
         cls = self.__class__
         return '.'.join([cls.__module__, cls.__qualname__])
 
+    def __repr__(self, **kwargs):
+        return self.__class__.__qualname__
+
 
 # noinspection PyPep8Naming
 class PredictionAlgorithm(EstimatorComponent, PredictionMixin, ABC):
