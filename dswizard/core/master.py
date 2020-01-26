@@ -264,6 +264,7 @@ class Master:
 
             job.cs.add_result(job.result)
             self.cfg_cache.register_result(job)
+            self.bandit_learner.register_result(job)
 
             if self.num_running_jobs <= self.job_queue_sizes[0]:
                 self.logger.debug('Trying to start next job!')

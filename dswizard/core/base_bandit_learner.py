@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.base_iteration import BaseIteration
     from dswizard.core.base_structure_generator import BaseStructureGenerator
-    from dswizard.core.model import CandidateStructure, CandidateId, Dataset, MetaFeatures
+    from dswizard.core.model import CandidateStructure, CandidateId, Dataset, MetaFeatures, Job
 
 
 class BanditLearner(abc.ABC):
@@ -69,14 +69,12 @@ class BanditLearner(abc.ABC):
             for i in range(iterations):
                 config_id = candidate.id.with_config(i)
                 if self.sample_config:
-                    cg = self._get_config_generator(candidate.budget, candidate.pipeline.configuration_space, ds.meta_features)
+                    cg = self._get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
+                                                    ds.meta_features)
                     config = cg.sample_config()
                     starter(ds, config_id, candidate, config)
                 else:
                     starter(ds, config_id, candidate, None)
-
-            self.iterations[iteration].register_result(candidate)
-            self.structure_generator.new_result(candidate)
 
     def _get_next_structure(self, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
         n_iterations = self.max_iterations
@@ -105,3 +103,7 @@ class BanditLearner(abc.ABC):
             Optional[BaseConfigGenerator]:
         cache = utils.get_config_generator_cache(self.nameserver, self.nameserver_port, self.run_id)
         return cache.get_config_generator(budget, configspace, meta_features)
+
+    def register_result(self, job: Job, update_model: bool = True):
+        self.iterations[-1].register_result(job.cs)
+        self.structure_generator.register_result(job.cs, job.result, update_model=update_model)

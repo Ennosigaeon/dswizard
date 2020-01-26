@@ -3,15 +3,13 @@ from __future__ import annotations
 import abc
 import inspect
 import logging
-
 from typing import TYPE_CHECKING
 
 from dswizard.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
-
 from dswizard.util import util
 
 if TYPE_CHECKING:
-    from dswizard.core.model import CandidateStructure
+    from dswizard.core.model import CandidateStructure, Result
 
 
 class BaseStructureGenerator(abc.ABC):
@@ -25,6 +23,7 @@ class BaseStructureGenerator(abc.ABC):
         """
         :param logger: for some debug output
         """
+        # TODO move timeout somewhere more reasonable
         self.dataset_properties = dataset_properties
         self.timeout = timeout
         if logger is None:
@@ -41,7 +40,8 @@ class BaseStructureGenerator(abc.ABC):
         """
         raise NotImplementedError('get_config_space not implemented for {}'.format(type(self).__name__))
 
-    def new_result(self, candidate: CandidateStructure, update_model: bool = True) -> None:
+    def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
+                        **kwargs) -> None:
         """
         registers finished runs
 
@@ -49,11 +49,12 @@ class BaseStructureGenerator(abc.ABC):
         overwritten, make sure to call this method from the base class to ensure proper logging.
 
         :param candidate: contains all necessary information about the job
+        :param result:
         :param update_model: determines whether a model inside the config_generator should be updated
         :return:
         """
 
-        if candidate.status == 'CRASHED':
+        if result.status == 'CRASHED':
             self.logger.warning('candidate {} failed'.format(candidate.id))
 
     @staticmethod
