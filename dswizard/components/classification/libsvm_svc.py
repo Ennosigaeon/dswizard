@@ -3,9 +3,8 @@ import sys
 
 from ConfigSpace.conditions import EqualsCondition, InCondition
 from ConfigSpace.configuration_space import ConfigurationSpace
-from ConfigSpace.hyperparameters import UniformFloatHyperparameter, \
-    UniformIntegerHyperparameter, CategoricalHyperparameter, \
-    UnParametrizedHyperparameter
+from ConfigSpace.hyperparameters import UniformFloatHyperparameter, UniformIntegerHyperparameter, \
+    CategoricalHyperparameter, UnParametrizedHyperparameter
 
 from dswizard.components.base import PredictionAlgorithm
 from dswizard.util.common import check_none, check_for_bool
@@ -18,7 +17,7 @@ class LibSVM_SVC(PredictionAlgorithm):
                  C: float = 1.0,
                  kernel: str = 'rbf',
                  degree: int = 3,
-                 gamma: str = 'auto_deprecated',
+                 gamma: str = 'scale',
                  coef0: float = 0.0,
                  shrinking: bool = True,
                  tol: float = 1e-3,
@@ -69,21 +68,12 @@ class LibSVM_SVC(PredictionAlgorithm):
         except Exception:
             cache_size = 200
 
-        self.C = float(self.C)
         if self.degree is None:
             self.degree = 3
-        else:
-            self.degree = int(self.degree)
         if self.gamma is None:
             self.gamma = 0.0
-        else:
-            self.gamma = float(self.gamma)
         if self.coef0 is None:
             self.coef0 = 0.0
-        else:
-            self.coef0 = float(self.coef0)
-        self.tol = float(self.tol)
-        self.max_iter = float(self.max_iter)
 
         self.shrinking = check_for_bool(self.shrinking)
 
@@ -102,14 +92,9 @@ class LibSVM_SVC(PredictionAlgorithm):
                                          random_state=self.random_state,
                                          cache_size=cache_size,
                                          decision_function_shape='ovr',
-                                         probability=True)
+                                         probability=False)
         self.estimator.fit(X, Y)
         return self
-
-    def predict(self, X):
-        if self.estimator is None:
-            raise NotImplementedError
-        return self.estimator.predict(X)
 
     def predict_proba(self, X):
         if self.estimator is None:
@@ -140,10 +125,10 @@ class LibSVM_SVC(PredictionAlgorithm):
         # TODO this is totally ad-hoc
         coef0 = UniformFloatHyperparameter("coef0", -1, 1, default_value=0)
         # probability is no hyperparameter, but an argument to the SVM algo
-        shrinking = CategoricalHyperparameter("shrinking", ["True", "False"], default_value="True")
+        shrinking = CategoricalHyperparameter("shrinking", [True, False], default_value=True)
         tol = UniformFloatHyperparameter("tol", 1e-5, 1e-1, default_value=1e-3, log=True)
         # cache size is not a hyperparameter, but an argument to the program!
-        max_iter = UnParametrizedHyperparameter("max_iter", -1)
+        max_iter = UnParametrizedHyperparameter("max_iter", -1.0)
 
         cs = ConfigurationSpace()
         cs.add_hyperparameters([C, kernel, degree, gamma, coef0, shrinking, tol, max_iter])
