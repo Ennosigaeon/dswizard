@@ -222,12 +222,12 @@ class PredictionAlgorithm(EstimatorComponent, PredictionMixin, ABC):
 
     def predict(self, X):
         if self.estimator is None:
-            raise NotImplementedError
+            raise ValueError()
         return self.estimator.predict(X)
 
     def predict_proba(self, X):
         if self.estimator is None:
-            raise NotImplementedError()
+            raise ValueError()
         return self.estimator.predict_proba(X)
 
 
@@ -249,8 +249,22 @@ class PreprocessingAlgorithm(EstimatorComponent, ABC):
         """
         return self.preprocessor
 
+    def fit(self, X, y=None):
+        self.preprocessor.fit(X)
+        return self
+
+    def transform(self, X):
+        if self.preprocessor is None:
+            raise ValueError()
+        return self.preprocessor.transform(X)
+
     def fit_transform(self, X: np.ndarray, y: np.ndarray = None) -> np.ndarray:
         return self.fit(X, y).transform(X)
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConfigurationSpace()
+        return cs
 
 
 # noinspection PyPep8Naming

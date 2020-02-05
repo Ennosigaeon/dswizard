@@ -4,23 +4,28 @@ from ConfigSpace.hyperparameters import CategoricalHyperparameter
 from dswizard.components.base import PreprocessingAlgorithm
 
 
-class ImputationComponent(PreprocessingAlgorithm):
-    def __init__(self, strategy: str = 'mean'):
+class NormalizerComponent(PreprocessingAlgorithm):
+    def __init__(self, norm: str = 'l2'):
         super().__init__()
-        self.strategy = strategy
+        self.norm = norm
 
     def fit(self, X, y=None):
-        import sklearn.impute
-        self.preprocessor = sklearn.impute.SimpleImputer(strategy=self.strategy, copy=False)
-        self.preprocessor = self.preprocessor.fit(X)
-        return self
+        from sklearn.preprocessing import Normalizer
+        self.preprocessor = Normalizer(norm=self.norm, copy=False)
+
+    @staticmethod
+    def get_hyperparameter_search_space(dataset_properties=None):
+        cs = ConfigurationSpace()
+        threshold = CategoricalHyperparameter('norm', ['l1', 'l2', 'max'], default_value='l2')
+        cs.add_hyperparameter(threshold)
+        return cs
 
     @staticmethod
     def get_properties(dataset_properties=None):
-        return {'shortname': 'Imputation',
-                'name': 'Imputation',
-                'handles_missing_values': True,
-                'handles_nominal_values': True,
+        return {'shortname': 'Normalizer',
+                'name': 'Normalizer',
+                'handles_missing_values': False,
+                'handles_nominal_values': False,
                 'handles_numerical_features': True,
                 'prefers_data_scaled': False,
                 'prefers_data_normalized': False,
@@ -32,14 +37,6 @@ class ImputationComponent(PreprocessingAlgorithm):
                 # TODO find out of this is right!
                 'handles_sparse': True,
                 'handles_dense': True,
-                # 'input': (DENSE, SPARSE, UNSIGNED_DATA),
+                # 'input': (SPARSE, DENSE, UNSIGNED_DATA),
                 # 'output': (INPUT,),
                 'preferred_dtype': None}
-
-    @staticmethod
-    def get_hyperparameter_search_space(dataset_properties=None):
-        # TODO add replace by zero!
-        strategy = CategoricalHyperparameter("strategy", ["mean", "median", "most_frequent"], default_value="mean")
-        cs = ConfigurationSpace()
-        cs.add_hyperparameter(strategy)
-        return cs
