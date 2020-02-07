@@ -1,11 +1,12 @@
 import numpy as np
 import pandas as pd
 from ConfigSpace.configuration_space import ConfigurationSpace
+from sklearn.preprocessing import OneHotEncoder
 
 from dswizard.components.base import PreprocessingAlgorithm
 
 
-class OneHotEncoder(PreprocessingAlgorithm):
+class OneHotEncoderComponent(PreprocessingAlgorithm):
     def __init__(self,
                  categorical_features=None,
                  random_state=None):
@@ -13,6 +14,7 @@ class OneHotEncoder(PreprocessingAlgorithm):
         self.categorical_features = categorical_features
 
     def transform(self, X: np.ndarray):
+        OneHotEncoder
         categorical = []
         numeric = []
         for i in range(X.shape[1]):

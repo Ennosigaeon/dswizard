@@ -1,24 +1,19 @@
-import sklearn.feature_selection
 from ConfigSpace.configuration_space import ConfigurationSpace
+from ConfigSpace.hyperparameters import UniformFloatHyperparameter
 
 from dswizard.components.base import PreprocessingAlgorithm
 
 
-class VarianceThreshold(PreprocessingAlgorithm):
-    def __init__(self, random_state=None):
+class VarianceThresholdComponent(PreprocessingAlgorithm):
+    def __init__(self, threshold: float = 0.):
         super().__init__()
+        self.threshold = threshold
 
     def fit(self, X, y=None):
-        self.preprocessor = sklearn.feature_selection.VarianceThreshold(
-            threshold=0.0
-        )
+        import sklearn.feature_selection
+        self.preprocessor = sklearn.feature_selection.VarianceThreshold(threshold=self.threshold)
         self.preprocessor = self.preprocessor.fit(X)
         return self
-
-    def transform(self, X):
-        if self.preprocessor is None:
-            raise NotImplementedError()
-        return self.preprocessor.transform(X)
 
     @staticmethod
     def get_properties(dataset_properties=None):
@@ -39,4 +34,7 @@ class VarianceThreshold(PreprocessingAlgorithm):
     @staticmethod
     def get_hyperparameter_search_space(dataset_properties=None):
         cs = ConfigurationSpace()
+        # TODO upper limit is totally ad hoc
+        threshold = UniformFloatHyperparameter('threshold', 0., 1, default_value=0.)
+        cs.add_hyperparameter(threshold)
         return cs
