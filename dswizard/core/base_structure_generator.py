@@ -5,7 +5,7 @@ import inspect
 import logging
 from typing import TYPE_CHECKING
 
-from dswizard.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
+from automl.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
 from dswizard.util import util
 
 if TYPE_CHECKING:

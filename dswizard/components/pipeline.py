@@ -12,7 +12,7 @@ from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 from sklearn.utils.validation import check_memory
 
-from dswizard.components.base import ComponentChoice, EstimatorComponent
+from automl.components.base import ComponentChoice, EstimatorComponent
 from dswizard.core.model import PartialConfig, MetaFeatures
 from dswizard.util import util
 from dswizard.util.util import prefixed_name

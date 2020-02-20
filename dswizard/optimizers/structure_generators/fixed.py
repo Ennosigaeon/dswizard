@@ -2,7 +2,7 @@ from typing import Dict
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from dswizard.components.base import ComponentChoice, EstimatorComponent
+from automl.components.base import ComponentChoice, EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateStructure

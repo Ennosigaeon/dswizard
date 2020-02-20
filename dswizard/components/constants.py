@@ -1,6 +1,3 @@
-from dswizard.components.classification import ClassifierChoice
-from dswizard.components.data_preprocessing import DataPreprocessorChoice
-
 BINARY_CLASSIFICATION = 1
 MULTICLASS_CLASSIFICATION = 2
 MULTILABEL_CLASSIFICATION = 3

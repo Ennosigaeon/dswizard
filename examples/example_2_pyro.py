@@ -12,20 +12,20 @@ from sklearn import datasets
 
 # Configure logging system before importing smac
 from dswizard.core.model import Dataset
+from optimizers.config_generators import Hyperopt
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S%z',
                     stream=sys.stdout)
 
-from dswizard.components.classification import ClassifierChoice
-from dswizard.components.data_preprocessing import DataPreprocessorChoice
+from automl.components.classification import ClassifierChoice
+from automl.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.pipeline import SubPipeline
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.core.nameserver import NameServer
 from dswizard.optimizers.bandit_learners import HyperbandLearner
-from dswizard.optimizers.config_generators.layered_hyperopt import LayeredHyperopt
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from dswizard.workers.sklearn_worker import SklearnWorker
 
@@ -71,7 +71,7 @@ master = Master(
     bandit_learner=bandit,
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
     nameserver='127.0.0.1',
-    config_generator_class=LayeredHyperopt,
+    config_generator_class=Hyperopt,
     config_generator_kwargs={'on_the_fly_generation': True}
 )
 

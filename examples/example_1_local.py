@@ -11,18 +11,16 @@ from collections import OrderedDict
 from sklearn import datasets
 
 # Configure logging system before importing smac
-from dswizard.components.classification.decision_tree import DecisionTree
+from automl.components.classification.decision_tree import DecisionTree
 from dswizard.core.model import Dataset
-from dswizard.optimizers.config_generators import Hyperopt
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S%z',
                     stream=sys.stdout)
 
-from dswizard.components.classification import ClassifierChoice
-from dswizard.components.data_preprocessing import DataPreprocessorChoice
-from dswizard.components.pipeline import SubPipeline
+from automl.components.classification import ClassifierChoice
+from automl.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.optimizers.bandit_learners import HyperbandLearner
