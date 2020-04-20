@@ -9,7 +9,7 @@ import traceback
 from typing import Optional, TYPE_CHECKING, Tuple
 
 import Pyro4
-import pynisher
+import pynisher2
 from ConfigSpace import Configuration
 from Pyro4.errors import CommunicationError, NamingError
 
@@ -154,15 +154,15 @@ class Worker(abc.ABC):
         result = None
         try:
             self.process_logger = ProcessLogger(self.workdir, job.id)
-            wrapper = pynisher.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
             cfg_cache = utils.get_config_generator_cache(self.nameserver, self.nameserver_port, self.run_id)
             c = wrapper(job.ds, job.id, job.config, cfg_cache, job.pipeline, job.budget, **job.kwargs)
 
-            if wrapper.exit_status is pynisher.TimeoutException:
+            if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
                 cost = 1
                 runtime = Runtime(wrapper.wall_clock_time)
-            elif wrapper.exit_status is pynisher.MemorylimitException:
+            elif wrapper.exit_status is pynisher2.MemorylimitException:
                 status = StatusType.MEMOUT
                 cost = 1
                 runtime = Runtime(wrapper.wall_clock_time)
