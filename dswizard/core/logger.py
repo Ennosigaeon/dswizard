@@ -76,7 +76,7 @@ class JsonResultLogger:
             # should never happen! TODO: log warning here!
             self.structure_ids.add(job.id)
             with open(self.structure_fn, 'a') as fh:
-                fh.write(json.dumps([job.id.as_tuple(), job.config, {}]))
+                fh.write(json.dumps([job.id.as_tuple(), job.config.get_dictionary(), {}]))
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
             fh.write(

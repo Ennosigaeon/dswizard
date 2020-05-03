@@ -47,8 +47,8 @@ class Hyperopt(BaseConfigGenerator):
                  min_bandwidth: float = 1e-3,
                  **kwargs):
         """
-        Fits for each given budget a kernel density estimator on the best N percent of the evaluated configurations on
-        this budget.
+        Fits a kernel density estimator on the best N percent of the evaluated configurations.
+
         :param configspace: Configuration space object
         :param pipeline: optional pipeline associated with the ConfigurationSpace
         :param min_points_in_model: Determines the percentile of configurations that will be used as training data for

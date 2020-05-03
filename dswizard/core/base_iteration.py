@@ -86,28 +86,30 @@ class BaseIteration(abc.ABC):
         if self.is_finished:
             return None
 
-        for candidate in self.data.values():
-            if candidate.status == 'QUEUED':
-                assert candidate.budget == self.budgets[self.stage], \
-                    'Configuration budget does not align with current stage!'
-                candidate.status = 'RUNNING'
-                self.num_running += 1
-                return candidate
+        # Check if candidates exists from previous stage
+        candidates = list(filter(lambda cid: self.data[cid].status == 'QUEUED', self.data.keys()))
+        for cid in candidates:
+            candidate = self.data[cid]
+            assert candidate.budget == self.budgets[self.stage], 'Config budget does not align with current stage!'
+            candidate.status = 'RUNNING'
+            self.num_running += 1
+            return candidate
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
-            self._add_candidate()
-            return self.get_next_candidate()
-
-        if self.num_running == 0:
+            candidate = self._add_candidate()
+            candidate.status = 'RUNNING'
+            self.num_running += 1
+            return candidate
+        elif self.num_running == 0:
             # at this point a stage is completed
             self.logger.debug('Stage {} completed'.format(self.stage))
-            self._process_results()
+            self._finish_stage()
             return self.get_next_candidate()
+        else:
+            return None
 
-        return None
-
-    def _add_candidate(self, candidate: CandidateStructure = None) -> CandidateId:
+    def _add_candidate(self, candidate: CandidateStructure = None) -> CandidateStructure:
         """
         function to add a new configuration to the current iteration
         :param candidate: The configuration to add. If None, a configuration is sampled from the config_sampler
@@ -134,9 +136,9 @@ class BaseIteration(abc.ABC):
         if self.result_logger is not None:
             self.result_logger.new_structure(candidate)
 
-        return candidate_id
+        return candidate
 
-    def _process_results(self) -> None:
+    def _finish_stage(self) -> None:
         """
         function that is called when a stage is completed and needs to be analyzed before further computations.
 

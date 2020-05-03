@@ -2,35 +2,23 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import List, Callable, Optional, Tuple, TYPE_CHECKING
-
-from ConfigSpace import Configuration
-from ConfigSpace.configuration_space import ConfigurationSpace
-
-from dswizard import utils
+from typing import List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.base_iteration import BaseIteration
     from dswizard.core.base_structure_generator import BaseStructureGenerator
-    from dswizard.core.model import CandidateStructure, CandidateId, Dataset, MetaFeatures, Job
+    from dswizard.core.model import CandidateStructure, Job
 
 
 class BanditLearner(abc.ABC):
 
     def __init__(self,
                  run_id: str,
-                 nameserver: str = None,
-                 nameserver_port: int = None,
                  structure_generator: BaseStructureGenerator = None,
-                 sample_config: bool = True,
                  logger: logging.Logger = None):
         self.run_id = run_id
-        self.nameserver = nameserver
-        self.nameserver_port = nameserver_port
-
         self.structure_generator = structure_generator
-        self.sample_config = sample_config
+        self.meta_data = {}
 
         if logger is None:
             self.logger = logging.getLogger('Racing')
@@ -38,7 +26,6 @@ class BanditLearner(abc.ABC):
             self.logger = logger
 
         self.iterations: List[BaseIteration] = []
-        self.config = {}
         self.max_iterations = 0
 
     @abc.abstractmethod
@@ -53,30 +40,12 @@ class BanditLearner(abc.ABC):
         """
         pass
 
-    def optimize(self, starter: Callable[[Dataset, CandidateId, CandidateStructure, Optional[Configuration]], None],
-                 ds: Dataset, iteration_kwargs: dict, iterations: int = 1) -> None:
+    def next_candidate(self, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
         """
-        Optimize all hyperparameters
-        :param starter:
-        :param ds:
-        :param iterations:
+        Returns the next CandidateStructure with an according budget.
         :param iteration_kwargs:
         :return:
         """
-        # noinspection PyTypeChecker
-        for candidate, iteration in self._get_next_structure(iteration_kwargs):
-            # Optimize hyperparameters
-            for i in range(iterations):
-                config_id = candidate.id.with_config(i)
-                if self.sample_config:
-                    cg = self._get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
-                                                    ds.meta_features)
-                    config = cg.sample_config()
-                    starter(ds, config_id, candidate, config)
-                else:
-                    starter(ds, config_id, candidate, None)
-
-    def _get_next_structure(self, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
         n_iterations = self.max_iterations
         while True:
             next_candidate = None
@@ -90,6 +59,7 @@ class BanditLearner(abc.ABC):
                 # noinspection PyUnboundLocalVariable
                 yield next_candidate, i
             else:
+                # TODO if multiple workers, check that really all workers have finished before starting next iteration
                 if n_iterations > 0:  # we might be able to start the next iteration
                     iteration = len(self.iterations)
                     self.logger.info('Starting iteration {}'.format(iteration))
@@ -98,11 +68,6 @@ class BanditLearner(abc.ABC):
                 else:
                     # Done
                     break
-
-    def _get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures) -> \
-            Optional[BaseConfigGenerator]:
-        cache = utils.get_config_generator_cache(self.nameserver, self.nameserver_port, self.run_id)
-        return cache.get_config_generator(budget, configspace, meta_features)
 
     def register_result(self, job: Job, update_model: bool = True):
         self.iterations[-1].register_result(job.cs)

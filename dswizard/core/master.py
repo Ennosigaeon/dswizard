@@ -7,24 +7,24 @@ import os
 import threading
 import time
 from multiprocessing.managers import SyncManager
-from typing import Tuple, Optional, List, Type, TYPE_CHECKING
+from typing import Optional, List, Type, TYPE_CHECKING
 
 import math
-from ConfigSpace import Configuration
 
+from core.dispatcher import Dispatcher
 from dswizard import utils
 from dswizard.core.config_cache import ConfigCache
-from dswizard.core.dispatcher import LocalDispatcher, PyroDispatcher
 from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
 
 if TYPE_CHECKING:
+    from ConfigSpace.configuration_space import ConfigurationSpace
     from dswizard.core.base_bandit_learner import BanditLearner
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.logger import JsonResultLogger
-    from dswizard.core.model import CandidateId, CandidateStructure
+    from dswizard.core.model import MetaFeatures
     from dswizard.core.worker import Worker
 
 
@@ -32,16 +32,10 @@ class Master:
     def __init__(self,
                  run_id: str,
                  working_directory: str = '.',
-                 job_queue_sizes: Tuple[int, int] = (-1, 0),
-                 dynamic_queue_size: bool = True,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
 
-                 ping_interval: int = 60,
-                 nameserver: str = None,
-                 nameserver_port: int = None,
-                 host: str = None,
-                 local_workers: List[Worker] = None,
+                 workers: List[Worker] = None,
 
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
                  config_generator_kwargs: dict = None,
@@ -56,24 +50,13 @@ class Master:
         :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
             multiple concurrent runs to separate them
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
-        :param job_queue_sizes: min and max size of the job queue. During the run, when the number of jobs in the queue
-            reaches the min value, it will be filled up to the max size. Default: (0,1)
-        :param dynamic_queue_size:  Whether or not to change the queue size based on the number of workers available.
             If true (default), the job_queue_sizes are relative to the current number of workers.
         :param logger: the logger to output some (more or less meaningful) information
         :param result_logger: a result logger that writes live results to disk
 
-        :param ping_interval: number of seconds between pings to discover new nodes. Default is 60 seconds.
-        :param nameserver: address of the Pyro4 nameserver
-        :param nameserver_port: port of Pyro4 nameserver
-        :param host: IP (or name that resolves to that) of the network interface to use
-        :param local_workers: A list of local workers. If this parameter is not None, a LocalDispatcher will be used.
+        :param workers: A list of local workers. If this parameter is not None, a LocalDispatcher will be used.
         """
 
-        if local_workers is not None and nameserver is not None:
-            raise ValueError('Cannot run in both local and distributed mode')
-        if local_workers is None and nameserver is None:
-            nameserver = '127.0.0.1'
         if bandit_learner_kwargs is None:
             bandit_learner_kwargs = {}
         if config_generator_kwargs is None:
@@ -89,33 +72,14 @@ class Master:
 
         self.result_logger = result_logger
 
-        self.time_ref: Optional[float] = None
         self.jobs = []
-
-        self.num_running_jobs = 0
-        self.job_queue_sizes = job_queue_sizes
-        self.user_job_queue_sizes = job_queue_sizes
-        self.dynamic_queue_size = dynamic_queue_size
-
-        if job_queue_sizes[0] >= job_queue_sizes[1]:
-            raise ValueError('The queue size range needs to be (min, max) with min<max!')
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
 
-        self.config = {
-            'time_ref': self.time_ref
-        }
+        self.meta_data = {}
 
-        if local_workers is not None:
-            self.logger.info('Starting dswizard in local mode')
-            self.dispatcher = LocalDispatcher(local_workers, self.job_callback, queue_callback=self.adjust_queue_size,
-                                              run_id=run_id)
-        else:
-            self.logger.info('Starting dswizard in distributed mode')
-            self.dispatcher = PyroDispatcher(self.job_callback, queue_callback=self.adjust_queue_size, run_id=run_id,
-                                             ping_interval=ping_interval, nameserver=nameserver,
-                                             nameserver_port=nameserver_port, host=host)
+        self.dispatcher = Dispatcher(workers, self.job_callback, run_id=run_id)
 
         # TODO Only quick and dirty. Fix this!
         SyncManager.register('ConfigCache', ConfigCache)
@@ -123,54 +87,34 @@ class Master:
 
         utils._cfg_cache_instance = mgr.ConfigCache(clazz=config_generator_class,
                                                     init_kwargs=config_generator_kwargs,
-                                                    run_id=run_id,
-                                                    host=host,
-                                                    nameserver=nameserver,
-                                                    nameserver_port=nameserver_port)
+                                                    run_id=run_id)
 
         self.cfg_cache: ConfigCache = utils._cfg_cache_instance
-        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id,
-                                                                  nameserver=nameserver,
-                                                                  nameserver_port=nameserver_port,
-                                                                  **bandit_learner_kwargs)
+        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
 
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
-        self.cfg_cache_thread = threading.Thread(target=self.cfg_cache.run)
-        self.cfg_cache_thread.start()
 
-    def shutdown(self, shutdown_workers: bool = False) -> None:
-        self.logger.info('shutdown initiated, shutdown_workers = {}'.format(shutdown_workers))
-        self.dispatcher.shutdown(shutdown_workers)
+    def shutdown(self) -> None:
+        self.logger.info('shutdown initiated')
+        self.dispatcher.shutdown()
         self.dispatcher_thread.join()
 
-        self.cfg_cache.shutdown()
-
-    def run(self, ds: Dataset, min_n_workers: int = 1, iteration_kwargs: dict = None) -> RunHistory:
+    def optimize(self, ds: Dataset,
+                 iterations: int = 1,
+                 sample_config: bool = True) -> RunHistory:
         """
         run optimization
+        :param sample_config:
+        :param iterations:
         :param ds:
-        :param min_n_workers: minimum number of workers before starting the run
-        :param iteration_kwargs: additional kwargs for the iteration class. Defaults to empty dictionary
         :return:
         """
 
-        if iteration_kwargs is None:
-            iteration_kwargs = {}
-
-        self._wait_for_workers(min_n_workers)
-
-        iteration_kwargs.update({'result_logger': self.result_logger})
-
-        if self.time_ref is None:
-            self.time_ref = time.time()
-            self.config['time_ref'] = self.time_ref
-
-            self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
-                                                                       time.localtime(self.time_ref))))
-
-        self.thread_cond.acquire()
-        self._queue_wait()
+        start = time.time()
+        self.meta_data['start'] = start
+        self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
+                                                                   time.localtime(start))))
 
         # while time_limit is not exhausted:
         #   structure, budget = structure_generator.get_next_structure()
@@ -180,69 +124,34 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        self.bandit_learner.optimize(self._submit_job, ds, iteration_kwargs)
+        for candidate, iteration in self.bandit_learner.next_candidate():
+            # Optimize hyperparameters
+            for i in range(iterations):
+                config_id = candidate.id.with_config(i)
+                if sample_config:
+                    cg = self._get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
+                                                    ds.meta_features)
+                    config = cg.sample_config()
+                    job = Job(ds, config_id, candidate, config)
+                else:
+                    job = Job(ds, config_id, candidate, None)
 
-        self.thread_cond.release()
-        self.logger.info('Finished run after {} seconds'.format(math.ceil(time.time() - self.time_ref)))
+                self.logger.debug('submitting job {} to dispatcher'.format(job.id))
+                self.dispatcher.submit_job(job)
 
+        end = time.time()
+        self.meta_data['end'] = end
+        self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
+
+        # TODO runhistory does not contain useful information yet
         return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
-                          {**self.config, **self.bandit_learner.config})
+                          {**self.meta_data, **self.bandit_learner.meta_data})
 
-    def _wait_for_workers(self, min_n_workers: int = 1) -> None:
-        """
-        helper function to hold execution until some workers are active
-        :param min_n_workers: minimum number of workers present before the run starts
-        :return:
-        """
-
-        self.logger.debug('wait_for_workers trying to get the condition')
-        with self.thread_cond:
-            while self.dispatcher.number_of_workers() < min_n_workers:
-                self.logger.debug('only {} worker(s) available, waiting for at least {}.'.format(
-                    self.dispatcher.number_of_workers(), min_n_workers))
-                self.thread_cond.wait(1)
-                self.dispatcher.trigger_discover_worker()
-
-        self.logger.debug('Enough workers to start this run!')
-
-    def _submit_job(self,
-                    ds: Dataset,
-                    cid: CandidateId,
-                    cs: CandidateStructure,
-                    config: Configuration = None
-                    ) -> None:
-        """
-        protected function to submit a new job to the dispatcher
-
-        This function handles the actual submission in a (hopefully) thread save way
-        """
-        self.logger.debug('submitting job {} to dispatcher'.format(cid))
-        with self.thread_cond:
-            job = Job(ds, cid, cs, config)
-
-            self.dispatcher.submit_job(job)
-            self.num_running_jobs += 1
-        self._queue_wait()
-
-    def _queue_wait(self) -> None:
-        """
-        helper function to wait for the queue to not overflow/underload it
-        """
-
-        if self.num_running_jobs >= self.job_queue_sizes[1]:
-            while self.num_running_jobs > self.job_queue_sizes[0]:
-                self.logger.debug('running jobs: {}, queue sizes: {} -> wait'.format(
-                    self.num_running_jobs, self.job_queue_sizes))
-                self.thread_cond.wait()
-
-    def adjust_queue_size(self, number_of_workers: int = None) -> None:
-        self.logger.debug('number of workers changed to {}'.format(number_of_workers))
-        with self.thread_cond:
-            if self.dynamic_queue_size:
-                nw = self.dispatcher.number_of_workers() if number_of_workers is None else number_of_workers
-                self.job_queue_sizes = (self.user_job_queue_sizes[0] + nw, self.user_job_queue_sizes[1] + nw)
-                self.logger.debug('adjusted queue size to {}'.format(self.job_queue_sizes))
-            self.thread_cond.notify_all()
+    def _get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures) -> \
+            Optional[BaseConfigGenerator]:
+        # TODO refractor
+        cache = utils.get_config_generator_cache()
+        return cache.get_config_generator(budget, configspace, meta_features)
 
     def job_callback(self, job: Job) -> None:
         """
@@ -254,8 +163,6 @@ class Master:
         """
         self.logger.debug('job_callback for {} started'.format(job.id))
         with self.thread_cond:
-            self.num_running_jobs -= 1
-
             if job.config is None:
                 raise ValueError('Encountered job without a configuration: {}'.format(job))
 
@@ -265,7 +172,3 @@ class Master:
             job.cs.add_result(job.result)
             self.cfg_cache.register_result(job)
             self.bandit_learner.register_result(job)
-
-            if self.num_running_jobs <= self.job_queue_sizes[0]:
-                self.logger.debug('Trying to start next job!')
-                self.thread_cond.notify()

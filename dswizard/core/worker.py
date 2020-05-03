@@ -8,11 +8,9 @@ import threading
 import traceback
 from typing import Optional, TYPE_CHECKING, Tuple
 
-import Pyro4
-import pynisher2
 from ConfigSpace import Configuration
-from Pyro4.errors import CommunicationError, NamingError
 
+import pynisher2
 from dswizard import utils
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
@@ -36,25 +34,16 @@ class Worker(abc.ABC):
 
     def __init__(self,
                  run_id: str,
-                 nameserver: str = None,
-                 nameserver_port: int = None,
-                 host: str = None,
                  logger: logging.Logger = None,
                  wid: str = None,
                  workdir: str = '/tmp/dswizzard/'):
         """
         :param run_id: unique id to identify individual optimization run
-        :param nameserver: hostname or IP of the nameserver
-        :param nameserver_port: port of the nameserver
         :param logger: logger used for debugging output
-        :param host: hostname for this worker process
         :param wid: if multiple workers are started in the same process, you MUST provide a unique id for each one of
             them using the `id` argument.
         """
         self.run_id = run_id
-        self.host = host
-        self.nameserver = nameserver
-        self.nameserver_port = nameserver_port
         self.worker_id = '{}.worker.{}'.format(self.run_id, os.getpid())
 
         self.workdir = workdir
@@ -62,9 +51,6 @@ class Worker(abc.ABC):
 
         if wid is not None:
             self.worker_id += '.{}'.format(wid)
-
-        self.thread = None
-        self.pyro_daemon = None
 
         if logger is None:
             self.logger = logging.getLogger(self.worker_id)
@@ -76,71 +62,6 @@ class Worker(abc.ABC):
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
 
-    def run(self, background: bool = False) -> None:
-        """
-        Method to start the worker.
-        :param background: If set to False (Default). the worker is executed in the current thread. If True, a new
-            daemon thread is created that runs the worker. This is useful in a single worker scenario/when the compute
-            function only simulates work.
-        :return:
-        """
-        if self.nameserver is None:
-            return
-
-        if background:
-            self.worker_id += str(threading.get_ident())
-            self.thread = threading.Thread(target=self._run, name='worker {} thread'.format(self.worker_id))
-            self.thread.daemon = True
-            self.thread.start()
-        else:
-            self._run()
-
-    def _run(self):
-        # initial ping to the dispatcher to register the worker
-
-        try:
-            with Pyro4.locateNS(host=self.nameserver, port=self.nameserver_port) as ns:
-                self.logger.debug('Connected to nameserver {}'.format(ns))
-                dispatchers = ns.list(prefix='{}.dispatcher'.format(self.run_id))
-        except NamingError:
-            if self.thread is None:
-                raise RuntimeError('No nameserver found. Make sure the nameserver is running and '
-                                   'that the host ({}) and port ({}) are correct'.format(self.nameserver,
-                                                                                         self.nameserver_port))
-            else:
-                self.logger.error('No nameserver found. Make sure the nameserver is running and '
-                                  'that the host ({}) and port ({}) are correct'.format(self.nameserver,
-                                                                                        self.nameserver_port))
-                exit(1)
-
-        for dn, uri in dispatchers.items():
-            try:
-                self.logger.debug('found dispatcher {}'.format(dn))
-                with Pyro4.Proxy(uri) as dispatcher_proxy:
-                    dispatcher_proxy.trigger_discover_worker()
-
-            except CommunicationError:
-                self.logger.debug('Dispatcher did not respond. Waiting for one to initiate contact.')
-                pass
-
-        if len(dispatchers) == 0:
-            self.logger.debug('No dispatcher found. Waiting for one to initiate contact.')
-
-        self.logger.info('start listening for jobs')
-
-        self.pyro_daemon = Pyro4.core.Daemon(host=self.host)
-
-        with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
-            uri = self.pyro_daemon.register(self, self.worker_id)
-            ns.register(self.worker_id, uri)
-
-        self.pyro_daemon.requestLoop()
-
-        with Pyro4.locateNS(self.nameserver, port=self.nameserver_port) as ns:
-            ns.remove(self.worker_id)
-
-    @Pyro4.expose
-    @Pyro4.oneway
     def start_computation(self,
                           callback: Dispatcher,
                           job: Job) -> Result:
@@ -155,7 +76,7 @@ class Worker(abc.ABC):
         try:
             self.process_logger = ProcessLogger(self.workdir, job.id)
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
-            cfg_cache = utils.get_config_generator_cache(self.nameserver, self.nameserver_port, self.run_id)
+            cfg_cache = utils.get_config_generator_cache()
             c = wrapper(job.ds, job.id, job.config, cfg_cache, job.pipeline, job.budget, **job.kwargs)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
@@ -216,16 +137,5 @@ class Worker(abc.ABC):
         """
         pass
 
-    @Pyro4.expose
     def is_busy(self) -> bool:
         return self.busy
-
-    @Pyro4.expose
-    @Pyro4.oneway
-    def shutdown(self) -> None:
-        self.logger.info('shutting down')
-
-        if self.pyro_daemon is not None:
-            self.pyro_daemon.shutdown()
-        if self.thread is not None:
-            self.thread.join()
