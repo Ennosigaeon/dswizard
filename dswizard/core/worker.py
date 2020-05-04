@@ -110,7 +110,6 @@ class Worker(abc.ABC):
             result = Result(StatusType.CRASHED, job.config, 1, None, None)
         finally:
             self.process_logger = None
-            self.logger.debug('done with job {}, trying to register results with dispatcher.'.format(job.id))
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(job.id, result)

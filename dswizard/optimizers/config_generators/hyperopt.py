@@ -140,8 +140,6 @@ class Hyperopt(BaseConfigGenerator):
 
                 if not np.isfinite(ei):
                     self.logger.warning('sampled vector: {} has EI value {}'.format(vector, ei))
-                    self.logger.warning('data in the KDEs:\n{}\n{}'.format(kde_good.data, kde_bad.data))
-                    self.logger.warning('bandwidth of the KDEs:\n{}\n{}'.format(kde_good.bw, kde_bad.bw))
                     self.logger.warning('l(x) = {}'.format(l(vector)))
                     self.logger.warning('g(x) = {}'.format(g(vector)))
 

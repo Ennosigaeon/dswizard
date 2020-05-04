@@ -37,8 +37,6 @@ class SklearnWorker(Worker):
         X = ds.X[:n]
         y = ds.y[:n]
 
-        self.logger.debug('starting to fit pipeline and predict values')
-
         if config is not None:
             pipeline.set_hyperparameters(config.get_dictionary())
             pipeline.fit(X, y, budget=budget)

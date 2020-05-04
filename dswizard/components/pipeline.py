@@ -133,7 +133,6 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
              name,
              transformer) in self._iter(with_final=False,
                                         filter_passthrough=False):
-            self.logger.debug('Processing step {}'.format(name))
             if transformer is None or transformer == 'passthrough':
                 with _print_elapsed_time('Pipeline',
                                          self._log_message(step_idx)):
@@ -201,7 +200,6 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         Xt, fit_params = self._fit(X, y, budget=budget, logger=logger, prefix=prefix, **fit_params)
         with _print_elapsed_time('Pipeline',
                                  self._log_message(len(self.steps) - 1)):
-            self.logger.debug('Processing step {}'.format(self.steps[-1][0]))
             if self._final_estimator != 'passthrough':
 
                 # Configure estimator on the fly if necessary

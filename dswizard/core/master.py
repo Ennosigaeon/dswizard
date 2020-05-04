@@ -135,8 +135,6 @@ class Master:
                     job = Job(ds, config_id, candidate, config)
                 else:
                     job = Job(ds, config_id, candidate, None)
-
-                self.logger.debug('submitting job {} to dispatcher'.format(job.id))
                 self.dispatcher.submit_job(job)
 
         end = time.time()
@@ -161,7 +159,6 @@ class Master:
         :param job: Finished Job
         :return:
         """
-        self.logger.debug('job_callback for {} started'.format(job.id))
         with self.thread_cond:
             if job.config is None:
                 raise ValueError('Encountered job without a configuration: {}'.format(job))
