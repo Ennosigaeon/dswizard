@@ -7,24 +7,22 @@ import os
 import threading
 import time
 from multiprocessing.managers import SyncManager
-from typing import Optional, List, Type, TYPE_CHECKING
+from typing import Type, TYPE_CHECKING
 
 import math
 
 from core.dispatcher import Dispatcher
-from dswizard import utils
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
+from workers import SklearnWorker
 
 if TYPE_CHECKING:
-    from ConfigSpace.configuration_space import ConfigurationSpace
     from dswizard.core.base_bandit_learner import BanditLearner
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.logger import JsonResultLogger
-    from dswizard.core.model import MetaFeatures
     from dswizard.core.worker import Worker
 
 
@@ -35,7 +33,8 @@ class Master:
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
 
-                 workers: List[Worker] = None,
+                 n_workers: int = 1,
+                 worker_class: Type[Worker] = SklearnWorker,
 
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
                  config_generator_kwargs: dict = None,
@@ -50,11 +49,8 @@ class Master:
         :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
             multiple concurrent runs to separate them
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
-            If true (default), the job_queue_sizes are relative to the current number of workers.
         :param logger: the logger to output some (more or less meaningful) information
         :param result_logger: a result logger that writes live results to disk
-
-        :param workers: A list of local workers. If this parameter is not None, a LocalDispatcher will be used.
         """
 
         if bandit_learner_kwargs is None:
@@ -71,25 +67,27 @@ class Master:
             self.logger = logger
 
         self.result_logger = result_logger
-
         self.jobs = []
+        self.meta_data = {}
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
 
-        self.meta_data = {}
-
-        self.dispatcher = Dispatcher(workers, self.job_callback, run_id=run_id)
-
-        # TODO Only quick and dirty. Fix this!
         SyncManager.register('ConfigCache', ConfigCache)
         mgr = multiprocessing.Manager()
+        # noinspection PyUnresolvedReferences
+        self.cfg_cache: ConfigCache = mgr.ConfigCache(clazz=config_generator_class,
+                                                      init_kwargs=config_generator_kwargs,
+                                                      run_id=run_id)
 
-        utils._cfg_cache_instance = mgr.ConfigCache(clazz=config_generator_class,
-                                                    init_kwargs=config_generator_kwargs,
-                                                    run_id=run_id)
+        if n_workers < 1:
+            raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
+        worker = []
+        for i in range(n_workers):
+            worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache,
+                                       workdir=self.working_directory))
+        self.dispatcher = Dispatcher(worker, self.job_callback, run_id=run_id)
 
-        self.cfg_cache: ConfigCache = utils._cfg_cache_instance
         self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
 
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
@@ -129,8 +127,8 @@ class Master:
             for i in range(iterations):
                 config_id = candidate.id.with_config(i)
                 if sample_config:
-                    cg = self._get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
-                                                    ds.meta_features)
+                    cg = self.cfg_cache.get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
+                                                             ds.meta_features)
                     config = cg.sample_config()
                     job = Job(ds, config_id, candidate, config)
                 else:
@@ -144,12 +142,6 @@ class Master:
         # TODO runhistory does not contain useful information yet
         return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
                           {**self.meta_data, **self.bandit_learner.meta_data})
-
-    def _get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures) -> \
-            Optional[BaseConfigGenerator]:
-        # TODO refractor
-        cache = utils.get_config_generator_cache()
-        return cache.get_config_generator(budget, configspace, meta_features)
 
     def job_callback(self, job: Job) -> None:
         """

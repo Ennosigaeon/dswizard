@@ -42,7 +42,6 @@ class ConfigCache:
     def get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: MetaFeatures,
                              **kwargs) -> BaseConfigGenerator:
         try:
-            # TODO BaseConfigGenerator objects are not shared across processes
             for mf, cg in self.cache[configspace].items():
                 if mf.similar(meta_features):
                     return self.cache[configspace][meta_features]

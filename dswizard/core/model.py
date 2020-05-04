@@ -219,14 +219,16 @@ class Job:
         return self.cs.timeout
 
 
+# TODO remove and replace by mlb meta-features
 class MetaFeatures:
 
     # TODO implement real meta_features
     def __init__(self, X: np.ndarray):
-        self.kde_dist = [KdeDistribution(X[:, i]) for i in range(X.shape[1])]
+        # self.kde_dist = [KdeDistribution(X[:, i]) for i in range(X.shape[1])]
+        pass
 
     def similar(self, other: 'MetaFeatures', epsilon: float = 0.2) -> bool:
-        return False
+        return True
         # TODO distance calculation is too slow
 
         # distance, phi = Distance.compute_dist(self.kde_dist, other.kde_dist)
@@ -253,6 +255,7 @@ class Dataset:
             dataset_properties = {}
         self.dataset_properties = dataset_properties
 
+        # TODO replace with cross-validation
         self.X, self.X_test, self.y, self.y_test = train_test_split(X, y, test_size=test_size)
 
         # TODO calculate meta-features

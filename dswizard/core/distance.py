@@ -5,7 +5,7 @@ import numpy as np
 import scipy.integrate
 from sklearn.neighbors import KernelDensity
 
-
+# TODO remove and replace by mlb meta-features
 class KdeDistribution:
 
     def __init__(self, samples: np.ndarray, bandwidth: float = 1):

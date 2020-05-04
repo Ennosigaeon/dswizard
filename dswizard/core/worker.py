@@ -11,8 +11,6 @@ from typing import Optional, TYPE_CHECKING, Tuple
 from ConfigSpace import Configuration
 
 import pynisher2
-from dswizard import utils
-from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
 
@@ -20,6 +18,7 @@ if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
     from dswizard.core.dispatcher import Dispatcher
     from dswizard.core.model import CandidateId
+    from dswizard.core.config_cache import ConfigCache
 
 
 class Worker(abc.ABC):
@@ -36,6 +35,7 @@ class Worker(abc.ABC):
                  run_id: str,
                  logger: logging.Logger = None,
                  wid: str = None,
+                 cfg_cache: Optional[ConfigCache] = None,
                  workdir: str = '/tmp/dswizzard/'):
         """
         :param run_id: unique id to identify individual optimization run
@@ -45,6 +45,8 @@ class Worker(abc.ABC):
         """
         self.run_id = run_id
         self.worker_id = '{}.worker.{}'.format(self.run_id, os.getpid())
+
+        self.cfg_cache = cfg_cache
 
         self.workdir = workdir
         self.process_logger = None
@@ -76,8 +78,7 @@ class Worker(abc.ABC):
         try:
             self.process_logger = ProcessLogger(self.workdir, job.id)
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
-            cfg_cache = utils.get_config_generator_cache()
-            c = wrapper(job.ds, job.id, job.config, cfg_cache, job.pipeline, job.budget, **job.kwargs)
+            c = wrapper(job.ds, job.id, job.config, self.cfg_cache, job.pipeline, job.budget, **job.kwargs)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT

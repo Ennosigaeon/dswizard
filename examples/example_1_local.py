@@ -39,16 +39,10 @@ parser.add_argument('--log_dir', type=str, help='Directory used for logging', de
 args = parser.parse_args()
 
 # Start worker
-X, y = datasets.load_iris(True)
+X, y = datasets.load_digits(return_X_y=True)
 dataset_properties = {
     'target_type': 'classification'
 }
-
-# TODO move worker creation to master
-w0 = SklearnWorker(run_id=args.run_id, wid='0', workdir=args.log_dir)
-
-# w1 = SklearnWorker(run_id=args.run_id, wid='1', workdir=args.log_dir)
-# w1.run(background=True)
 
 # Instantiate optimizer
 # sub_wf_2 = OrderedDict()
@@ -64,7 +58,7 @@ structure_generator = FixedStructure(steps, dataset_properties, timeout=args.tim
 master = Master(
     run_id=args.run_id,
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
-    workers=[w0],
+    n_workers=1,
 
     config_generator_class=Hyperopt,
 
