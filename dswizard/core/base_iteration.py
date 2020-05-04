@@ -109,21 +109,23 @@ class BaseIteration(abc.ABC):
         else:
             return None
 
-    def _add_candidate(self, candidate: CandidateStructure = None) -> CandidateStructure:
+    def _add_candidate(self) -> CandidateStructure:
         """
         function to add a new configuration to the current iteration
-        :param candidate: The configuration to add. If None, a configuration is sampled from the config_sampler
         :return: The id of the new configuration
         """
-        if candidate is None:
-            candidate = self.structure_generator.get_candidate(self.budgets[self.stage])
-
         if self.is_finished:
             raise RuntimeError("This iteration is finished, you can't add more configurations!")
 
         if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
             raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
                                                                                                  self.iteration))
+
+        candidate = self.structure_generator.get_candidate()
+
+        # maybe adapt timeout based on current stage
+        candidate.timeout = self.timeout
+        candidate.budget = self.budgets[self.stage]
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
         candidate.id = candidate_id

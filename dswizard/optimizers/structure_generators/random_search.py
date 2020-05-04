@@ -21,10 +21,9 @@ class RandomStructureGenerator(BaseStructureGenerator):
     # noinspection PyProtectedMember
     def __init__(self,
                  dataset_properties: dict,
-                 timeout: int = None,
                  max_depth: int = 10,
                  include_basic_estimators: bool = False):
-        super().__init__(dataset_properties=dataset_properties, timeout=timeout)
+        super().__init__(dataset_properties=dataset_properties)
 
         self.max_depth = max_depth
 
@@ -47,7 +46,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
         return max(min(self.max_depth, r), n_min)
 
-    def get_candidate(self, budget: float) -> CandidateStructure:
+    def get_candidate(self) -> CandidateStructure:
         attempts = 1
         while True:
             try:
@@ -58,7 +57,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
 
                 print(steps)
                 self.logger.debug('Created valid pipeline after {} tries'.format(attempts))
-                return CandidateStructure(cs, pipeline, budget, timeout=self.timeout, model_based_pick=False)
+                return CandidateStructure(cs, pipeline, model_based_pick=False)
             except TypeError:
                 attempts += 1
 

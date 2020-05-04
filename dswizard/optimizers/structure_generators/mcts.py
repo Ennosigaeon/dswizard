@@ -179,12 +179,12 @@ class Policy:
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, dataset_properties: dict = None, timeout: int = None):
-        super().__init__(dataset_properties, timeout)
+    def __init__(self, dataset_properties: dict = None):
+        super().__init__(dataset_properties)
         self.tree = Tree()
         self.policy = Policy()
 
-    def get_candidate(self, budget: float) -> CandidateStructure:
+    def get_candidate(self) -> CandidateStructure:
         # traverse from root to a leaf node
         path = self._select()
 
@@ -204,7 +204,7 @@ class MCTS(BaseStructureGenerator):
 
         pipeline = FlexiblePipeline(node.steps, self.dataset_properties)
 
-        return CandidateStructure(pipeline.configuration_space, pipeline, budget, timeout=self.timeout)
+        return CandidateStructure(pipeline.configuration_space, pipeline)
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:

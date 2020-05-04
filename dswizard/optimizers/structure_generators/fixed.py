@@ -10,8 +10,8 @@ from dswizard.core.model import CandidateStructure
 
 class FixedStructure(BaseStructureGenerator):
 
-    def __init__(self, steps: Dict[str, EstimatorComponent], dataset_properties: dict, timeout: int = None):
-        super().__init__(dataset_properties=dataset_properties, timeout=timeout)
+    def __init__(self, steps: Dict[str, EstimatorComponent], dataset_properties: dict):
+        super().__init__(dataset_properties=dataset_properties)
         self.configspace = ConfigurationSpace()
 
         for step, task in steps.items():
@@ -23,5 +23,5 @@ class FixedStructure(BaseStructureGenerator):
 
         self.pipeline = FlexiblePipeline(steps, dataset_properties)
 
-    def get_candidate(self, budget: float = None) -> CandidateStructure:
-        return CandidateStructure(self.configspace, self.pipeline, budget, timeout=self.timeout, model_based_pick=False)
+    def get_candidate(self) -> CandidateStructure:
+        return CandidateStructure(self.configspace, self.pipeline, model_based_pick=False)

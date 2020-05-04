@@ -99,13 +99,15 @@ class Master:
         self.dispatcher_thread.join()
 
     def optimize(self, ds: Dataset,
-                 iterations: int = 1,
+                 n_configs: int = 1,
+                 timeout: int = None,
                  sample_config: bool = True) -> RunHistory:
         """
         run optimization
-        :param sample_config:
-        :param iterations:
         :param ds:
+        :param n_configs:
+        :param timeout:
+        :param sample_config:
         :return:
         """
 
@@ -122,9 +124,9 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        for candidate, iteration in self.bandit_learner.next_candidate():
+        for candidate, iteration in self.bandit_learner.next_candidate({'timeout': timeout}):
             # Optimize hyperparameters
-            for i in range(iterations):
+            for i in range(n_configs):
                 config_id = candidate.id.with_config(i)
                 if sample_config:
                     cg = self.cfg_cache.get_config_generator(candidate.budget, candidate.pipeline.configuration_space,

@@ -126,7 +126,7 @@ class CandidateStructure:
     def __init__(self,
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
-                 budget: float,
+                 budget: float = 1,
                  timeout: int = None,
                  model_based_pick: bool = False):
         self.configspace = configspace

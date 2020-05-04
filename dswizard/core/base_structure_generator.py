@@ -19,20 +19,18 @@ class BaseStructureGenerator(abc.ABC):
     complex empirical prediction models for promising structures.
     """
 
-    def __init__(self, dataset_properties: dict = None, timeout: int = None, logger: logging.Logger = None):
+    def __init__(self, dataset_properties: dict = None, logger: logging.Logger = None):
         """
         :param logger: for some debug output
         """
-        # TODO move timeout somewhere more reasonable
         self.dataset_properties = dataset_properties
-        self.timeout = timeout
         if logger is None:
             self.logger = logging.getLogger('StructureGenerator')
         else:
             self.logger = logger
 
     @abc.abstractmethod
-    def get_candidate(self, budget: float) -> CandidateStructure:
+    def get_candidate(self) -> CandidateStructure:
         """
         Sample a ConfigurationSpace and according Structure tuple
 
