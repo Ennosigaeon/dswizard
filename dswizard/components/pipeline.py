@@ -10,7 +10,6 @@ from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 from sklearn.base import BaseEstimator, clone
 from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
-from sklearn.utils.validation import check_memory
 
 from automl.components.base import ComponentChoice, EstimatorComponent
 from dswizard.core.model import PartialConfig, MetaFeatures
@@ -116,10 +115,6 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         # shallow copy of steps - this should really be steps_
         self.steps = list(self.steps)
         self._validate_steps()
-        # Setup the memory
-        memory = check_memory(self.memory)
-
-        fit_transform_one_cached = memory.cache(_fit_transform_one)
 
         fit_params_steps = {name: {} for name, step in self.steps
                             if step is not None}
@@ -143,12 +138,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                                          self._log_message(step_idx)):
                     continue
 
-            if memory.location is None:
-                # we do not clone when caching is disabled to
-                # preserve backward compatibility
-                cloned_transformer = transformer
-            else:
-                cloned_transformer = clone(transformer)
+            cloned_transformer = clone(transformer)
 
             # Configure transformer on the fly if necessary
             if self.configuration is None:
@@ -157,7 +147,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
             # Fit or load from cache the current transformer
             if isinstance(cloned_transformer, SubPipeline):
-                Xt, fitted_transformer = fit_transform_one_cached(
+                Xt, fitted_transformer = _fit_transform_one(
                     cloned_transformer, Xt, y, None,
                     message_clsname='Pipeline',
                     message=self._log_message(step_idx),
@@ -175,7 +165,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             else:
                 start = timeit.default_timer()
 
-                Xt, fitted_transformer = fit_transform_one_cached(
+                Xt, fitted_transformer = _fit_transform_one(
                     cloned_transformer, Xt, y, None,
                     message_clsname='Pipeline',
                     message=self._log_message(step_idx),
