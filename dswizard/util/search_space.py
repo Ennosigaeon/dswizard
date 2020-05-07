@@ -41,9 +41,9 @@ class StructureSearchSpace:
 
     def get_pipeline(self, node: int, dataset_properties: dict, expand_subpipelines: bool = False) -> FlexiblePipeline:
         # Remove artificial root node
-        steps = OrderedDict()
+        steps = []
         for idx in nx.shortest_path(self.G, 0, node)[1:]:
-            steps[str(idx)] = self._get_estimator_instance(self.G.nodes[idx]['estimator'])
+            steps.append((str(idx), self._get_estimator_instance(self.G.nodes[idx]['estimator'])))
         return FlexiblePipeline(steps, dataset_properties)
 
     def build(self, max_depth: int = 5, max_split: int = 5) -> nx.DiGraph:

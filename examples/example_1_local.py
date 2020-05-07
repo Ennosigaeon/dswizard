@@ -8,6 +8,7 @@ import logging
 import sys
 from collections import OrderedDict
 
+import sklearn
 from sklearn import datasets
 
 # Configure logging system before importing smac
@@ -38,8 +39,10 @@ parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='../logs/')
 args = parser.parse_args()
 
-# Start worker
+# Load dataset
 X, y = datasets.load_digits(return_X_y=True)
+X, y = sklearn.utils.shuffle(X, y)
+
 dataset_properties = {
     'target_type': 'classification'
 }
@@ -49,9 +52,9 @@ dataset_properties = {
 # sub_wf_2['1.1'] = DataPreprocessorChoice()
 # sub_wf_2['1.2'] = ClassifierChoice()
 
-steps = OrderedDict()
-# steps['1'] = SubPipeline([sub_wf_2], dataset_properties=dataset_properties)
-steps['2'] = DecisionTree()
+steps = []
+# steps(('1', SubPipeline([sub_wf_2], dataset_properties=dataset_properties)))
+steps.append(('2', DecisionTree()))
 
 structure_generator = FixedStructure(steps, dataset_properties)
 
@@ -68,7 +71,7 @@ master = Master(
                            'max_budget': args.max_budget}
 )
 
-ds = Dataset(X, y, dataset_properties=dataset_properties, test_size=0.3)
+ds = Dataset(X, y, dataset_properties=dataset_properties)
 try:
     res = master.optimize(ds, n_configs=args.n_configs, timeout=args.timeout)
 

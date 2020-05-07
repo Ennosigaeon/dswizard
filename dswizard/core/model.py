@@ -243,22 +243,18 @@ class MetaFeatures:
 
 class Dataset:
 
-    # TODO only temporary. Check concrete parameters. Switch to cross-validation
     # TODO remove dataset_properties from core components
 
     def __init__(self,
                  X: np.ndarray,
                  y: np.ndarray,
-                 dataset_properties: dict = None,
-                 test_size: float = 0.3):
+                 dataset_properties: dict = None):
+        self.X = X
+        self.y = y
         if dataset_properties is None:
             dataset_properties = {}
         self.dataset_properties = dataset_properties
 
-        # TODO replace with cross-validation
-        self.X, self.X_test, self.y, self.y_test = train_test_split(X, y, test_size=test_size)
-
-        # TODO calculate meta-features
         self.meta_features: MetaFeatures = MetaFeatures(self.X)
 
 

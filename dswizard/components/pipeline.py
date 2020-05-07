@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
 import networkx as nx
 import numpy as np
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace, OrderedDict
+from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 from sklearn.base import BaseEstimator, clone
 from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
@@ -24,22 +24,27 @@ if TYPE_CHECKING:
 
 class FlexiblePipeline(Pipeline, BaseEstimator):
 
-    def __init__(self, steps: Dict[str, EstimatorComponent], dataset_properties: dict, logger: logging.Logger = None):
-        super().__init__(list(steps.items()))
-        self.steps_ = steps
-        self.configuration = None
+    def __init__(self,
+                 steps: List[Tuple[str, EstimatorComponent]],
+                 dataset_properties: dict,
+                 configuration: Optional[Configuration] = None,
+                 cfg_cache: Optional[ConfigCache] = None,
+                 logger: logging.Logger = None):
+        self.configuration = configuration
         self.dataset_properties = dataset_properties
-
-        self.cfg_cache: Optional[ConfigCache] = None
-        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
-
-        self.fit_time = 0
-        self.config_time = 0
-
+        self.cfg_cache: Optional[ConfigCache] = cfg_cache
         if logger is None:
             self.logger = logging.getLogger('Pipeline')
         else:
             self.logger = logger
+
+        # super.__init__ has to be called after initializing all properties provided in constructor
+        super().__init__(steps)
+        self.steps_ = dict(steps)
+        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
+
+        self.fit_time = 0
+        self.config_time = 0
 
     def to_networkx(self, prefix: str = None):
         G = nx.DiGraph()
@@ -286,17 +291,17 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
     @staticmethod
     def from_list(steps: List[Tuple[str, Union[str, List]]], ds_properties: Dict) -> 'FlexiblePipeline':
-        def __load(sub_steps: List[Tuple[str, Union[str, List]]]) -> Dict[str, EstimatorComponent]:
-            d = OrderedDict()
+        def __load(sub_steps: List[Tuple[str, Union[str, List]]]) -> List[Tuple[str, EstimatorComponent]]:
+            d = []
             for name, value in sub_steps:
                 if type(value) == str:
                     # TODO kwargs for __init__ not loaded
-                    d[name] = util.get_object(value)
+                    d.append((name, util.get_object(value)))
                 elif type(value) == list:
                     ls = []
                     for sub_name, sub_value in value:
                         ls.append(__load(sub_value))
-                    d[name] = SubPipeline(ls, ds_properties)
+                    d.append((name, SubPipeline(ls, ds_properties)))
                 else:
                     raise ValueError('Unable to handle type {}'.format(type(value)))
             return d
@@ -312,7 +317,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
 class SubPipeline(EstimatorComponent):
 
-    def __init__(self, sub_wfs: List[Dict[str, EstimatorComponent]],
+    def __init__(self, sub_wfs: List[List[Tuple[str, EstimatorComponent]]],
                  dataset_properties: dict = None):
         self.dataset_properties = dataset_properties
         self.pipelines: Dict[str, FlexiblePipeline] = {}

@@ -35,6 +35,7 @@ class Worker(abc.ABC):
                  run_id: str,
                  logger: logging.Logger = None,
                  wid: str = None,
+                 metric: str = 'f1',
                  cfg_cache: Optional[ConfigCache] = None,
                  workdir: str = '/tmp/dswizzard/'):
         """
@@ -42,9 +43,11 @@ class Worker(abc.ABC):
         :param logger: logger used for debugging output
         :param wid: if multiple workers are started in the same process, you MUST provide a unique id for each one of
             them using the `id` argument.
+        :type metric: Allowed values are 'accuracy', 'precision', 'recall', 'f1' (default), 'logloss' and 'rocauc'
         """
         self.run_id = run_id
         self.worker_id = '{}.worker.{}'.format(self.run_id, os.getpid())
+        self.metric = metric
 
         self.cfg_cache = cfg_cache
 

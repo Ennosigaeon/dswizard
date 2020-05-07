@@ -1,8 +1,7 @@
 import random
 from abc import ABC
-from collections import OrderedDict
 from copy import deepcopy
-from typing import List, Optional, Dict, Set
+from typing import List, Optional, Set, Tuple
 
 import math
 import networkx as nx
@@ -49,7 +48,7 @@ class Node(ABC):
     def __init__(self,
                  id: int,
                  estimator: Optional[EstimatorComponent],
-                 pipeline_prefix: Dict[str, EstimatorComponent] = None
+                 pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None
                  ):
         self.id = id
         self.estimator = estimator
@@ -59,12 +58,12 @@ class Node(ABC):
             self.label = estimator.name()
 
         if pipeline_prefix is None:
-            pipeline_prefix = OrderedDict()
+            pipeline_prefix = []
         else:
             pipeline_prefix = deepcopy(pipeline_prefix)
-            pipeline_prefix[str(id)] = estimator
-
-        self.steps: Dict[str, EstimatorComponent] = pipeline_prefix
+            # TODO check if also add if pipeline_prefix is None
+            pipeline_prefix.append((str(id), estimator))
+        self.steps: List[Tuple[str, EstimatorComponent]] = pipeline_prefix
 
         self.visits = 0
         self.reward = 0

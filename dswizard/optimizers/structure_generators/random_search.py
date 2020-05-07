@@ -1,6 +1,5 @@
 import random
-from collections import OrderedDict
-from typing import Tuple, Dict
+from typing import Tuple, List
 
 import math
 import numpy as np
@@ -62,9 +61,9 @@ class RandomStructureGenerator(BaseStructureGenerator):
                 attempts += 1
 
     def _generate_pipeline(self, depth: int) -> \
-            Tuple[ConfigurationSpace, Dict[str, EstimatorComponent]]:
+            Tuple[ConfigurationSpace, List[Tuple[str, EstimatorComponent]]]:
         cs = ConfigurationSpace()
-        steps = OrderedDict()
+        steps = []
         i = 0
 
         while i < depth:
@@ -84,7 +83,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
             else:
                 instance = self._get_estimator_instance(clazz)
 
-            steps[name] = instance
+            steps.append((name, instance))
             cs.add_configuration_space(name, instance.get_hyperparameter_search_space(self.dataset_properties))
 
             i += 1
