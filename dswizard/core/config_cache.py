@@ -46,7 +46,6 @@ class ConfigCache:
                 if mf.similar(meta_features):
                     return self.cache[configspace][meta_features]
             else:
-                # cg = self.mgr.ConfigGenerator(configspace, **{**self.init_kwargs, **kwargs})
                 cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
                 self.cache[configspace][meta_features] = cg
                 return cg

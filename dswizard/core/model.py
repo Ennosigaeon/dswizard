@@ -260,10 +260,10 @@ class Dataset:
 
 class PartialConfig:
 
-    def __init__(self, meta: MetaFeatures, configuration: Configuration, estimator: str):
+    def __init__(self, meta: MetaFeatures, configuration: Configuration, name: str):
         self.meta = meta
         self.configuration: Configuration = configuration
-        self.estimator = estimator
+        self.name = name
 
     def as_dict(self):
         # meta data are serialized via pickle
@@ -273,7 +273,7 @@ class PartialConfig:
             'configspace': config_json.write(self.configuration.configuration_space),
             # 'meta': pickle.dumps(self.meta),
             'meta': None,
-            'estimator': self.estimator,
+            'name': self.name,
         }
 
     @staticmethod
@@ -281,13 +281,13 @@ class PartialConfig:
         # meta data are deserialized via pickle
         config = Configuration(config_json.read(raw['configspace']), raw['config'])
         # noinspection PyTypeChecker
-        return PartialConfig(None, config, raw['estimator'])
+        return PartialConfig(None, config, raw['name'])
 
     def __eq__(self, other):
         if isinstance(other, PartialConfig):
-            return self.estimator == other.estimator
+            return self.name == other.name
         else:
-            return self.estimator == other
+            return self.name == other
 
     def __hash__(self):
-        return hash(self.estimator)
+        return hash(self.name)

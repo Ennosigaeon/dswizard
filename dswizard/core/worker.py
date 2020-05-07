@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import logging
 import os
 import socket
@@ -8,14 +9,20 @@ import threading
 import traceback
 from typing import Optional, TYPE_CHECKING, Tuple
 
+import numpy as np
 from ConfigSpace import Configuration
+from sklearn.base import is_classifier
+from sklearn.model_selection import check_cv
+from sklearn.model_selection._validation import _fit_and_predict, _check_is_permutation
+from sklearn.utils import indexable
+from sklearn.utils.validation import _num_samples
 
 import pynisher2
+from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
 
 if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
     from dswizard.core.dispatcher import Dispatcher
     from dswizard.core.model import CandidateId
     from dswizard.core.config_cache import ConfigCache
@@ -52,7 +59,7 @@ class Worker(abc.ABC):
         self.cfg_cache = cfg_cache
 
         self.workdir = workdir
-        self.process_logger = None
+        self.process_logger: ProcessLogger = None
 
         if wid is not None:
             self.worker_id += '.{}'.format(wid)
@@ -119,6 +126,34 @@ class Worker(abc.ABC):
                 callback.register_result(job.id, result)
                 self.thread_cond.notify()
         return result
+
+    def _cross_val_predict(self, pipeline, X, y=None, cv=None):
+        X, y, groups = indexable(X, y, None)
+
+        cv = check_cv(cv, y, classifier=is_classifier(pipeline))
+
+        prediction_blocks = []
+        for train, test in cv.split(X, y, groups):
+            cloned_pipeline = copy.copy(pipeline)
+            prediction_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, 'predict'))
+
+        # Concatenate the predictions
+        predictions = [pred_block_i for pred_block_i, _ in prediction_blocks]
+        test_indices = np.concatenate([indices_i
+                                       for _, indices_i in prediction_blocks])
+
+        if not _check_is_permutation(test_indices, _num_samples(X)):
+            raise ValueError('cross_val_predict only works for partitions')
+
+        inv_test_indices = np.empty(len(test_indices), dtype=int)
+        inv_test_indices[test_indices] = np.arange(len(test_indices))
+
+        predictions = np.concatenate(predictions)
+
+        if isinstance(predictions, list):
+            return [p[inv_test_indices] for p in predictions]
+        else:
+            return predictions[inv_test_indices]
 
     @abc.abstractmethod
     def compute(self,

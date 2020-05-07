@@ -77,7 +77,9 @@ class Hyperopt(BaseConfigGenerator):
     def sample_config(self) -> Configuration:
         try:
             sample = None
-            if self.kde.is_trained():
+            if len(self.kde.losses) == 0:
+                sample = self.configspace.get_default_configuration()
+            elif self.kde.is_trained():
                 sample = self._draw_sample()
 
             if sample is None:

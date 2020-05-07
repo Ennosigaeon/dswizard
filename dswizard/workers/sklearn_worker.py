@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 import math
 from ConfigSpace import Configuration
+from sklearn import clone
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import cross_val_predict
 
@@ -39,13 +40,16 @@ class SklearnWorker(Worker):
 
         if config is not None:
             pipeline.set_hyperparameters(config.get_dictionary())
-            pipeline.fit(X, y, budget=budget)
         else:
-            pipeline.cfg_cache = cfg_cache
-            pipeline.fit(X, y, budget=budget, logger=self.process_logger)
+            # Derive configuration on complete data set. Test performance via CV
+            cloned_pipeline = clone(pipeline)
+            cloned_pipeline.cfg_cache = cfg_cache
+            cloned_pipeline.fit(X, y, budget=budget, logger=self.process_logger)
+            config = self.process_logger.get_config(cloned_pipeline)
+            pipeline.set_hyperparameters(config.get_dictionary())
 
         try:
-            y_pred = cross_val_predict(pipeline, X, y, cv=min(n_folds, n))
+            y_pred = self._cross_val_predict(pipeline, X, y, cv=min(n_folds, n))
         except Exception as ex:
             self.logger.exception(ex)
             raise ex

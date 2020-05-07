@@ -73,7 +73,7 @@ master = Master(
 
 ds = Dataset(X, y, dataset_properties=dataset_properties)
 try:
-    res = master.optimize(ds, n_configs=args.n_configs, timeout=args.timeout)
+    res = master.optimize(ds, n_configs=args.n_configs, timeout=args.timeout, pre_sample=False)
 
     # Analysis
     id2config = res.get_id2config_mapping()

@@ -58,7 +58,7 @@ class Master:
         if config_generator_kwargs is None:
             config_generator_kwargs = {}
 
-        self.working_directory = working_directory
+        self.working_directory = os.path.join(working_directory, run_id)
         os.makedirs(self.working_directory, exist_ok=True)
 
         if logger is None:
@@ -101,13 +101,13 @@ class Master:
     def optimize(self, ds: Dataset,
                  n_configs: int = 1,
                  timeout: int = None,
-                 sample_config: bool = True) -> RunHistory:
+                 pre_sample: bool = True) -> RunHistory:
         """
         run optimization
         :param ds:
         :param n_configs:
         :param timeout:
-        :param sample_config:
+        :param pre_sample:
         :return:
         """
 
@@ -128,7 +128,7 @@ class Master:
             # Optimize hyperparameters
             for i in range(n_configs):
                 config_id = candidate.id.with_config(i)
-                if sample_config:
+                if pre_sample:
                     cg = self.cfg_cache.get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
                                                              ds.meta_features)
                     config = cg.sample_config()

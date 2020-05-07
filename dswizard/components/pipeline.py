@@ -220,7 +220,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             cs = estimator.get_hyperparameter_search_space(self.dataset_properties)
             config = self.cfg_cache.sample_configuration(budget=budget, configspace=cs, meta_features=meta_features)
 
-        intermediate = PartialConfig(meta_features, config, estimator.name())
+        intermediate = PartialConfig(meta_features, config, name)
         logger.new_step(prefixed_name(prefix, name), intermediate)
 
         self.config_time += timeit.default_timer() - start
@@ -303,6 +303,10 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         s1 = tuple(e.name() for e in self.steps_.values())
         s2 = tuple(e.name() for e in other.steps_.values())
         return s1 < s2
+
+    def __copy__(self):
+        return FlexiblePipeline(clone(self.steps, safe=False), self.dataset_properties,
+                                self.configuration, self.cfg_cache, self.logger)
 
 
 class SubPipeline(EstimatorComponent):

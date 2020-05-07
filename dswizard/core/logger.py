@@ -88,26 +88,28 @@ class JsonResultLogger:
 class ProcessLogger:
 
     def __init__(self, directory: str, config_id):
-
         os.makedirs(directory, exist_ok=True)
         self.prefix = os.path.join(directory, '{}-{}-{}'.format(*config_id.as_tuple()))
+        self.partial_configs: List[PartialConfig] = []
 
         self.file = '{}.json'.format(self.prefix)
         with open(self.file, 'w'):
             pass
 
     def new_step(self, name: str, config: PartialConfig) -> None:
+        self.partial_configs.append(config)
         with open(self.file, 'a') as fh:
             fh.write(json.dumps([name, config.as_dict()]))
             fh.write('\n')
         with open('{}-{}.pickle'.format(self.prefix, name), 'wb') as fh:
             pickle.dump(config.meta, fh)
 
+    def get_config(self, pipeline: FlexiblePipeline) -> Configuration:
+        return self._merge_configs(self.partial_configs, pipeline)
+
     def restore_config(self, pipeline: FlexiblePipeline) -> Tuple[Configuration, List[PartialConfig]]:
-        complete = {}
         partial_configs: List[PartialConfig] = []
 
-        missing_steps = set(pipeline.all_names())
         with open(self.file) as fh:
             for line in fh:
                 name, partial_config = json.loads(line)
@@ -118,12 +120,23 @@ class ProcessLogger:
                     partial_config.meta = pickle.load(fh2)
                 os.remove(pickle_file)
 
-                for param, value in partial_config.configuration.get_dictionary().items():
-                    param = prefixed_name(name, param)
-                    complete[param] = value
-
-                missing_steps.remove(name)
                 partial_configs.append(partial_config)
+
+        config = self._merge_configs(partial_configs, pipeline)
+        os.remove(self.file)
+        return config, partial_configs
+
+    @staticmethod
+    def _merge_configs(partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
+        complete = {}
+        missing_steps = set(pipeline.all_names())
+
+        for partial_config in partial_configs:
+            for param, value in partial_config.configuration.get_dictionary().items():
+                param = prefixed_name(partial_config.name, param)
+                complete[param] = value
+
+            missing_steps.remove(partial_config.name)
 
         # Create random configuration for missing steps
         for name in missing_steps:
@@ -133,6 +146,4 @@ class ProcessLogger:
                 param = prefixed_name(name, param)
                 complete[param] = value
 
-        config = Configuration(pipeline.configuration_space, complete)
-        os.remove(self.file)
-        return config, partial_configs
+        return Configuration(pipeline.configuration_space, complete)
