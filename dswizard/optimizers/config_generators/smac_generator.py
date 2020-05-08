@@ -1,0 +1,90 @@
+import os
+import random
+import threading
+from queue import Queue
+
+from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+from smac.facade.smac_facade import SMAC
+from smac.scenario.scenario import Scenario
+from smac.stats.stats import Stats
+from smac.tae.execute_ta_run import ExecuteTARun, StatusType as SmacStatus
+
+from core.base_config_generator import BaseConfigGenerator
+from core.model import StatusType
+
+
+class GeneratingTARun(ExecuteTARun):
+
+    def __init__(self):
+        super().__init__([], run_obj='quality')
+        self.configs = Queue()
+        self.results = Queue()
+
+    def run(self, config: Configuration, instance: str,
+            cutoff: int = None,
+            seed: int = 12345,
+            instance_specific: str = "0"):
+        self.configs.put(config)
+
+        # Wait for challenger to be processed
+        status, cost, runtime, additional_info = self.results.get(block=True)
+
+        self.runhistory.add(config=config,
+                            cost=cost, time=runtime, status=status,
+                            instance_id=instance, seed=seed,
+                            additional_info=additional_info)
+        return status, cost, runtime, additional_info
+
+
+class CustomStats(Stats):
+
+    def __init__(self, scenario: Scenario):
+        super().__init__(scenario)
+        self.shutdown = False
+
+    def is_budget_exhausted(self):
+        return self.shutdown
+
+
+class SmacGenerator(BaseConfigGenerator):
+
+    def __init__(self, configspace: ConfigurationSpace, working_directory: str = '.'):
+        super().__init__(configspace)
+
+        self.working_directory = os.path.join(working_directory, 'smac/{:d}/'.format(random.randint(0, 10000000)))
+
+        scenario = Scenario({
+            'abort_on_first_run_crash': True,
+            'run_obj': 'quality',
+            'deterministic': True,
+            'shared-model': True,
+
+            'cs': self.configspace,
+            'initial_incumbent': 'RANDOM',
+
+            'input_psmac_dirs': self.working_directory + 'in/',
+            'output_dir': self.working_directory + 'out/'
+        })
+
+        self.stats = CustomStats(scenario)
+        self.tae_run = GeneratingTARun()
+
+        self.smbo = SMAC(scenario=scenario, tae_runner=self.tae_run, stats=self.stats)
+        self.thread = threading.Thread(target=self.smbo.optimize)
+        self.thread.start()
+        self.logger.debug('Started SMAC thread')
+
+    def sample_config(self) -> Configuration:
+        return self.tae_run.configs.get(block=True)
+
+    def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
+                        **kwargs) -> None:
+        self.tae_run.results.put((SmacStatus(status.value), loss, 0, {}))
+
+    def __del__(self):
+        self.stats.shutdown = True
+
+        # Draw samples until next check for budget exhaustion is invoked
+        while self.thread.is_alive():
+            # noinspection PyTypeChecker
+            self.register_result(None, 1, StatusType.CRASHED)

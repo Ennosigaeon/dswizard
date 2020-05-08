@@ -1,2 +1,3 @@
 from dswizard.optimizers.config_generators.random_sampling import RandomSampling
 from dswizard.optimizers.config_generators.hyperopt import Hyperopt
+from dswizard.optimizers.config_generators.smac_generator import SmacGenerator

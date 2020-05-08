@@ -6,29 +6,27 @@ Example 1 - Single Threaded
 import argparse
 import logging
 import sys
-from collections import OrderedDict
 
 import sklearn
 from sklearn import datasets
+from sklearn.metrics import f1_score, make_scorer
+from sklearn.model_selection import cross_val_score
 
-# Configure logging system before importing smac
 from automl.components.classification.decision_tree import DecisionTree
+from dswizard.core.logger import JsonResultLogger
+from dswizard.core.master import Master
 from dswizard.core.model import Dataset
+from dswizard.optimizers.bandit_learners import HyperbandLearner
+from dswizard.optimizers.structure_generators.fixed import FixedStructure
+from optimizers.config_generators import Hyperopt, SmacGenerator
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S%z',
                     stream=sys.stdout)
 
-from automl.components.classification import ClassifierChoice
-from automl.components.data_preprocessing import DataPreprocessorChoice
-from dswizard.core.logger import JsonResultLogger
-from dswizard.core.master import Master
-from dswizard.optimizers.bandit_learners import HyperbandLearner
-from dswizard.optimizers.config_generators.hyperopt import Hyperopt
-from dswizard.optimizers.structure_generators.fixed import FixedStructure
-
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
+logging.getLogger('smac').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
@@ -40,8 +38,12 @@ parser.add_argument('--log_dir', type=str, help='Directory used for logging', de
 args = parser.parse_args()
 
 # Load dataset
+dataset_properties = {
+    'target_type': 'classification'
+}
 X, y = datasets.load_digits(return_X_y=True)
 X, y = sklearn.utils.shuffle(X, y)
+ds = Dataset(X, y, dataset_properties=dataset_properties)
 
 dataset_properties = {
     'target_type': 'classification'
@@ -71,7 +73,6 @@ master = Master(
                            'max_budget': args.max_budget}
 )
 
-ds = Dataset(X, y, dataset_properties=dataset_properties)
 try:
     res = master.optimize(ds, n_configs=args.n_configs, timeout=args.timeout, pre_sample=False)
 

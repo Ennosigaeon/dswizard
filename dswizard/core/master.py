@@ -61,6 +61,9 @@ class Master:
         self.working_directory = os.path.join(working_directory, run_id)
         os.makedirs(self.working_directory, exist_ok=True)
 
+        if 'working_directory' not in config_generator_kwargs:
+            config_generator_kwargs['working_directory'] = self.working_directory
+
         if logger is None:
             self.logger = logging.getLogger('Master')
         else:

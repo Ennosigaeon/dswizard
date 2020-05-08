@@ -86,5 +86,5 @@ class SklearnWorker(Worker):
             class_ = getattr(module, class_name)
             return class_(**kwargs)
         except Exception as ex:
-            self.logger.error('Invalid estimator with config {}'.format(conf))
+            self.logger.error('Invalid name with config {}'.format(conf))
             raise ex
