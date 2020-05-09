@@ -53,4 +53,4 @@ class BaseConfigGenerator(abc.ABC):
         pass
         #
         # if status is not StatusType.SUCCESS:
-        #     self.logger.warning('job {} failed with {}'.format(job.id, job.result.status))
+        #     self.logger.warning('job {} failed with {}'.format(job.cid, job.result.status))

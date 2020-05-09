@@ -130,7 +130,7 @@ class Master:
         for candidate, iteration in self.bandit_learner.next_candidate({'timeout': timeout}):
             # Optimize hyperparameters
             for i in range(n_configs):
-                config_id = candidate.id.with_config(i)
+                config_id = candidate.cid.with_config(i)
                 if pre_sample:
                     cg = self.cfg_cache.get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
                                                              ds.meta_features)

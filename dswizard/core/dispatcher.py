@@ -82,13 +82,13 @@ class Dispatcher:
                 with self.callback_cond:
                     self.callback_cond.notify()
 
-            self.logger.debug('starting job {} on {}'.format(str(job.id), worker.worker_id))
+            self.logger.debug('starting job {} on {}'.format(str(job.cid), worker.worker_id))
 
             job.time_started = time.time()
-            worker.runs_job = job.id
+            worker.runs_job = job.cid
 
             job.worker_name = worker.worker_id
-            self.running_jobs[job.id] = job
+            self.running_jobs[job.cid] = job
 
             t = threading.Thread(target=worker.start_computation, args=(self, job))
             t.start()
@@ -119,7 +119,7 @@ class Dispatcher:
             # necessary if config was generated on the fly
             job.config = result.config
 
-            self.logger.debug('job {} on {} finished'.format(job.id, job.worker_name))
+            self.logger.debug('job {} on {} finished'.format(job.cid, job.worker_name))
 
             # delete job
             del self.running_jobs[id]

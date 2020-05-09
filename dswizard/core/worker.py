@@ -82,13 +82,13 @@ class Worker(abc.ABC):
                 self.thread_cond.wait()
             self.busy = True
 
-        self.logger.info('start processing job {} with budget {:.4f}'.format(job.id, job.budget))
+        self.logger.info('start processing job {} with budget {:.4f}'.format(job.cid, job.budget))
 
         result = None
         try:
-            self.process_logger = ProcessLogger(self.workdir, job.id)
+            self.process_logger = ProcessLogger(self.workdir, job.cid)
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
-            c = wrapper(job.ds, job.id, job.config, self.cfg_cache, job.pipeline, job.budget, **job.kwargs)
+            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.pipeline, job.budget, **job.kwargs)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -123,7 +123,7 @@ class Worker(abc.ABC):
             self.process_logger = None
             with self.thread_cond:
                 self.busy = False
-                callback.register_result(job.id, result)
+                callback.register_result(job.cid, result)
                 self.thread_cond.notify()
         return result
 

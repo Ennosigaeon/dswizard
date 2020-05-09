@@ -128,7 +128,7 @@ class BaseIteration(abc.ABC):
         candidate.budget = self.budgets[self.stage]
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
-        candidate.id = candidate_id
+        candidate.cid = candidate_id
         # timeout = math.ceil(self.budgets[self.stage] * self.timeout) if self.timeout is not None else None
         # candidate.timeout = timeout
 

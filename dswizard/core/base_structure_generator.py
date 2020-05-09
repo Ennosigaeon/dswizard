@@ -53,7 +53,7 @@ class BaseStructureGenerator(abc.ABC):
         """
 
         if result.status == 'CRASHED':
-            self.logger.warning('candidate {} failed'.format(candidate.id))
+            self.logger.warning('candidate {} failed'.format(candidate.cid))
 
     @staticmethod
     def _get_estimator_instance(clazz: str) -> EstimatorComponent:

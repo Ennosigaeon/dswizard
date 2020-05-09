@@ -8,9 +8,7 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
-from sklearn.model_selection import train_test_split
 
-from dswizard.core.distance import KdeDistribution
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -136,7 +134,7 @@ class CandidateStructure:
         self.model_based_pick = model_based_pick
 
         # noinspection PyTypeChecker
-        self.id: CandidateId = None
+        self.cid: CandidateId = None
         self.status: str = 'QUEUED'
 
         self.results: Dict[float, List[Result]] = {}
@@ -162,7 +160,7 @@ class CandidateStructure:
             'budget': self.budget,
             'timeout': self.timeout,
             'model_based_pick': self.model_based_pick,
-            'id': self.id.as_tuple(),
+            'cid': self.cid.as_tuple(),
             'status': self.status,
             'results': {k: [res.as_dict() for res in v] for k, v in self.results.items()},
             'timestamps': self.timestamps
@@ -176,7 +174,7 @@ class CandidateStructure:
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None,
                                 raw['budget'], raw['timeout'], raw['model_based_pick'])
-        cs.id = CandidateId(*raw['id'])
+        cs.cid = CandidateId(*raw['cid'])
         cs.status = raw['status']
         # cs.results = {k: [Result.from_dict(res) for res in v] for k, v in raw['results'].items()},
         cs.timestamps = raw['timestamps']
@@ -192,8 +190,7 @@ class Job:
                  config: Optional[Configuration] = None,
                  **kwargs):
         self.ds = ds
-        # TODO rename to cid
-        self.id = candidate_id
+        self.cid = candidate_id
         self.cs = cs
         self.config = config
 

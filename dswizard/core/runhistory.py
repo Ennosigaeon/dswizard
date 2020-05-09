@@ -119,7 +119,7 @@ def logged_results_to_runhistory(directory: str) -> RunHistory:
         for line in fh:
             raw = json.loads(line)
             cs = CandidateStructure.from_dict(raw)
-            data[cs.id] = cs
+            data[cs.cid] = cs
 
     with open(os.path.join(directory, 'results.json')) as fh:
         for line in fh:
