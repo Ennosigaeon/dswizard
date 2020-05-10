@@ -132,10 +132,10 @@ class Master:
             for i in range(n_configs):
                 config_id = candidate.cid.with_config(i)
                 if pre_sample:
-                    cg = self.cfg_cache.get_config_generator(candidate.budget, candidate.pipeline.configuration_space,
-                                                             ds.meta_features)
-                    config = cg.sample_config()
-                    job = Job(ds, config_id, candidate, config)
+                    config, cfg_idx = self.cfg_cache.sample_configuration(candidate.budget,
+                                                                          candidate.pipeline.configuration_space,
+                                                                          ds.meta_features)
+                    job = Job(ds, config_id, candidate, config, cfg_idx)
                 else:
                     job = Job(ds, config_id, candidate, None)
                 self.dispatcher.submit_job(job)

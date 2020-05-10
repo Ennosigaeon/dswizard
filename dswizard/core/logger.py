@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import pickle
 from typing import TYPE_CHECKING, List, Tuple
 
 import networkx as nx
@@ -101,8 +100,6 @@ class ProcessLogger:
         with open(self.file, 'a') as fh:
             fh.write(json.dumps([name, config.as_dict()]))
             fh.write('\n')
-        with open('{}-{}.pickle'.format(self.prefix, name), 'wb') as fh:
-            pickle.dump(config.meta, fh)
 
     def get_config(self, pipeline: FlexiblePipeline) -> Configuration:
         return self._merge_configs(self.partial_configs, pipeline)
@@ -114,11 +111,6 @@ class ProcessLogger:
             for line in fh:
                 name, partial_config = json.loads(line)
                 partial_config = PartialConfig.from_dict(partial_config)
-
-                pickle_file = '{}-{}.pickle'.format(self.prefix, name)
-                with open(pickle_file, 'rb') as fh2:
-                    partial_config.meta = pickle.load(fh2)
-                os.remove(pickle_file)
 
                 partial_configs.append(partial_config)
 
@@ -132,7 +124,7 @@ class ProcessLogger:
         missing_steps = set(pipeline.all_names())
 
         for partial_config in partial_configs:
-            for param, value in partial_config.configuration.get_dictionary().items():
+            for param, value in partial_config.config.get_dictionary().items():
                 param = prefixed_name(partial_config.name, param)
                 complete[param] = value
 

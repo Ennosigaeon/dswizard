@@ -9,6 +9,7 @@ from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 
+from core.meta_features import MetaFeatures
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -188,11 +189,13 @@ class Job:
                  candidate_id: CandidateId,
                  cs: CandidateStructure,
                  config: Optional[Configuration] = None,
+                 cfg_idx: Optional[int] = None,
                  **kwargs):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
         self.config = config
+        self.cfg_idx = cfg_idx
 
         self.kwargs = kwargs
 
@@ -216,28 +219,6 @@ class Job:
         return self.cs.timeout
 
 
-# TODO remove and replace by mlb meta-features
-class MetaFeatures:
-
-    # TODO implement real meta_features
-    def __init__(self, X: np.ndarray):
-        # self.kde_dist = [KdeDistribution(X[:, i]) for i in range(X.shape[1])]
-        pass
-
-    def similar(self, other: 'MetaFeatures', epsilon: float = 0.2) -> bool:
-        return True
-        # TODO distance calculation is too slow
-
-        # distance, phi = Distance.compute_dist(self.kde_dist, other.kde_dist)
-        # return distance <= epsilon
-
-    def __hash__(self):
-        return 0
-
-    def __eq__(self, other):
-        return isinstance(other, MetaFeatures)
-
-
 class Dataset:
 
     # TODO remove dataset_properties from core components
@@ -252,24 +233,27 @@ class Dataset:
             dataset_properties = {}
         self.dataset_properties = dataset_properties
 
-        self.meta_features: MetaFeatures = MetaFeatures(self.X)
+        self.meta_features: np.ndarray = MetaFeatures.calculate(X, y)
 
 
 class PartialConfig:
 
-    def __init__(self, meta: MetaFeatures, configuration: Configuration, name: str):
-        self.meta = meta
-        self.configuration: Configuration = configuration
+    def __init__(self, cfg_idx: int, configuration: Configuration, name: str):
+        self.cfg_idx = cfg_idx
+        self.config: Configuration = configuration
         self.name = name
+
+    def is_empty(self):
+        # noinspection PyUnresolvedReferences
+        return len(self.config.configuration_space.get_hyperparameters()) == 0
 
     def as_dict(self):
         # meta data are serialized via pickle
         # noinspection PyUnresolvedReferences
         return {
-            'config': self.configuration.get_dictionary(),
-            'configspace': config_json.write(self.configuration.configuration_space),
-            # 'meta': pickle.dumps(self.meta),
-            'meta': None,
+            'config': self.config.get_dictionary(),
+            'configspace': config_json.write(self.config.configuration_space),
+            'idx': self.cfg_idx,
             'name': self.name,
         }
 
@@ -278,7 +262,7 @@ class PartialConfig:
         # meta data are deserialized via pickle
         config = Configuration(config_json.read(raw['configspace']), raw['config'])
         # noinspection PyTypeChecker
-        return PartialConfig(None, config, raw['name'])
+        return PartialConfig(raw['idx'], config, raw['name'])
 
     def __eq__(self, other):
         if isinstance(other, PartialConfig):

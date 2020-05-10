@@ -3,11 +3,9 @@ import timeit
 import warnings
 from typing import Optional, Tuple
 
-import math
 from ConfigSpace import Configuration
 from sklearn import clone
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.model_selection import cross_val_predict
 
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.config_cache import ConfigCache
@@ -54,6 +52,7 @@ class SklearnWorker(Worker):
             self.logger.exception(ex)
             raise ex
 
+        # Always compute minimization problem
         if self.metric == 'accuracy':
             score = 1 - accuracy_score(y, y_pred)
         elif self.metric == 'precision':
@@ -70,7 +69,6 @@ class SklearnWorker(Worker):
         else:
             raise ValueError
 
-        # Always compute minimization problem
         return score, Runtime(timeit.default_timer() - start, pipeline.fit_time, pipeline.config_time)
 
     def create_estimator(self, conf: dict):

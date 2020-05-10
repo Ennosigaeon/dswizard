@@ -20,6 +20,8 @@ class BaseConfigGenerator(abc.ABC):
                  working_directory: str = None,
                  logger: logging.Logger = None):
         """
+        :param configspace:
+        :param working_directory:
         :param logger: for some debug output
         """
         if configspace is None:

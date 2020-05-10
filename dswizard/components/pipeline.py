@@ -199,7 +199,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
                 # Configure estimator on the fly if necessary
                 if self.configuration is None:
-                    config = self._get_config_for_step(prefix, self.steps[-1][0], Xt, budget, logger)
+                    config = self._get_config_for_step(prefix, self.steps[-1][0], Xt, y, budget, logger)
                     self._final_estimator.set_hyperparameters(configuration=config.get_dictionary())
 
                 self._final_estimator.fit(Xt, y, **fit_params)
@@ -207,20 +207,21 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                 raise NotImplementedError('passthrough pipelines are currently not supported')
         return self
 
-    def _get_config_for_step(self, prefix: str, name: str, X: np.ndarray, budget: float,
+    def _get_config_for_step(self, prefix: str, name: str, X: np.ndarray, y: np.ndarray, budget: float,
                              logger: ProcessLogger) -> Configuration:
         start = timeit.default_timer()
 
-        meta_features = MetaFeatures(X)
+        meta_features = MetaFeatures.calculate(X, y)
         estimator = self.get_step(name)
 
         if isinstance(estimator, SubPipeline):
-            config = ConfigurationSpace().get_default_configuration()
+            config, idx = ConfigurationSpace().get_default_configuration(), 0
         else:
             cs = estimator.get_hyperparameter_search_space(self.dataset_properties)
-            config = self.cfg_cache.sample_configuration(budget=budget, configspace=cs, meta_features=meta_features)
+            config, idx = self.cfg_cache.sample_configuration(budget=budget, configspace=cs,
+                                                              meta_features=meta_features)
 
-        intermediate = PartialConfig(meta_features, config, name)
+        intermediate = PartialConfig(idx, config, name)
         logger.new_step(prefixed_name(prefix, name), intermediate)
 
         self.config_time += timeit.default_timer() - start
