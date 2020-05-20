@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Dict
-from typing import Type, List, Tuple
+from typing import Type, Tuple
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -48,43 +48,44 @@ class ConfigCache:
 
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
-        self.mfs: Dict[float, np.ndarray] = {}
-        self.generators: Dict[float, List[BaseConfigGenerator]] = {}
-        self.neighbours = NearestNeighbors()
-
-    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, meta_features: np.ndarray,
-                             max_distance: float = 1, **kwargs) -> Tuple[BaseConfigGenerator, int]:
-        if budget not in self.cache:
-            self.cache[budget] = ConfigCache.Entry()
+    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, mf: np.ndarray,
+                             max_distance: float = 1, **kwargs) -> Tuple[BaseConfigGenerator, Tuple[float, int]]:
+        # Use a combined hash key of configspace and budget
+        hash_key = hash(configspace) + budget
+        if hash_key not in self.cache:
+            self.cache[hash_key] = ConfigCache.Entry()
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
-            return self.cache[budget].add(meta_features, cg)
+            cg, idx = self.cache[hash_key].add(mf, cg)
+            return cg, (hash_key, idx)
 
-        entry = self.cache[budget]
-        distance, idx = entry.neighbours.kneighbors(meta_features, n_neighbors=1)
+        entry = self.cache[hash_key]
+        distance, idx = entry.neighbours.kneighbors(mf, n_neighbors=1)
         if distance[0][0] <= max_distance:
-            return entry.generators[idx[0][0]], int(idx[0][0])
+            return entry.generators[idx[0][0]], (hash_key, int(idx[0][0]))
         else:
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
-            return entry.add(meta_features, cg)
+            cg, idx = self.cache[hash_key].add(mf, cg)
+            return cg, (hash_key, idx)
 
-    def sample_configuration(self, budget: float, configspace: ConfigurationSpace, meta_features: np.ndarray,
-                             max_distance: float = 1, **kwargs) -> Tuple[Configuration, int]:
-        cg, idx = self.get_config_generator(budget, configspace, meta_features, max_distance, **kwargs)
-        return cg.sample_config(), idx
+    def sample_configuration(self, budget: float, configspace: ConfigurationSpace, mf: np.ndarray,
+                             max_distance: float = 1, **kwargs) -> Tuple[Configuration, Tuple[float, int]]:
+        cg, key = self.get_config_generator(budget, configspace, mf, max_distance, **kwargs)
+        return cg.sample_config(), key
 
     # noinspection PyUnresolvedReferences
     def register_result(self, job: Job) -> None:
         try:
-            entry = self.cache[job.budget]
             loss = job.result.loss
             status = job.result.status
 
             if len(job.result.partial_configs) > 0:
                 for config in job.result.partial_configs:
                     if not config.is_empty():
-                        entry.generators[config.cfg_idx].register_result(config.config, loss, status)
+                        self.cache[config.cfg_key[0]].generators[config.cfg_key[1]] \
+                            .register_result(config.config, loss, status)
             else:
-                entry.generators[job.cfg_idx].register_result(job.config, loss, status)
+                self.cache[job.cfg_key[0]].generators[job.cfg_key[1]] \
+                    .register_result(job.config, loss, status)
         except Exception as ex:
             self.logger.exception(ex)
             raise ex

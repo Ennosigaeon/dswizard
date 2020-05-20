@@ -189,13 +189,13 @@ class Job:
                  candidate_id: CandidateId,
                  cs: CandidateStructure,
                  config: Optional[Configuration] = None,
-                 cfg_idx: Optional[int] = None,
+                 cfg_key: Optional[Tuple[float, int]] = None,
                  **kwargs):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
         self.config = config
-        self.cfg_idx = cfg_idx
+        self.cfg_key = cfg_key
 
         self.kwargs = kwargs
 
@@ -238,8 +238,10 @@ class Dataset:
 
 class PartialConfig:
 
-    def __init__(self, cfg_idx: int, configuration: Configuration, name: str):
-        self.cfg_idx = cfg_idx
+    def __init__(self, cfg_key: Tuple[float, int],
+                 configuration: Configuration,
+                 name: str):
+        self.cfg_key = cfg_key
         self.config: Configuration = configuration
         self.name = name
 
@@ -253,7 +255,7 @@ class PartialConfig:
         return {
             'config': self.config.get_dictionary(),
             'configspace': config_json.write(self.config.configuration_space),
-            'idx': self.cfg_idx,
+            'cfg_key': self.cfg_key,
             'name': self.name,
         }
 
@@ -262,7 +264,7 @@ class PartialConfig:
         # meta data are deserialized via pickle
         config = Configuration(config_json.read(raw['configspace']), raw['config'])
         # noinspection PyTypeChecker
-        return PartialConfig(raw['idx'], config, raw['name'])
+        return PartialConfig(raw['cfg_key'], config, raw['name'])
 
     def __eq__(self, other):
         if isinstance(other, PartialConfig):
