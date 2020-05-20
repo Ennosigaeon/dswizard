@@ -26,7 +26,6 @@ logging.basicConfig(level=logging.INFO,
                     stream=sys.stdout)
 
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
-logging.getLogger('smac').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
