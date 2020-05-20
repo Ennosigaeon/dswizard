@@ -5,6 +5,7 @@ import logging
 from typing import List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from dswizard.core.meta_features import MetaFeatures
     from dswizard.core.base_iteration import BaseIteration
     from dswizard.core.base_structure_generator import BaseStructureGenerator
     from dswizard.core.model import CandidateStructure, Job
@@ -40,9 +41,10 @@ class BanditLearner(abc.ABC):
         """
         pass
 
-    def next_candidate(self, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
+    def next_candidate(self, mf: MetaFeatures, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
         """
         Returns the next CandidateStructure with an according budget.
+        :param mf: meta-features of the data set
         :param iteration_kwargs:
         :return:
         """
@@ -51,7 +53,7 @@ class BanditLearner(abc.ABC):
             next_candidate = None
             # find a new run to schedule
             for i in filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))):
-                next_candidate = self.iterations[i].get_next_candidate()
+                next_candidate = self.iterations[i].get_next_candidate(mf)
                 if next_candidate is not None:
                     break
 

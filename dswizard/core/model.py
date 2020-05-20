@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Optional, Dict, List, TYPE_CHECKING
+from typing import Optional, Dict, List, TYPE_CHECKING, Tuple
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 
-from core.meta_features import MetaFeatures
+from dswizard.core.meta_features import MetaFeatureFactory
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.core.meta_features import MetaFeatures
 
 
 class StatusType(Enum):
@@ -221,29 +222,25 @@ class Job:
 
 class Dataset:
 
-    # TODO remove dataset_properties from core components
-
     def __init__(self,
                  X: np.ndarray,
-                 y: np.ndarray,
-                 dataset_properties: dict = None):
+                 y: np.ndarray):
         self.X = X
         self.y = y
-        if dataset_properties is None:
-            dataset_properties = {}
-        self.dataset_properties = dataset_properties
 
-        self.meta_features: np.ndarray = MetaFeatures.calculate(X, y)
+        self.meta_features: MetaFeatures = MetaFeatureFactory.calculate(X, y)
 
 
 class PartialConfig:
 
     def __init__(self, cfg_key: Tuple[float, int],
                  configuration: Configuration,
-                 name: str):
+                 name: str,
+                 mf: MetaFeatures):
         self.cfg_key = cfg_key
         self.config: Configuration = configuration
         self.name = name
+        self.mf = mf
 
     def is_empty(self):
         # noinspection PyUnresolvedReferences
@@ -257,6 +254,7 @@ class PartialConfig:
             'configspace': config_json.write(self.config.configuration_space),
             'cfg_key': self.cfg_key,
             'name': self.name,
+            'mf': self.mf.tolist()
         }
 
     @staticmethod
@@ -264,7 +262,7 @@ class PartialConfig:
         # meta data are deserialized via pickle
         config = Configuration(config_json.read(raw['configspace']), raw['config'])
         # noinspection PyTypeChecker
-        return PartialConfig(raw['cfg_key'], config, raw['name'])
+        return PartialConfig(raw['cfg_key'], config, raw['name'], np.array(raw['mf']))
 
     def __eq__(self, other):
         if isinstance(other, PartialConfig):

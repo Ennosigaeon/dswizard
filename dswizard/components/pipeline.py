@@ -12,7 +12,8 @@ from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
 from automl.components.base import ComponentChoice, EstimatorComponent
-from dswizard.core.model import PartialConfig, MetaFeatures
+from dswizard.core.meta_features import MetaFeatures, MetaFeatureFactory
+from dswizard.core.model import PartialConfig
 from dswizard.util import util
 from dswizard.util.util import prefixed_name
 
@@ -25,12 +26,10 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
     def __init__(self,
                  steps: List[Tuple[str, EstimatorComponent]],
-                 dataset_properties: dict,
                  configuration: Optional[Configuration] = None,
                  cfg_cache: Optional[ConfigCache] = None,
                  logger: logging.Logger = None):
         self.configuration = configuration
-        self.dataset_properties = dataset_properties
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
         if logger is None:
             self.logger = logging.getLogger('Pipeline')
@@ -40,7 +39,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         # super.__init__ has to be called after initializing all properties provided in constructor
         super().__init__(steps)
         self.steps_ = dict(steps)
-        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
+        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space(mf=None)
 
         self.fit_time = 0
         self.config_time = 0
@@ -142,7 +141,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
             # Configure transformer on the fly if necessary
             if self.configuration is None:
-                config: Configuration = self._get_config_for_step(prefix, name, Xt, budget, logger)
+                config: Configuration = self._get_config_for_step(prefix, name, Xt, y, budget, logger)
                 cloned_transformer.set_hyperparameters(configuration=config.get_dictionary())
 
             # Fit or load from cache the current transformer
@@ -211,17 +210,17 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                              logger: ProcessLogger) -> Configuration:
         start = timeit.default_timer()
 
-        meta_features = MetaFeatures.calculate(X, y)
+        meta_features = MetaFeatureFactory.calculate(X, y)
         estimator = self.get_step(name)
 
         if isinstance(estimator, SubPipeline):
             config, idx = ConfigurationSpace().get_default_configuration(), 0
         else:
-            cs = estimator.get_hyperparameter_search_space(self.dataset_properties)
-            config, idx = self.cfg_cache.sample_configuration(budget=budget, configspace=cs,
-                                                              meta_features=meta_features)
+            cs = estimator.get_hyperparameter_search_space(mf=meta_features)
+            config, cfg_key = self.cfg_cache.sample_configuration(budget=budget, configspace=cs,
+                                                                  mf=meta_features)
 
-        intermediate = PartialConfig(idx, config, name)
+        intermediate = PartialConfig(cfg_key, config, name, meta_features)
         logger.new_step(prefixed_name(prefix, name), intermediate)
 
         self.config_time += timeit.default_timer() - start
@@ -231,9 +230,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         self.configuration = configuration
 
         for node_idx, (node_name, node) in enumerate(self.steps):
-            sub_configuration_space = node.get_hyperparameter_search_space(
-                dataset_properties=self.dataset_properties
-            )
+            sub_configuration_space = node.get_hyperparameter_search_space()
             sub_config_dict = {}
             for param in configuration:
                 if param.startswith('{}:'.format(node_name)):
@@ -261,27 +258,24 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         return self
 
-    def get_hyperparameter_search_space(self, dataset_properties=None) -> ConfigurationSpace:
-        if dataset_properties is None:
-            dataset_properties = self.dataset_properties
-
+    def get_hyperparameter_search_space(self, mf: MetaFeatures) -> ConfigurationSpace:
         cs = ConfigurationSpace()
         for name, step in self.steps:
-            step_configuration_space = step.get_hyperparameter_search_space(dataset_properties)
+            step_configuration_space = step.get_hyperparameter_search_space(mf=mf)
             cs.add_configuration_space(name, step_configuration_space)
         return cs
 
     def items(self):
         return self.steps_.items()
 
-    def as_list(self) -> Tuple[List[Tuple[str, Union[str, List]]], Dict]:
+    def as_list(self) -> List[Tuple[str, Union[str, List]]]:
         steps = []
         for name, step in self.steps:
             steps.append((name, step.serialize()))
-        return steps, self.dataset_properties
+        return steps
 
     @staticmethod
-    def from_list(steps: List[Tuple[str, Union[str, List]]], ds_properties: Dict) -> 'FlexiblePipeline':
+    def from_list(steps: List[Tuple[str, Union[str, List]]]) -> 'FlexiblePipeline':
         def __load(sub_steps: List[Tuple[str, Union[str, List]]]) -> List[Tuple[str, EstimatorComponent]]:
             d = []
             for name, value in sub_steps:
@@ -292,13 +286,13 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                     ls = []
                     for sub_name, sub_value in value:
                         ls.append(__load(sub_value))
-                    d.append((name, SubPipeline(ls, ds_properties)))
+                    d.append((name, SubPipeline(ls)))
                 else:
                     raise ValueError('Unable to handle type {}'.format(type(value)))
             return d
 
         ds = __load(steps)
-        return FlexiblePipeline(ds, ds_properties)
+        return FlexiblePipeline(ds)
 
     def __lt__(self, other: 'FlexiblePipeline'):
         s1 = tuple(e.name() for e in self.steps_.values())
@@ -306,18 +300,15 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         return s1 < s2
 
     def __copy__(self):
-        return FlexiblePipeline(clone(self.steps, safe=False), self.dataset_properties,
-                                self.configuration, self.cfg_cache, self.logger)
+        return FlexiblePipeline(clone(self.steps, safe=False), self.configuration, self.cfg_cache, self.logger)
 
 
 class SubPipeline(EstimatorComponent):
 
-    def __init__(self, sub_wfs: List[List[Tuple[str, EstimatorComponent]]],
-                 dataset_properties: dict = None):
-        self.dataset_properties = dataset_properties
+    def __init__(self, sub_wfs: List[List[Tuple[str, EstimatorComponent]]]):
         self.pipelines: Dict[str, FlexiblePipeline] = {}
 
-        ls = list(map(lambda wf: FlexiblePipeline(wf, dataset_properties=self.dataset_properties), sub_wfs))
+        ls = list(map(lambda wf: FlexiblePipeline(wf), sub_wfs))
         for idx, wf in enumerate(sorted(ls)):
             self.pipelines['pipeline_{}'.format(idx)] = wf
 
@@ -353,13 +344,13 @@ class SubPipeline(EstimatorComponent):
                     sub_config_dict[new_name] = value
             pipeline.set_hyperparameters(sub_config_dict, init_params)
 
-    def get_hyperparameter_search_space(self, dataset_properties=None):
+    def get_hyperparameter_search_space(self, mf: MetaFeatures):
         cs = ConfigurationSpace()
         for pipeline_name, pipeline in self.pipelines.items():
             pipeline_cs = ConfigurationSpace()
 
             for task_name, task in pipeline.steps:
-                step_configuration_space = task.get_hyperparameter_search_space(dataset_properties)
+                step_configuration_space = task.get_hyperparameter_search_space(mf=mf)
                 pipeline_cs.add_configuration_space(task_name, step_configuration_space)
             cs.add_configuration_space(pipeline_name, pipeline_cs)
         return cs
@@ -367,10 +358,10 @@ class SubPipeline(EstimatorComponent):
     def serialize(self):
         pipelines = []
         for name, p in self.pipelines.items():
-            pipelines.append((name, p.as_list()[0]))
+            pipelines.append((name, p.as_list()))
 
         return pipelines
 
     @staticmethod
-    def get_properties(dataset_properties=None):
+    def get_properties():
         return {}

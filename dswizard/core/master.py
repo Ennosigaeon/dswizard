@@ -127,7 +127,7 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        for candidate, iteration in self.bandit_learner.next_candidate({'timeout': timeout}):
+        for candidate, iteration in self.bandit_learner.next_candidate(ds.meta_features, {'timeout': timeout}):
             # Optimize hyperparameters
             for i in range(n_configs):
                 config_id = candidate.cid.with_config(i)
@@ -158,7 +158,9 @@ class Master:
         """
         with self.thread_cond:
             if job.config is None:
-                raise ValueError('Encountered job without a configuration: {}'.format(job))
+                # TODO handle this
+                self.logger.error('Encountered job without a configuration: {}. This should never happen!'.format(job.cid))
+                raise ValueError()
 
             if self.result_logger is not None:
                 self.result_logger.log_evaluated_config(job)

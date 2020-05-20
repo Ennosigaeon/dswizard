@@ -12,6 +12,7 @@ from sklearn.neighbors import NearestNeighbors
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
+    from dswizard.core.meta_features import MetaFeatures
 
 
 class ConfigCache:
@@ -48,7 +49,7 @@ class ConfigCache:
 
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
-    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, mf: np.ndarray,
+    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, mf: MetaFeatures,
                              max_distance: float = 1, **kwargs) -> Tuple[BaseConfigGenerator, Tuple[float, int]]:
         # Use a combined hash key of configspace and budget
         hash_key = hash(configspace) + budget

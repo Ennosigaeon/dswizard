@@ -12,6 +12,7 @@ from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.components.pipeline import FlexiblePipeline, SubPipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
+from dswizard.core.meta_features import MetaFeatures
 from dswizard.core.model import CandidateStructure
 
 
@@ -19,10 +20,9 @@ class RandomStructureGenerator(BaseStructureGenerator):
 
     # noinspection PyProtectedMember
     def __init__(self,
-                 dataset_properties: dict,
                  max_depth: int = 10,
                  include_basic_estimators: bool = False):
-        super().__init__(dataset_properties=dataset_properties)
+        super().__init__()
 
         self.max_depth = max_depth
 
@@ -45,14 +45,14 @@ class RandomStructureGenerator(BaseStructureGenerator):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
         return max(min(self.max_depth, r), n_min)
 
-    def get_candidate(self) -> CandidateStructure:
+    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
         attempts = 1
         while True:
             try:
                 depth = self._determine_depth(n_max=self.max_depth)
                 cs, steps = self._generate_pipeline(depth)
 
-                pipeline = FlexiblePipeline(steps, self.dataset_properties)
+                pipeline = FlexiblePipeline(steps)
 
                 print(steps)
                 self.logger.debug('Created valid pipeline after {} tries'.format(attempts))
@@ -84,7 +84,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
                 instance = self._get_estimator_instance(clazz)
 
             steps.append((name, instance))
-            cs.add_configuration_space(name, instance.get_hyperparameter_search_space(self.dataset_properties))
+            cs.add_configuration_space(name, instance.get_hyperparameter_search_space())
 
             i += 1
         return cs, steps
@@ -101,4 +101,4 @@ class RandomStructureGenerator(BaseStructureGenerator):
             cs, steps = self._generate_pipeline(d)
             pipelines.append(steps)
         pipelines = list(filter(lambda d: len(d) > 0, pipelines))
-        return SubPipeline(pipelines, self.dataset_properties), max(depths)
+        return SubPipeline(pipelines), max(depths)

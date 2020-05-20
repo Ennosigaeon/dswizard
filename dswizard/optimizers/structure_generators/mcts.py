@@ -13,7 +13,9 @@ from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.model import CandidateStructure, Result
+from dswizard.core.meta_features import MetaFeatures
+from dswizard.core.model import CandidateStructure
+from dswizard.core.model import Result
 
 
 # Ideas
@@ -178,12 +180,12 @@ class Policy:
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, dataset_properties: dict = None):
-        super().__init__(dataset_properties)
+    def __init__(self):
+        super().__init__()
         self.tree = Tree()
         self.policy = Policy()
 
-    def get_candidate(self) -> CandidateStructure:
+    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
         # traverse from root to a leaf node
         path = self._select()
 
@@ -201,7 +203,7 @@ class MCTS(BaseStructureGenerator):
                 'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
                     ', '.join([n.label for n in path])))
 
-        pipeline = FlexiblePipeline(node.steps, self.dataset_properties)
+        pipeline = FlexiblePipeline(node.steps)
 
         return CandidateStructure(pipeline.configuration_space, pipeline)
 

@@ -72,7 +72,7 @@ class JsonResultLogger:
 
     def log_evaluated_config(self, job: Job) -> None:
         if job.cid.without_config() not in self.structure_ids:
-            # should never happen! TODO: log warning here!
+            # should never happen!
             self.structure_ids.add(job.cid)
             with open(self.structure_fn, 'a') as fh:
                 fh.write(json.dumps([job.cid.as_tuple(), job.config.get_dictionary(), {}]))
@@ -123,16 +123,17 @@ class ProcessLogger:
         complete = {}
         missing_steps = set(pipeline.all_names())
 
+        latest_mf = None
         for partial_config in partial_configs:
             for param, value in partial_config.config.get_dictionary().items():
                 param = prefixed_name(partial_config.name, param)
                 complete[param] = value
-
+            latest_mf = partial_config.mf
             missing_steps.remove(partial_config.name)
 
         # Create random configuration for missing steps
         for name in missing_steps:
-            config = pipeline.get_step(name).get_hyperparameter_search_space(pipeline.dataset_properties) \
+            config = pipeline.get_step(name).get_hyperparameter_search_space(mf=latest_mf) \
                 .sample_configuration()
             for param, value in config.get_dictionary().items():
                 param = prefixed_name(name, param)

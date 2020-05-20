@@ -9,7 +9,7 @@ from dswizard.optimizers.structure_generators.mcts import MCTS
 class TestOneHotEncoder(TestCase):
 
     def test_generic(self):
-        search = MCTS(dataset_properties={'target_type': 'classification'})
+        search = MCTS()
         tree = search.tree
 
         for i in range(20):

@@ -11,6 +11,8 @@ import pynisher2
 
 LOGGER = logging.getLogger('mf')
 
+MetaFeatures = np.ndarray
+
 
 # ##########################################################################
 # #  Extracting MetaFeatures with the help of AutoSklearn  #################
@@ -110,7 +112,7 @@ class ClassOccurrences(AbstractMetaFeature):
         if len(y.shape) == 2:
             occurrences = []
             for i in range(y.shape[1]):
-                occurrences.append(self._calculate(X, y[:, i]))
+                occurrences.append(self.calculate(X, y[:, i]))
             return occurrences
         else:
             occurrence_dict = defaultdict(float)
@@ -121,7 +123,7 @@ class ClassOccurrences(AbstractMetaFeature):
 
 class ClassProbabilityMean(AbstractMetaFeature):
     def calculate(self, X, y):
-        occurrence_dict = ClassOccurrences()(X, y)
+        occurrence_dict = ClassOccurrences().calculate(X, y)
 
         if len(y.shape) == 2:
             occurrences = []
@@ -129,23 +131,23 @@ class ClassProbabilityMean(AbstractMetaFeature):
                 occurrences.extend([occurrence for occurrence in occurrence_dict[i].value.values()])
             occurrences = np.array(occurrences)
         else:
-            occurrences = np.array([occurrence for occurrence in occurrence_dict.value.values()], dtype=np.float64)
+            occurrences = np.array([occurrence for occurrence in occurrence_dict.values()], dtype=np.float64)
         return float((occurrences / y.shape[0]).mean())
 
 
 class ClassProbabilitySTD(AbstractMetaFeature):
     def calculate(self, X, y):
-        occurrence_dict = ClassOccurrences()(X, y)
+        occurrence_dict = ClassOccurrences().calculate(X, y)
 
         if len(y.shape) == 2:
             stds = []
             for i in range(y.shape[1]):
-                std = np.array([occurrence for occurrence in occurrence_dict[i].value.values()], dtype=np.float64)
+                std = np.array([occurrence for occurrence in occurrence_dict[i].values()], dtype=np.float64)
                 std = (std / y.shape[0]).std()
                 stds.append(std)
             return np.mean(stds)
         else:
-            occurrences = np.array([occurrence for occurrence in occurrence_dict.value.values()], dtype=np.float64)
+            occurrences = np.array([occurrence for occurrence in occurrence_dict.values()], dtype=np.float64)
             return float((occurrences / y.shape[0]).std())
 
 
@@ -158,7 +160,7 @@ class MetaFeatureFactory(object):
                   max_features: int = 10000,
                   random_state: int = 42,
                   timeout: int = 600,
-                  memory: int = 6144) -> Optional[np.ndarray]:
+                  memory: int = 6144) -> Optional[MetaFeatures]:
         """
         Calculates the meta-features for the given DataFrame. The actual computation is dispatched to another process
         to prevent crashes due to extensive memory usage.

@@ -9,16 +9,16 @@ import sys
 
 import sklearn
 from sklearn import datasets
-from sklearn.metrics import f1_score, make_scorer
-from sklearn.model_selection import cross_val_score
 
 from automl.components.classification.decision_tree import DecisionTree
+from automl.components.data_preprocessing import DataPreprocessorChoice
+from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
-from optimizers.config_generators import Hyperopt, SmacGenerator
+from optimizers.config_generators import Hyperopt
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO,
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
-parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.01)
+parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.1)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
 parser.add_argument('--n_configs', type=float, help='Number of configurations to test on a single structure', default=1)
 parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation in seconds', default=60)
@@ -37,27 +37,20 @@ parser.add_argument('--log_dir', type=str, help='Directory used for logging', de
 args = parser.parse_args()
 
 # Load dataset
-dataset_properties = {
-    'target_type': 'classification'
-}
 X, y = datasets.load_digits(return_X_y=True)
 X, y = sklearn.utils.shuffle(X, y)
-ds = Dataset(X, y, dataset_properties=dataset_properties)
-
-dataset_properties = {
-    'target_type': 'classification'
-}
+ds = Dataset(X, y)
 
 # Instantiate optimizer
-# sub_wf_2 = OrderedDict()
-# sub_wf_2['1.1'] = DataPreprocessorChoice()
-# sub_wf_2['1.2'] = ClassifierChoice()
 
-steps = []
-# steps(('1', SubPipeline([sub_wf_2], dataset_properties=dataset_properties)))
-steps.append(('2', DecisionTree()))
+steps = [
+    ('1', DataPreprocessorChoice()),
+    ('2', FeaturePreprocessorChoice()),
+    ('3', DecisionTree())
+]
+structure_generator = FixedStructure(steps)
 
-structure_generator = FixedStructure(steps, dataset_properties)
+# structure_generator = MCTS()
 
 master = Master(
     run_id=args.run_id,

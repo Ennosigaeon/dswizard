@@ -39,12 +39,12 @@ class StructureSearchSpace:
             for estimator in feature_preprocessing._preprocessors.values():
                 self.candidates.add(estimator.name())
 
-    def get_pipeline(self, node: int, dataset_properties: dict, expand_subpipelines: bool = False) -> FlexiblePipeline:
+    def get_pipeline(self, node: int, expand_subpipelines: bool = False) -> FlexiblePipeline:
         # Remove artificial root node
         steps = []
         for idx in nx.shortest_path(self.G, 0, node)[1:]:
             steps.append((str(idx), self._get_estimator_instance(self.G.nodes[idx]['estimator'])))
-        return FlexiblePipeline(steps, dataset_properties)
+        return FlexiblePipeline(steps)
 
     def build(self, max_depth: int = 5, max_split: int = 5) -> nx.DiGraph:
         self.G = nx.DiGraph()
