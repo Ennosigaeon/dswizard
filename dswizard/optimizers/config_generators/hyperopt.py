@@ -170,7 +170,14 @@ class Hyperopt(BaseConfigGenerator):
                           ConfigSpace.hyperparameters.CategoricalHyperparameter):
                 best_vector[i] = int(np.rint(best_vector[i]))
         # noinspection PyTypeChecker
-        return ConfigSpace.Configuration(self.configspace, vector=best_vector)
+        try:
+            config = ConfigSpace.Configuration(self.configspace, vector=best_vector)
+            config.is_valid_configuration()
+            return config
+        except ValueError:
+            self.logger.warn("Sampled invalid config: {}. Fallback to random config.".format(config.get_dictionary()))
+            self.register_result(config, None, StatusType.CRASHED)
+            return self.configspace.sample_configuration()
 
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:
