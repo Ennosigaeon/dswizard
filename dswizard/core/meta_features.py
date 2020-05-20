@@ -1,12 +1,10 @@
 import logging
-import time
-from abc import ABCMeta, abstractmethod, ABC
+from abc import abstractmethod, ABC
 from collections import defaultdict
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-import scipy.sparse
 from pymfe.mfe import MFE
 
 import pynisher2
@@ -15,121 +13,18 @@ LOGGER = logging.getLogger('mf')
 
 
 # ##########################################################################
-# #  Help Functions Copied From AutoSklearn  ###############################
-# ##########################################################################
-
-
-def _create_logger(name):
-    return logging.getLogger(name)
-
-
-class PickableLoggerAdapter(object):
-
-    def __init__(self, name):
-        self.name = name
-        self.logger = _create_logger(name)
-
-    def __getstate__(self):
-        """
-        Method is called when pickle dumps an object.
-
-        Returns
-        -------
-        Dictionary, representing the object state to be pickled. Ignores
-        the self.logger field and only returns the logger name.
-        """
-        return {'name': self.name}
-
-    def __setstate__(self, state):
-        """
-        Method is called when pickle loads an object. Retrieves the name and
-        creates a logger.
-
-        Parameters
-        ----------
-        state - dictionary, containing the logger name.
-
-        """
-        self.name = state['name']
-        self.logger = _create_logger(self.name)
-
-
-def get_logger(name):
-    logger = PickableLoggerAdapter(name)
-    return logger
-
-
-class MetaFeatureValue(object):
-    def __init__(self, name, type_, fold, repeat, value, time, comment=""):
-        self.name = name
-        self.type_ = type_
-        self.fold = fold
-        self.repeat = repeat
-        self.value = value
-        self.time = time
-        self.comment = comment
-
-    def to_arff_row(self):
-        if self.type_ == "METAFEATURE":
-            value = self.value
-        else:
-            value = "?"
-
-        return [self.name, self.type_, self.fold,
-                self.repeat, value, self.time, self.comment]
-
-    def __repr__(self):
-        repr = "%s (type: %s, fold: %d, repeat: %d, value: %s, time: %3.3f, " \
-               "comment: %s)"
-        repr = repr % tuple(self.to_arff_row()[:4] +
-                            [str(self.to_arff_row()[4])] +
-                            self.to_arff_row()[5:])
-        return repr
-
-
-class AbstractMetaFeature(object):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def __init__(self):
-        self.logger = get_logger(__name__)
-
-    @abstractmethod
-    def _calculate(self, X, y, categorical):
-        pass
-
-    def __call__(self, X, y, categorical=None):
-        if categorical is None:
-            categorical = [False for i in range(X.shape[1])]
-        starttime = time.time()
-
-        try:
-            if scipy.sparse.issparse(X) and hasattr(self, "_calculate_sparse"):
-                value = self._calculate_sparse(X, y, categorical)
-            else:
-                value = self._calculate(X, y, categorical)
-            comment = ""
-        except MemoryError as e:
-            value = None
-            comment = "Memory Error"
-
-        endtime = time.time()
-        return MetaFeatureValue(self.__class__.__name__, self.type_,
-                                0, 0, value, endtime - starttime, comment=comment)
-
-
-class MetaFeature(AbstractMetaFeature, ABC):
-    def __init__(self):
-        super(MetaFeature, self).__init__()
-        self.type_ = "METAFEATURE"
-
-
-# ##########################################################################
 # #  Extracting MetaFeatures with the help of AutoSklearn  #################
 # ##########################################################################
 
-class NumberOfMissingValues(MetaFeature):
-    def _calculate(self, X, y, categorical):
+class AbstractMetaFeature(ABC):
+
+    @abstractmethod
+    def calculate(self, X, y):
+        pass
+
+
+class NumberOfMissingValues(AbstractMetaFeature):
+    def calculate(self, X, y):
         X_numeric = X.select_dtypes(include=['number'])
         X_object = X.select_dtypes(include=['category', 'object'])
 
@@ -150,8 +45,8 @@ class NumberOfMissingValues(MetaFeature):
             return int(missing)
 
 
-class PercentageOfMissingValues(MetaFeature):
-    def _calculate(self, X, y, categorical):
+class PercentageOfMissingValues(AbstractMetaFeature):
+    def calculate(self, X, y):
         X_numeric = X.select_dtypes(include=['number'])
         X_object = X.select_dtypes(include=['category', 'object'])
 
@@ -172,8 +67,8 @@ class PercentageOfMissingValues(MetaFeature):
             return (float(missing) / float(X.shape[0] * X.shape[1])) * 100
 
 
-class NumberOfInstancesWithMissingValues(MetaFeature):
-    def _calculate(self, X, y, categorical):
+class NumberOfInstancesWithMissingValues(AbstractMetaFeature):
+    def calculate(self, X, y):
         X_numeric = X.select_dtypes(include=['number'])
         X_object = X.select_dtypes(include=['category', 'object'])
 
@@ -193,8 +88,8 @@ class NumberOfInstancesWithMissingValues(MetaFeature):
             return int(np.sum([1 if num > 0 else 0 for num in num_missing]))
 
 
-class NumberOfFeaturesWithMissingValues(MetaFeature):
-    def _calculate(self, X, y, categorical):
+class NumberOfFeaturesWithMissingValues(AbstractMetaFeature):
+    def calculate(self, X, y):
         X_numeric = X.select_dtypes(include=['number'])
         X_object = X.select_dtypes(include=['category', 'object'])
 
@@ -210,12 +105,12 @@ class NumberOfFeaturesWithMissingValues(MetaFeature):
             return int(num_missing_n + num_missing_o)
 
 
-class ClassOccurrences(MetaFeature):
-    def _calculate(self, X, y, categorical):
+class ClassOccurrences(AbstractMetaFeature):
+    def calculate(self, X, y):
         if len(y.shape) == 2:
             occurrences = []
             for i in range(y.shape[1]):
-                occurrences.append(self._calculate(X, y[:, i], categorical))
+                occurrences.append(self._calculate(X, y[:, i]))
             return occurrences
         else:
             occurrence_dict = defaultdict(float)
@@ -224,9 +119,9 @@ class ClassOccurrences(MetaFeature):
             return occurrence_dict
 
 
-class ClassProbabilityMean(MetaFeature):
-    def _calculate(self, X, y, categorical):
-        occurrence_dict = ClassOccurrences()(X, y, categorical)
+class ClassProbabilityMean(AbstractMetaFeature):
+    def calculate(self, X, y):
+        occurrence_dict = ClassOccurrences()(X, y)
 
         if len(y.shape) == 2:
             occurrences = []
@@ -238,9 +133,9 @@ class ClassProbabilityMean(MetaFeature):
         return float((occurrences / y.shape[0]).mean())
 
 
-class ClassProbabilitySTD(MetaFeature):
-    def _calculate(self, X, y, categorical):
-        occurrence_dict = ClassOccurrences()(X, y, categorical)
+class ClassProbabilitySTD(AbstractMetaFeature):
+    def calculate(self, X, y):
+        occurrence_dict = ClassOccurrences()(X, y)
 
         if len(y.shape) == 2:
             stds = []
@@ -254,7 +149,7 @@ class ClassProbabilitySTD(MetaFeature):
             return float((occurrences / y.shape[0]).std())
 
 
-class MetaFeatures(object):
+class MetaFeatureFactory(object):
 
     @staticmethod
     def calculate(X: np.ndarray,
@@ -276,7 +171,7 @@ class MetaFeatures(object):
         :param memory:
         :return:
         """
-        wrapper = pynisher2.enforce_limits(wall_time_in_s=timeout, mem_in_mb=memory)(MetaFeatures._calculate)
+        wrapper = pynisher2.enforce_limits(wall_time_in_s=timeout, mem_in_mb=memory)(MetaFeatureFactory._calculate)
         res = wrapper(X, y, max_nan_percentage=max_nan_percentage, max_features=max_features,
                       random_state=random_state)
         if wrapper.exit_status is pynisher2.TimeoutException or wrapper.exit_status is pynisher2.MemorylimitException:
@@ -311,10 +206,10 @@ class MetaFeatures(object):
         X = pd.DataFrame(X, index=range(X.shape[0]), columns=range(X.shape[1]))
 
         # Extracting Missing Value Meta Features with AutoSklearn
-        nr_missing_values = NumberOfMissingValues()(X, y, categorical=True).value
-        pct_missing_values = PercentageOfMissingValues()(X, y, categorical=True).value
-        nr_inst_mv = NumberOfInstancesWithMissingValues()(X, y, categorical=True).value
-        nr_attr_mv = NumberOfFeaturesWithMissingValues()(X, y, categorical=True).value
+        nr_missing_values = NumberOfMissingValues().calculate(X, y)
+        pct_missing_values = PercentageOfMissingValues().calculate(X, y)
+        nr_inst_mv = NumberOfInstancesWithMissingValues().calculate(X, y)
+        nr_attr_mv = NumberOfFeaturesWithMissingValues().calculate(X, y)
 
         # Meta-Feature calculation does not work with missing data
         numeric = X.select_dtypes(include=['number']).columns
@@ -437,9 +332,9 @@ class MetaFeatures(object):
 
         pct_attr_mv = (float(nr_attr_mv) / float(nr_attr)) * 100
 
-        class_prob_mean = ClassProbabilityMean()(X, y, categorical=True).value
+        class_prob_mean = ClassProbabilityMean().calculate(X, y)
 
-        class_prob_std = ClassProbabilitySTD()(X, y, categorical=True).value
+        class_prob_std = ClassProbabilitySTD().calculate(X, y)
 
         # Meta-features must have exactly same order as in mlb
         # TODO normalize all values
