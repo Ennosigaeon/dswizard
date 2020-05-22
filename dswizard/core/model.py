@@ -250,7 +250,7 @@ class PartialConfig:
         # meta data are serialized via pickle
         # noinspection PyUnresolvedReferences
         return {
-            'config': self.config.get_dictionary(),
+            'config': self.config.get_array().tolist(),
             'configspace': config_json.write(self.config.configuration_space),
             'cfg_key': self.cfg_key,
             'name': self.name,
@@ -260,7 +260,7 @@ class PartialConfig:
     @staticmethod
     def from_dict(raw: dict) -> 'PartialConfig':
         # meta data are deserialized via pickle
-        config = Configuration(config_json.read(raw['configspace']), raw['config'])
+        config = Configuration(config_json.read(raw['configspace']), vector=np.array(raw['config']))
         # noinspection PyTypeChecker
         return PartialConfig(raw['cfg_key'], config, raw['name'], np.array(raw['mf']))
 
