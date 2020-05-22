@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import TYPE_CHECKING, List, Tuple
 
@@ -86,10 +87,15 @@ class JsonResultLogger:
 
 class ProcessLogger:
 
-    def __init__(self, directory: str, config_id):
+    def __init__(self, directory: str, config_id, logger: logging.Logger = None):
         os.makedirs(directory, exist_ok=True)
         self.prefix = os.path.join(directory, '{}-{}-{}'.format(*config_id.as_tuple()))
         self.partial_configs: List[PartialConfig] = []
+
+        if logger is None:
+            self.logger = logging.getLogger('ProcessLogger')
+        else:
+            self.logger = logger
 
         self.file = '{}.json'.format(self.prefix)
         with open(self.file, 'w'):
@@ -118,8 +124,7 @@ class ProcessLogger:
         os.remove(self.file)
         return config, partial_configs
 
-    @staticmethod
-    def _merge_configs(partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
+    def _merge_configs(self, partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
         complete = {}
         missing_steps = set(pipeline.all_names())
 
@@ -139,4 +144,9 @@ class ProcessLogger:
                 param = prefixed_name(name, param)
                 complete[param] = value
 
-        return Configuration(pipeline.configuration_space, complete)
+        try:
+            return Configuration(pipeline.configuration_space, complete)
+        except ValueError as ex:
+            self.logger.error('Failed to reconstruct global config. '
+                              'Config: {}\nConfigSpace: {}'.format(complete, pipeline.configuration_space))
+            raise ex

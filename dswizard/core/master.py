@@ -10,6 +10,7 @@ from multiprocessing.managers import SyncManager
 from typing import Type, TYPE_CHECKING
 
 import math
+from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
 from core.dispatcher import Dispatcher
 from dswizard.core.config_cache import ConfigCache
@@ -157,14 +158,20 @@ class Master:
         :return:
         """
         with self.thread_cond:
-            if job.config is None:
-                # TODO handle this
-                self.logger.error('Encountered job without a configuration: {}. This should never happen!'.format(job.cid))
-                raise ValueError()
+            try:
+                if job.config is None:
+                    self.logger.error(
+                        'Encountered job without a configuration: {}. Using empty config as fallback'.format(job.cid))
+                    job.config = Configuration(ConfigurationSpace())
 
-            if self.result_logger is not None:
-                self.result_logger.log_evaluated_config(job)
+                if self.result_logger is not None:
+                    self.result_logger.log_evaluated_config(job)
 
-            job.cs.add_result(job.result)
-            self.cfg_cache.register_result(job)
-            self.bandit_learner.register_result(job)
+                job.cs.add_result(job.result)
+                self.cfg_cache.register_result(job)
+                self.bandit_learner.register_result(job)
+            except KeyboardInterrupt:
+                raise
+            except Exception as ex:
+                self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
+                                  exc_info=True)

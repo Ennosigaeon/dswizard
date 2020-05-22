@@ -115,10 +115,11 @@ class Worker(abc.ABC):
             result = Result(status, config, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
-        except Exception:
+        except Exception as ex:
             # Should never occur, just a safety net
-            self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
-            result = Result(StatusType.CRASHED, job.config, 1, None, None)
+            self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
+            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
+                            partial_configs if 'partial_configs' in locals() else None)
         finally:
             self.process_logger = None
             with self.thread_cond:
