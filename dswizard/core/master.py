@@ -107,9 +107,12 @@ class Master:
 
     def shutdown(self) -> None:
         self.logger.info('shutdown initiated')
+        # Sleep one second to guarantee dispatcher start, if startup procedure fails
+        time.sleep(1)
         self.dispatcher.shutdown()
         self.dispatcher_thread.join()
 
+    # TODO Multiple calls to optimize do not work. State of previous dataset is stored
     def optimize(self, ds: Dataset,
                  n_configs: int = 1,
                  timeout: int = None,

@@ -94,6 +94,7 @@ class Dispatcher:
             t.start()
 
     def shutdown(self) -> None:
+        self.shutdown_all_threads = True
         with self.shutdown_cond:
             self.shutdown_cond.notify()
 
