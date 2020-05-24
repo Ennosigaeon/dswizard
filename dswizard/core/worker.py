@@ -112,13 +112,14 @@ class Worker(abc.ABC):
                 config = job.config
                 partial_configs = None
 
-            result = Result(status, config, cost, runtime, partial_configs)
+            steps = [(name, comp.name()) for name, comp in job.pipeline.steps]
+            result = Result(status, config, steps, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
-            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
+            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, [], 1, None,
                             partial_configs if 'partial_configs' in locals() else None)
         finally:
             self.process_logger = None
@@ -128,7 +129,8 @@ class Worker(abc.ABC):
                 self.thread_cond.notify()
         return result
 
-    def _cross_val_predict(self, pipeline, X, y=None, cv=None):
+    @staticmethod
+    def _cross_val_predict(pipeline, X, y=None, cv=None):
         X, y, groups = indexable(X, y, None)
 
         cv = check_cv(cv, y, classifier=is_classifier(pipeline))

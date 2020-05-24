@@ -96,11 +96,13 @@ class Result:
     def __init__(self,
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
+                 steps: List[Tuple[str, str]] = None,
                  loss: Optional[float] = None,
                  runtime: Runtime = None,
                  partial_configs: Optional[List[PartialConfig]] = None):
         self.status = status
         self.config = config
+        self.steps = steps
         self.loss = loss
         self.runtime = runtime
         if partial_configs is None:
@@ -113,12 +115,13 @@ class Result:
             'status': str(self.status),
             'loss': self.loss,
             'runtime': self.runtime.as_dict(),
-            'config': self.config.get_dictionary()
+            'config': self.config.get_dictionary(),
+            'steps': self.steps
         }
 
     @staticmethod
     def from_dict(raw: dict) -> 'Result':
-        return Result(raw['status'], raw['config'], raw['loss'], Runtime.from_dict(raw['runtime']))
+        return Result(raw['status'], raw['config'], raw['steps'], raw['loss'], Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:

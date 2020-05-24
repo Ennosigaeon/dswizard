@@ -69,8 +69,9 @@ try:
     id2config = res.get_id2config_mapping()
     incumbent = id2config[res.get_incumbent_id()]
 
-    print('Best found configuration: {} with loss {}'.format(incumbent.get_incumbent().config,
-                                                             incumbent.get_incumbent().loss))
+    print('Best found configuration: {}\n{} with loss {}'.format(incumbent.get_incumbent().steps,
+                                                                 incumbent.get_incumbent().config,
+                                                                 incumbent.get_incumbent().loss))
     print('A total of {} unique configurations where sampled.'.format(len(id2config.keys())))
     print('A total of {} runs where executed.'.format(len(res.get_all_runs())))
 
