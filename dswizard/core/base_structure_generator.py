@@ -10,7 +10,6 @@ from dswizard.core.model import Dataset
 from dswizard.util import util
 
 if TYPE_CHECKING:
-    from dswizard.core.meta_features import MetaFeatures
     from dswizard.core.model import CandidateStructure, Result
 
 
@@ -21,7 +20,7 @@ class BaseStructureGenerator(abc.ABC):
     complex empirical prediction models for promising structures.
     """
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger = None, **kwargs):
         """
         :param logger: for some debug output
         """

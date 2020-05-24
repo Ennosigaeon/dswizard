@@ -11,8 +11,8 @@ from dswizard.core.model import Dataset
 
 class FixedStructure(BaseStructureGenerator):
 
-    def __init__(self, steps: List[Tuple[str, EstimatorComponent]]):
-        super().__init__()
+    def __init__(self, steps: List[Tuple[str, EstimatorComponent]], **kwargs):
+        super().__init__(**kwargs)
         self.configspace = ConfigurationSpace()
 
         for step, task in steps:

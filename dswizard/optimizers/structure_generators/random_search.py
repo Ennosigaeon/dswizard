@@ -20,8 +20,9 @@ class RandomStructureGenerator(BaseStructureGenerator):
     # noinspection PyProtectedMember
     def __init__(self,
                  max_depth: int = 10,
-                 include_basic_estimators: bool = False):
-        super().__init__()
+                 include_basic_estimators: bool = False,
+                 **kwargs):
+        super().__init__(**kwargs)
 
         self.max_depth = max_depth
 
