@@ -33,7 +33,7 @@ parser.add_argument('--max_budget', type=float, help='Maximum budget used during
 parser.add_argument('--n_configs', type=float, help='Number of configurations to test on a single structure', default=1)
 parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation in seconds', default=60)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
-parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='../logs/')
+parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/logs/')
 args = parser.parse_args()
 
 # Load dataset
