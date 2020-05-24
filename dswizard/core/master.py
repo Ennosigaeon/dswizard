@@ -12,12 +12,14 @@ from typing import Type, TYPE_CHECKING
 import math
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 
+from core.base_structure_generator import BaseStructureGenerator
 from core.dispatcher import Dispatcher
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
+from optimizers.structure_generators.mcts import MCTS
 from workers import SklearnWorker
 
 if TYPE_CHECKING:
@@ -40,6 +42,9 @@ class Master:
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
                  config_generator_kwargs: dict = None,
 
+                 structure_generator_class: Type[BaseStructureGenerator] = MCTS,
+                 structure_generator_kwargs: dict = None,
+
                  bandit_learner_class: Type[BanditLearner] = HyperbandLearner,
                  bandit_learner_kwargs: dict = None
                  ):
@@ -58,10 +63,11 @@ class Master:
             bandit_learner_kwargs = {}
         if config_generator_kwargs is None:
             config_generator_kwargs = {}
+        if structure_generator_kwargs is None:
+            structure_generator_kwargs = {}
 
         self.working_directory = os.path.join(working_directory, run_id)
         os.makedirs(self.working_directory, exist_ok=True)
-
         if 'working_directory' not in config_generator_kwargs:
             config_generator_kwargs['working_directory'] = self.working_directory
 
@@ -84,16 +90,18 @@ class Master:
                                                       init_kwargs=config_generator_kwargs,
                                                       run_id=run_id)
 
+        if 'structure_generator' not in bandit_learner_kwargs:
+            bandit_learner_kwargs['structure_generator'] = structure_generator_class(**structure_generator_kwargs)
+        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
+
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         worker = []
         for i in range(n_workers):
             worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache,
                                        workdir=self.working_directory))
+
         self.dispatcher = Dispatcher(worker, self.job_callback, run_id=run_id)
-
-        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
-
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
 

@@ -41,16 +41,11 @@ X, y = datasets.load_digits(return_X_y=True)
 X, y = sklearn.utils.shuffle(X, y)
 ds = Dataset(X, y)
 
-# Instantiate optimizer
-
 steps = [
     ('1', DataPreprocessorChoice()),
     ('2', FeaturePreprocessorChoice()),
     ('3', DecisionTree())
 ]
-structure_generator = FixedStructure(steps)
-
-# structure_generator = MCTS()
 
 master = Master(
     run_id=args.run_id,
@@ -59,9 +54,11 @@ master = Master(
 
     config_generator_class=Hyperopt,
 
+    structure_generator_class=FixedStructure,
+    structure_generator_kwargs={'steps': steps},
+
     bandit_learner_class=HyperbandLearner,
-    bandit_learner_kwargs={'structure_generator': structure_generator,
-                           'min_budget': args.min_budget,
+    bandit_learner_kwargs={'min_budget': args.min_budget,
                            'max_budget': args.max_budget}
 )
 
