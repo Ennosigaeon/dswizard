@@ -1,9 +1,9 @@
-import math
 import random
 from abc import ABC
 from copy import deepcopy
 from typing import List, Optional, Set, Tuple, Type
 
+import math
 import networkx as nx
 import numpy as np
 from sklearn.base import is_classifier
@@ -12,9 +12,9 @@ from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
 from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
+from core.worker import Worker
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.meta_features import MetaFeatures
 from dswizard.core.model import CandidateStructure, Dataset
 from dswizard.core.model import Result
 
@@ -50,38 +50,41 @@ class Node(ABC):
 
     def __init__(self,
                  id: int,
-                 estimator: Optional[EstimatorComponent],
+                 ds: Optional[Dataset],
+                 estimator: Optional[Type[EstimatorComponent]],
                  pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None
                  ):
         self.id = id
-        self.estimator = estimator
+        self.ds = ds
+
         if estimator is None:
-            self.label = ''
+            self.label = 'ROOT'
+            self.estimator = None
         else:
-            self.label = estimator.name()
+            self.estimator = estimator()
+            self.label = self.estimator.name()
 
         if pipeline_prefix is None:
             pipeline_prefix = []
         else:
             pipeline_prefix = deepcopy(pipeline_prefix)
             # TODO check if also add if pipeline_prefix is None
-            pipeline_prefix.append((str(id), estimator))
+            pipeline_prefix.append((str(id), self.estimator))
         self.steps: List[Tuple[str, EstimatorComponent]] = pipeline_prefix
 
         self.visits = 0
         self.reward = 0
 
     def is_terminal(self):
-        return self.label == ClassifierChoice.name()
+        return is_classifier(self.estimator)
 
     # noinspection PyMethodMayBeStatic
-    def all_available_actions(self) -> Set[EstimatorComponent]:
-        return {
-            ClassifierChoice(),
-            DataPreprocessorChoice(),
-            FeaturePreprocessorChoice(),
-            # SubPipeline.name()
-        }
+    def all_available_actions(self) -> Set[Type[EstimatorComponent]]:
+        components = set()
+        components.update(ClassifierChoice().get_components().values())
+        components.update(DataPreprocessorChoice().get_components().values())
+        components.update(FeaturePreprocessorChoice().get_components().values())
+        return components
 
     def __hash__(self) -> int:
         return self.id
@@ -93,10 +96,10 @@ class Node(ABC):
 class Tree:
     ROOT: int = 0
 
-    def __init__(self):
+    def __init__(self, ds: Dataset):
         self.G = nx.DiGraph()
         self.id_count = -1
-        self.add_node(None)
+        self.add_node(None, ds)
 
         self.coef_progressive_widening = 0.6020599913279623
 
@@ -105,10 +108,11 @@ class Tree:
         return self.id_count
 
     def add_node(self,
-                 estimator: Optional[EstimatorComponent],
+                 estimator: Optional[Type[EstimatorComponent]],
+                 ds: Optional[Dataset],
                  parent_node: Node = None) -> Node:
         new_id = self.get_new_id()
-        node = Node(new_id, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
+        node = Node(new_id, ds, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
 
         self.G.add_node(new_id, value=node, label=node.label)
         if parent_node is not None:
@@ -149,11 +153,13 @@ class Tree:
 
 class Policy:
 
+    # TODO include meta-learning here
+
     def __init__(self, exploration_weight: float = 2):
         self.exploration_weight = exploration_weight
 
     # noinspection PyMethodMayBeStatic
-    def get_next_action(self, n: Node, current_children: List[Node]) -> Optional[EstimatorComponent]:
+    def get_next_action(self, n: Node, current_children: List[Node]) -> Optional[Type[EstimatorComponent]]:
         actions = n.all_available_actions()
         exhausted_actions = [n.estimator for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
@@ -164,7 +170,10 @@ class Policy:
 
     def uct(self, node: Node, tree: Tree) -> Node:
         """Select a child of node, balancing exploration & exploitation"""
-        log_N_vertex = math.log(node.visits)
+        if node.visits == 0:
+            log_N_vertex = 0
+        else:
+            log_N_vertex = math.log(node.visits)
 
         def uct(n: Node):
             """Upper confidence bound for trees"""
@@ -181,20 +190,28 @@ class Policy:
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, worker: Worker, **kwargs):
         super().__init__(**kwargs)
-        self.tree = Tree()
+        self.worker = worker
+        self.tree: Optional[Tree] = None
         self.policy = Policy()
 
     def get_candidate(self, ds: Dataset) -> CandidateStructure:
+        # Initialize tree if not exists
+        if self.tree is None:
+            self.tree = Tree(ds)
+
         # traverse from root to a leaf node
+        self.logger.debug('MCTS SELECT')
         path = self._select()
 
         # expand last node in path if possible
+        self.logger.debug('MCTS EXPAND')
         expansion = self._expand(path[-1])
         if expansion is not None:
             path.append(expansion)
 
+        self.logger.debug('MCTS SIMULATE')
         for i in range(10):
             node = self._simulate(path)
             if node is not None:
@@ -204,9 +221,78 @@ class MCTS(BaseStructureGenerator):
                 'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
                     ', '.join([n.label for n in path])))
 
+        print(node.steps)
         pipeline = FlexiblePipeline(node.steps)
 
         return CandidateStructure(pipeline.configuration_space, pipeline)
+
+    def _select(self) -> List[Node]:
+        """Find an unexplored descendent of `node`"""
+
+        path: List[Node] = []
+        node = self.tree.get_node(Tree.ROOT)
+        while True:
+            self.logger.debug('\tSelecting {}'.format(node.label))
+            path.append(node)
+
+            if not self.tree.fully_expanded(node):
+                return path
+
+            # node is terminal
+            if len(self.tree.get_children(node.id)) == 0:
+                return path
+
+            node = self.policy.uct(node, self.tree)  # descend a layer deeper
+
+    def _expand(self, node: Node) -> Optional[Node]:
+        if self.tree.fully_expanded(node):
+            return None
+
+        n_actions = len(node.all_available_actions())
+        n_children = len(self.tree.get_children(node.id))
+        while n_children < n_actions:
+            current_children = self.tree.get_children(node.id)
+            action = self.policy.get_next_action(node, current_children)
+            self.logger.debug('\tExpanding with {}. Option {}/{}'.format(action().name(), n_children + 1, n_actions))
+
+            try:
+                component = action()
+                self.logger.debug('\tFitting with default ')
+                # TODO calculate score for classifiers and pass to config generators
+                X = self.worker.transform_dataset(node.ds,
+                                                  component.get_hyperparameter_search_space().get_default_configuration(),
+                                                  component)
+                ds = Dataset(X, node.ds.y)
+                # TODO validate that transformation was really successful
+
+                return self.tree.add_node(estimator=action, ds=ds, parent_node=node)
+            except KeyboardInterrupt:
+                raise
+            except Exception as ex:
+                self.logger.debug('\t{} failed with {}'.format(action().name(), ex))
+                new_child = self.tree.add_node(estimator=action, ds=None, parent_node=node)
+                self._backpropagate([key for key, values in new_child.steps], np.inf)
+
+                n_children += 1
+
+    # noinspection PyMethodMayBeStatic
+    def _simulate(self, path: List[Node], max_depths: int = 3) -> Optional[Node]:
+        """Returns the reward for a random simulation (to completion) of `node`"""
+        node = path[-1]
+        for i in range(max_depths):
+            if node.is_terminal():
+                return node
+
+            # TODO use meta-learning
+            # TODO always select classifier as last step
+            action = self.policy.get_next_action(node, [])
+            if action is None:
+                break
+
+            node = Node(id=-(i + 1), ds=None, estimator=action, pipeline_prefix=node.steps)
+
+        self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
+        return None
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
@@ -218,6 +304,20 @@ class MCTS(BaseStructureGenerator):
             reward = np.inf
 
         self._backpropagate(candidate.pipeline.steps_.keys(), reward)
+
+    # noinspection PyMethodMayBeStatic
+    def _backpropagate(self, path: List[str], reward: float) -> None:
+        """Send the reward back up to the ancestors of the leaf"""
+        # Also update root node
+
+        ls = list(path)
+        ls.append('0')
+        for name in ls:
+            id = int(name)
+            if id >= 0:
+                n = self.tree.get_node(id)
+                n.visits += 1
+                n.reward += reward
 
     def choose(self, node: Node = None):
         """Choose the best successor of node. (Choose a move in the game)"""
@@ -234,60 +334,3 @@ class MCTS(BaseStructureGenerator):
             return n.reward / n.visits  # average reward
 
         return min(children, key=score)
-
-    def _select(self) -> List[Node]:
-        """Find an unexplored descendent of `node`"""
-
-        path: List[Node] = []
-        node = self.tree.get_node(Tree.ROOT)
-        while True:
-            path.append(node)
-
-            if not self.tree.fully_expanded(node):
-                return path
-
-            # node is terminal
-            if len(self.tree.get_children(node.id)) == 0:
-                return path
-
-            node = self.policy.uct(node, self.tree)  # descend a layer deeper
-
-    def _expand(self, node: Node) -> Optional[Node]:
-        if self.tree.fully_expanded(node):
-            return None
-
-        current_children = self.tree.get_children(node.id)
-        action = self.policy.get_next_action(node, current_children)
-
-        return self.tree.add_node(estimator=action, parent_node=node)
-
-    # noinspection PyMethodMayBeStatic
-    def _simulate(self, path: List[Node], max_depths: int = 10) -> Optional[Node]:
-        """Returns the reward for a random simulation (to completion) of `node`"""
-        node = path[-1]
-        for i in range(max_depths):
-            if node.is_terminal():
-                return node
-
-            action = self.policy.get_next_action(node, [])
-            if action is None:
-                break
-
-            node = Node(id=-(i + 1), estimator=action, pipeline_prefix=node.steps)
-
-        self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
-        return None
-
-    # noinspection PyMethodMayBeStatic
-    def _backpropagate(self, path: List[str], reward: float) -> None:
-        """Send the reward back up to the ancestors of the leaf"""
-        # Also update root node
-
-        ls = list(path)
-        ls.append('0')
-        for name in ls:
-            id = int(name)
-            if id >= 0:
-                n = self.tree.get_node(id)
-                n.visits += 1
-                n.reward += reward

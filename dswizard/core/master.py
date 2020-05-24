@@ -90,6 +90,9 @@ class Master:
                                                       init_kwargs=config_generator_kwargs,
                                                       run_id=run_id)
 
+        if 'worker' not in structure_generator_kwargs:
+            structure_generator_kwargs['worker'] = worker_class(run_id=run_id, wid='structure',
+                                                                workdir=self.working_directory)
         if 'structure_generator' not in bandit_learner_kwargs:
             bandit_learner_kwargs['structure_generator'] = structure_generator_class(**structure_generator_kwargs)
         self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)

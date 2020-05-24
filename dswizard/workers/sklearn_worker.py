@@ -7,6 +7,7 @@ from ConfigSpace import Configuration
 from sklearn import clone
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
+from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import CandidateId, Runtime, Dataset
@@ -86,3 +87,8 @@ class SklearnWorker(Worker):
         except Exception as ex:
             self.logger.error('Invalid name with config {}'.format(conf))
             raise ex
+
+    def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent):
+        component.set_hyperparameters(config.get_dictionary())
+        X = component.fit(ds.X, ds.y).transform(ds.X)
+        return X

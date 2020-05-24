@@ -6,7 +6,6 @@ import logging
 import os
 import socket
 import threading
-import traceback
 from typing import Optional, TYPE_CHECKING, Tuple
 
 import numpy as np
@@ -18,6 +17,7 @@ from sklearn.utils import indexable
 from sklearn.utils.validation import _num_samples
 
 import pynisher2
+from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
@@ -176,6 +176,41 @@ class Worker(abc.ABC):
         :param pipeline: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         """
+        pass
+
+    def start_transform_dataset(self,
+                                callback: Dispatcher,
+                                job: Job) -> Optional[np.ndarray]:
+        with self.thread_cond:
+            while self.busy:
+                self.thread_cond.wait()
+            self.busy = True
+
+        self.logger.info('start processing job {} with estimator {}'.format(job.cid, job.cs))
+        X = None
+        try:
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.transform_dataset)
+            X = wrapper(job.ds, job.config, self.cfg_cache, job.pipeline, job.budget, **job.kwargs)
+
+            if wrapper.exit_status == 0 and X is not None:
+                X = X
+        except KeyboardInterrupt:
+            raise
+        except Exception as ex:
+            # Should never occur, just a safety net
+            self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
+        finally:
+            with self.thread_cond:
+                self.busy = False
+                callback.register_transformation_result(job.cid, X)
+                self.thread_cond.notify()
+        return X
+
+    @abc.abstractmethod
+    def transform_dataset(self,
+                          ds: Dataset,
+                          config: Configuration,
+                          component: EstimatorComponent):
         pass
 
     def is_busy(self) -> bool:

@@ -54,8 +54,8 @@ master = Master(
 
     config_generator_class=Hyperopt,
 
-    structure_generator_class=FixedStructure,
-    structure_generator_kwargs={'steps': steps},
+    # structure_generator_class=FixedStructure,
+    # structure_generator_kwargs={'steps': steps},
 
     bandit_learner_class=HyperbandLearner,
     bandit_learner_kwargs={'min_budget': args.min_budget,

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Optional, Dict, List, TYPE_CHECKING, Tuple
+from typing import Optional, Dict, List, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
+from automl.components.base import EstimatorComponent
 
 from dswizard.core.meta_features import MetaFeatureFactory
 
@@ -188,7 +189,7 @@ class Job:
     def __init__(self,
                  ds: Dataset,
                  candidate_id: CandidateId,
-                 cs: CandidateStructure,
+                 cs: Union[CandidateStructure, EstimatorComponent],
                  timeout: float = None,
                  config: Optional[Configuration] = None,
                  cfg_key: Optional[Tuple[float, int]] = None,
