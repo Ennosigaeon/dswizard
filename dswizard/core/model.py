@@ -127,12 +127,10 @@ class CandidateStructure:
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
                  budget: float = 1,
-                 timeout: int = None,
                  model_based_pick: bool = False):
         self.configspace = configspace
         self.pipeline = pipeline
         self.budget = budget
-        self.timeout = timeout
         self.model_based_pick = model_based_pick
 
         # noinspection PyTypeChecker
@@ -160,7 +158,6 @@ class CandidateStructure:
             'configspace': config_json.write(self.configspace),
             'pipeline': self.pipeline.as_list(),
             'budget': self.budget,
-            'timeout': self.timeout,
             'model_based_pick': self.model_based_pick,
             'cid': self.cid.as_tuple(),
             'status': self.status,
@@ -175,7 +172,7 @@ class CandidateStructure:
         # FlexiblePipeline.from_list(raw['pipeline'])
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None,
-                                raw['budget'], raw['timeout'], raw['model_based_pick'])
+                                raw['budget'], raw['model_based_pick'])
         cs.cid = CandidateId(*raw['cid'])
         cs.status = raw['status']
         # cs.results = {k: [Result.from_dict(res) for res in v] for k, v in raw['results'].items()},
@@ -189,12 +186,14 @@ class Job:
                  ds: Dataset,
                  candidate_id: CandidateId,
                  cs: CandidateStructure,
+                 timeout: float = None,
                  config: Optional[Configuration] = None,
                  cfg_key: Optional[Tuple[float, int]] = None,
                  **kwargs):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
+        self.timeout = timeout
         self.config = config
         self.cfg_key = cfg_key
 
@@ -214,10 +213,6 @@ class Job:
     @property
     def budget(self) -> float:
         return self.cs.budget
-
-    @property
-    def timeout(self) -> float:
-        return self.cs.timeout
 
 
 class Dataset:

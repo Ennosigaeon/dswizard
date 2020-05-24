@@ -18,7 +18,6 @@ class SuccessiveResampling(BaseIteration):
                  iteration: int,
                  num_candidates: List[int],
                  budgets: List[float],
-                 timeout: float = None,
                  structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
@@ -36,7 +35,7 @@ class SuccessiveResampling(BaseIteration):
         :param kwargs:
         """
 
-        super().__init__(iteration, num_candidates, budgets, timeout, structure_generator, logger, result_logger)
+        super().__init__(iteration, num_candidates, budgets, structure_generator, logger, result_logger)
         self.resampling_rate = resampling_rate
         self.min_samples_advance = min_samples_advance
 

@@ -128,7 +128,7 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        for candidate, iteration in self.bandit_learner.next_candidate(ds.meta_features, {'timeout': timeout}):
+        for candidate, iteration in self.bandit_learner.next_candidate(ds.meta_features):
             # Optimize hyperparameters
             for i in range(n_configs):
                 config_id = candidate.cid.with_config(i)
@@ -136,9 +136,9 @@ class Master:
                     config, cfg_key = self.cfg_cache.sample_configuration(candidate.budget,
                                                                           candidate.pipeline.configuration_space,
                                                                           ds.meta_features)
-                    job = Job(ds, config_id, candidate, config, cfg_key)
+                    job = Job(ds, config_id, candidate, timeout, config, cfg_key)
                 else:
-                    job = Job(ds, config_id, candidate, None)
+                    job = Job(ds, config_id, candidate, timeout, None)
                 self.dispatcher.submit_job(job)
 
         end = time.time()

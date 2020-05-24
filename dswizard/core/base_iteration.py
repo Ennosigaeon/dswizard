@@ -26,7 +26,6 @@ class BaseIteration(abc.ABC):
                  iteration: int,
                  num_candidates: List[int],
                  budgets: List[float],
-                 timeout: float = None,
                  structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
@@ -35,7 +34,6 @@ class BaseIteration(abc.ABC):
         :param iteration: The current Hyperband iteration index.
         :param num_candidates: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
-        :param timeout: the maximum timeout for evaluating a single configuration
         :param structure_generator: a function that returns a valid configuration. Its only argument should be the budget
             that this config is first scheduled for. This might be used to pick configurations that perform best after
             this particular budget is exhausted to build a better autoML system.
@@ -48,7 +46,6 @@ class BaseIteration(abc.ABC):
         self.iteration = iteration
         self.stage = 0  # internal iteration, but different name for clarity
         self.budgets = budgets
-        self.timeout = timeout
         self.num_candidates = num_candidates
         self.actual_num_candidates = [0] * len(num_candidates)
         self.structure_generator = structure_generator
@@ -125,9 +122,6 @@ class BaseIteration(abc.ABC):
                                                                                                  self.iteration))
 
         candidate = self.structure_generator.get_candidate(mf)
-
-        # maybe adapt timeout based on current stage
-        candidate.timeout = self.timeout
         candidate.budget = self.budgets[self.stage]
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
