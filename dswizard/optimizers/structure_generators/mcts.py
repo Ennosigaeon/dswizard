@@ -1,11 +1,12 @@
+import math
 import random
 from abc import ABC
 from copy import deepcopy
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Type
 
-import math
 import networkx as nx
 import numpy as np
+from sklearn.base import is_classifier
 
 from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
@@ -14,7 +15,7 @@ from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.meta_features import MetaFeatures
-from dswizard.core.model import CandidateStructure
+from dswizard.core.model import CandidateStructure, Dataset
 from dswizard.core.model import Result
 
 
@@ -185,7 +186,7 @@ class MCTS(BaseStructureGenerator):
         self.tree = Tree()
         self.policy = Policy()
 
-    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset) -> CandidateStructure:
         # traverse from root to a leaf node
         path = self._select()
 

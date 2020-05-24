@@ -11,8 +11,7 @@ from dswizard.core.model import CandidateId
 if TYPE_CHECKING:
     from dswizard.core.base_structure_generator import BaseStructureGenerator
     from dswizard.core.logger import JsonResultLogger
-    from dswizard.core.meta_features import MetaFeatures
-    from dswizard.core.model import CandidateStructure
+    from dswizard.core.model import CandidateStructure, Dataset
 
 
 class BaseIteration(abc.ABC):
@@ -69,7 +68,7 @@ class BaseIteration(abc.ABC):
         cs.status = 'REVIEW'
         self.num_running -= 1
 
-    def get_next_candidate(self, mf: MetaFeatures) -> Optional[CandidateStructure]:
+    def get_next_candidate(self, ds: Dataset) -> Optional[CandidateStructure]:
         """
         function to return the next configuration and budget to run.
 
@@ -78,7 +77,7 @@ class BaseIteration(abc.ABC):
 
         If there are empty slots to be filled in the current SH stage (which never happens in the original SH version),
         a new configuration will be sampled and scheduled to run next.
-        :param mf: meta-features of the data set
+        :param ds:
         :return: Tuple with ConfigId and Datum
         """
 
@@ -96,7 +95,7 @@ class BaseIteration(abc.ABC):
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
-            candidate = self._add_candidate(mf)
+            candidate = self._add_candidate(ds)
             candidate.status = 'RUNNING'
             self.num_running += 1
             return candidate
@@ -104,14 +103,14 @@ class BaseIteration(abc.ABC):
             # at this point a stage is completed
             self.logger.debug('Stage {} completed'.format(self.stage))
             self._finish_stage()
-            return self.get_next_candidate(mf)
+            return self.get_next_candidate(ds)
         else:
             return None
 
-    def _add_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def _add_candidate(self, ds: Dataset) -> CandidateStructure:
         """
         function to add a new configuration to the current iteration
-        :param mf:
+        :param ds:
         :return: The id of the new configuration
         """
         if self.is_finished:
@@ -121,7 +120,7 @@ class BaseIteration(abc.ABC):
             raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
                                                                                                  self.iteration))
 
-        candidate = self.structure_generator.get_candidate(mf)
+        candidate = self.structure_generator.get_candidate(ds)
         candidate.budget = self.budgets[self.stage]
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])

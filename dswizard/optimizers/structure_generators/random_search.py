@@ -1,7 +1,7 @@
+import math
 import random
 from typing import Tuple, List
 
-import math
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 
@@ -12,8 +12,7 @@ from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.components.pipeline import FlexiblePipeline, SubPipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.meta_features import MetaFeatures
-from dswizard.core.model import CandidateStructure
+from dswizard.core.model import CandidateStructure, Dataset
 
 
 class RandomStructureGenerator(BaseStructureGenerator):
@@ -45,7 +44,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
         return max(min(self.max_depth, r), n_min)
 
-    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset) -> CandidateStructure:
         attempts = 1
         while True:
             try:

@@ -128,7 +128,7 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        for candidate, iteration in self.bandit_learner.next_candidate(ds.meta_features):
+        for candidate, iteration in self.bandit_learner.next_candidate(ds):
             # Optimize hyperparameters
             for i in range(n_configs):
                 config_id = candidate.cid.with_config(i)

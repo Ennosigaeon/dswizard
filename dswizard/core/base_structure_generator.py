@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from automl.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
+from dswizard.core.model import Dataset
 from dswizard.util import util
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class BaseStructureGenerator(abc.ABC):
             self.logger = logger
 
     @abc.abstractmethod
-    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset) -> CandidateStructure:
         """
         Sample a ConfigurationSpace and according Structure tuple
 

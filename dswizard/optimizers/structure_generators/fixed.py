@@ -5,8 +5,8 @@ from ConfigSpace.configuration_space import ConfigurationSpace
 from automl.components.base import ComponentChoice, EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.meta_features import MetaFeatures
 from dswizard.core.model import CandidateStructure
+from dswizard.core.model import Dataset
 
 
 class FixedStructure(BaseStructureGenerator):
@@ -24,5 +24,5 @@ class FixedStructure(BaseStructureGenerator):
 
         self.pipeline = FlexiblePipeline(steps)
 
-    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset) -> CandidateStructure:
         return CandidateStructure(self.configspace, self.pipeline, model_based_pick=False)
