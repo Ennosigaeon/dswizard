@@ -214,7 +214,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         estimator = self.get_step(name)
 
         if isinstance(estimator, SubPipeline):
-            config, idx = ConfigurationSpace().get_default_configuration(), 0
+            config, cfg_key = ConfigurationSpace().get_default_configuration(), (0, 0)
         else:
             cs = estimator.get_hyperparameter_search_space(mf=meta_features)
             config, cfg_key = self.cfg_cache.sample_configuration(budget=budget, configspace=cs,
