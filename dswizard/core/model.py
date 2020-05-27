@@ -141,21 +141,19 @@ class CandidateStructure:
         self.cid: CandidateId = None
         self.status: str = 'QUEUED'
 
-        self.results: Dict[float, List[Result]] = {}
+        self.results: List[Result] = []
         self.timestamps: Dict[str, float] = {}
 
     def time_it(self, which_time: str) -> None:
         self.timestamps[which_time] = time.time()
 
-    def get_incumbent(self, budget: float = None) -> Result:
-        if budget is None:
-            budget = max(self.results.keys())
-        return min(self.results[budget], key=lambda res: res.loss)
+    def get_incumbent(self) -> Optional[Result]:
+        if len(self.results) == 0:
+            return None
+        return min(self.results, key=lambda res: res.loss)
 
-    def add_result(self, result: Result, budget: float = None):
-        if budget is None:
-            budget = self.budget
-        self.results.setdefault(budget, []).append(result)
+    def add_result(self, result: Result):
+        self.results.append(result)
 
     def as_dict(self):
         return {
@@ -165,7 +163,7 @@ class CandidateStructure:
             'model_based_pick': self.model_based_pick,
             'cid': self.cid.as_tuple(),
             'status': self.status,
-            'results': {k: [res.as_dict() for res in v] for k, v in self.results.items()},
+            'results': [res.as_dict() for res in self.results],
             'timestamps': self.timestamps
         }
 
@@ -179,7 +177,7 @@ class CandidateStructure:
                                 raw['budget'], raw['model_based_pick'])
         cs.cid = CandidateId(*raw['cid'])
         cs.status = raw['status']
-        # cs.results = {k: [Result.from_dict(res) for res in v] for k, v in raw['results'].items()},
+        cs.results = [Result.from_dict(res) for res in raw['results']],
         cs.timestamps = raw['timestamps']
         return cs
 
@@ -213,10 +211,6 @@ class Job:
     @property
     def pipeline(self) -> FlexiblePipeline:
         return self.cs.pipeline
-
-    @property
-    def budget(self) -> float:
-        return self.cs.budget
 
 
 class Dataset:

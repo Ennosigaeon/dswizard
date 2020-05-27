@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+from collections import ChainMap
 from typing import List, Dict, Optional
 
 from ConfigSpace import Configuration
@@ -19,18 +20,7 @@ class RunHistory:
                  data: List[Dict[CandidateId, CandidateStructure]],
                  algorithm_config: dict):
         self.HB_config = algorithm_config
-        self.data = self._merge_results(data)
-
-    @staticmethod
-    def _merge_results(data: List[Dict[CandidateId, CandidateStructure]]) -> Dict[CandidateId, CandidateStructure]:
-        """
-        protected function to merge the list of results into one dictionary and 'normalize' the time stamps
-        """
-        new_dict = {}
-        for it in data:
-            new_dict.update(it)
-
-        return new_dict
+        self.data: Dict[CandidateId, CandidateStructure] = dict(ChainMap(*data))
 
     def __getitem__(self, k):
         return self.data[k]
@@ -46,9 +36,9 @@ class RunHistory:
         for k, v in self.data.items():
             try:
                 # only things run for the max budget are considered
-                res = v.results[self.HB_config['max_budget']]
-                if res is not None:
-                    tmp_list.append((min([r.loss for r in res]), k))
+                inc = v.get_incumbent()
+                if inc is not None:
+                    tmp_list.append((inc.loss, k))
             except KeyError:
                 pass
 
@@ -59,36 +49,20 @@ class RunHistory:
     def get_runs_by_id(self, config_id: CandidateId) -> List[Result]:
         """
         returns a list of runs for a given config id
-
-        The runs are sorted by ascending budget, so '-1' will give the longest run for this config.
         """
         d = self.data[config_id]
+        if d is None:
+            return []
+        return d.results
 
-        runs = []
-        for budget in d.results.keys():
-            for result in d.results.get(budget, []):
-                runs.append(result)
-        return runs
-
-    def get_all_runs(self, only_largest_budget: bool = False) -> List[Result]:
+    def get_all_runs(self, ) -> List[Result]:
         """
         returns all runs performed
-        :param only_largest_budget: if True, only the largest budget for each configuration is returned. This makes
-            sense if the runs are continued across budgets and the info field contains the information you care about.
-            If False, all runs of a configuration are returned
         :return:
         """
         all_runs = []
-
         for k in self.data.keys():
-            runs = self.get_runs_by_id(k)
-
-            if len(runs) > 0:
-                if only_largest_budget:
-                    all_runs.append(runs[-1])
-                else:
-                    all_runs.extend(runs)
-
+            all_runs.append(self.get_runs_by_id(k))
         return all_runs
 
     def get_id2config_mapping(self) -> Dict[CandidateId, CandidateStructure]:
@@ -123,14 +97,17 @@ def logged_results_to_runhistory(directory: str) -> RunHistory:
 
     with open(os.path.join(directory, 'results.json')) as fh:
         for line in fh:
-            config_id, budget, result, exception = json.loads(line)
+            config_id, result, exception = json.loads(line)
+
+            # TODO budget is not logged anymore
+            budget = 0
 
             cid = CandidateId(*config_id).without_config()
 
             if result is not None:
                 res = Result(result.get('status'), Configuration(data[cid].configspace, result.get('config')),
                              result.get('steps'), result.get('loss'), result.get('runtime'))
-                data[cid].add_result(res, budget)
+                data[cid].add_result(res)
                 budget_set.add(budget)
 
         # infer the hyperband configuration from the data

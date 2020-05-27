@@ -28,14 +28,11 @@ class SklearnWorker(Worker):
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
                 pipeline: FlexiblePipeline,
-                budget: float,
                 n_folds: int = 4) -> Tuple[float, Runtime]:
         start = timeit.default_timer()
 
-        # Only use budget-percent
-        n = math.ceil(len(ds.X) * budget)
-        X = ds.X[:n]
-        y = ds.y[:n]
+        X = ds.X
+        y = ds.y
 
         if config is not None:
             pipeline.set_hyperparameters(config.get_dictionary())
@@ -43,12 +40,12 @@ class SklearnWorker(Worker):
             # Derive configuration on complete data set. Test performance via CV
             cloned_pipeline = clone(pipeline)
             cloned_pipeline.cfg_cache = cfg_cache
-            cloned_pipeline.fit(X, y, budget=budget, logger=self.process_logger)
+            cloned_pipeline.fit(X, y, logger=self.process_logger)
             config = self.process_logger.get_config(cloned_pipeline)
             pipeline.set_hyperparameters(config.get_dictionary())
 
         try:
-            y_pred = self._cross_val_predict(pipeline, X, y, cv=min(n_folds, n))
+            y_pred = self._cross_val_predict(pipeline, X, y, cv=n_folds)
         except Exception as ex:
             self.logger.exception(ex)
             raise ex

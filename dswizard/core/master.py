@@ -117,13 +117,11 @@ class Master:
 
     # TODO Multiple calls to optimize do not work. State of previous dataset is stored
     def optimize(self, ds: Dataset,
-                 n_configs: int = 1,
                  timeout: int = None,
                  pre_sample: bool = True) -> RunHistory:
         """
         run optimization
         :param ds:
-        :param n_configs:
         :param timeout:
         :param pre_sample:
         :return:
@@ -144,11 +142,11 @@ class Master:
         # Main hyperparamter optimization logic
         for candidate, iteration in self.bandit_learner.next_candidate(ds):
             # Optimize hyperparameters
+            n_configs = int(candidate.budget)
             for i in range(n_configs):
                 config_id = candidate.cid.with_config(i)
                 if pre_sample:
-                    config, cfg_key = self.cfg_cache.sample_configuration(candidate.budget,
-                                                                          candidate.pipeline.configuration_space,
+                    config, cfg_key = self.cfg_cache.sample_configuration(candidate.pipeline.configuration_space,
                                                                           ds.meta_features)
                     job = Job(ds, config_id, candidate, timeout, config, cfg_key)
                 else:
@@ -159,7 +157,6 @@ class Master:
         self.meta_data['end'] = end
         self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
 
-        # TODO runhistory does not contain useful information yet
         return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
                           {**self.meta_data, **self.bandit_learner.meta_data})
 

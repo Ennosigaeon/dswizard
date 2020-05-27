@@ -157,9 +157,8 @@ class BaseIteration(abc.ABC):
         budgets = [self.data[cid].budget for cid in candidate_ids]
         if len(set(budgets)) > 1:
             raise RuntimeError('Not all configurations have the same budget!')
-        budget = self.budgets[self.stage - 1]
 
-        losses = np.array([self.data[cid].get_incumbent(budget).loss for cid in candidate_ids])
+        losses = np.array([self.data[cid].get_incumbent().loss for cid in candidate_ids])
         advance = self._advance_to_next_stage(losses)
 
         for i, cid in enumerate(candidate_ids):

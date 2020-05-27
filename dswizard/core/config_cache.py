@@ -49,10 +49,9 @@ class ConfigCache:
 
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
-    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, mf: MetaFeatures,
+    def get_config_generator(self, configspace: ConfigurationSpace, mf: MetaFeatures,
                              max_distance: float = 1, **kwargs) -> Tuple[BaseConfigGenerator, Tuple[float, int]]:
-        # Use a combined hash key of configspace and budget
-        hash_key = hash(configspace) + budget
+        hash_key = hash(configspace)
         if hash_key not in self.cache:
             self.cache[hash_key] = ConfigCache.Entry()
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
@@ -68,9 +67,9 @@ class ConfigCache:
             cg, idx = self.cache[hash_key].add(mf, cg)
             return cg, (hash_key, idx)
 
-    def sample_configuration(self, budget: float, configspace: ConfigurationSpace, mf: np.ndarray,
+    def sample_configuration(self, configspace: ConfigurationSpace, mf: np.ndarray,
                              max_distance: float = 1, **kwargs) -> Tuple[Configuration, Tuple[float, int]]:
-        cg, key = self.get_config_generator(budget, configspace, mf, max_distance, **kwargs)
+        cg, key = self.get_config_generator(configspace, mf, max_distance, **kwargs)
         return cg.sample_config(), key
 
     # noinspection PyUnresolvedReferences

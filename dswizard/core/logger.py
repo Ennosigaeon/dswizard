@@ -80,7 +80,7 @@ class JsonResultLogger:
                 fh.write('\n')
         with open(self.results_fn, 'a') as fh:
             fh.write(
-                json.dumps([job.cid.as_tuple(), job.budget, job.result.as_dict() if job.result is not None else None])
+                json.dumps([job.cid.as_tuple(), job.result.as_dict() if job.result is not None else None])
             )
             fh.write("\n")
 

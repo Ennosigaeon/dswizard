@@ -28,8 +28,8 @@ logging.basicConfig(level=logging.INFO,
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
-parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=0.1)
-parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=1)
+parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=1)
+parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=10)
 parser.add_argument('--n_configs', type=float, help='Number of configurations to test on a single structure', default=1)
 parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation in seconds', default=60)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
