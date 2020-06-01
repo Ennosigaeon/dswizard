@@ -117,20 +117,45 @@ class Master:
 
     # TODO Multiple calls to optimize do not work. State of previous dataset is stored
     def optimize(self, ds: Dataset,
-                 timeout: int = None,
+                 wallclock_limit: int = 60,
+                 cutoff: int = None,
                  pre_sample: bool = True) -> RunHistory:
         """
         run optimization
         :param ds:
-        :param timeout:
+        :param wallclock_limit:
+        :param cutoff:
         :param pre_sample:
         :return:
         """
 
         start = time.time()
         self.meta_data['start'] = start
-        self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
-                                                                   time.localtime(start))))
+        self.logger.info('starting run at {}. Configuration:\n'
+                         '\twallclock_limit: {}\n'
+                         '\tcutoff: {}\n'
+                         '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(start)),
+                                                   wallclock_limit, cutoff, pre_sample))
+
+        def _optimize() -> bool:
+            for candidate, iteration in self.bandit_learner.next_candidate(ds):
+                # Optimize hyperparameters
+                n_configs = int(candidate.budget)
+                for i in range(n_configs):
+                    config_id = candidate.cid.with_config(i)
+                    if pre_sample:
+                        config, cfg_key = self.cfg_cache.sample_configuration(candidate.pipeline.configuration_space,
+                                                                              ds.meta_features)
+                        job = Job(ds, config_id, candidate, cutoff, config, cfg_key)
+                    else:
+                        job = Job(ds, config_id, candidate, cutoff, None)
+
+                    if time.time() > start + wallclock_limit:
+                        self.logger.info("Timeout reached. Stopping optimization")
+                        return True
+
+                    self.dispatcher.submit_job(job)
+            return False
 
         # while time_limit is not exhausted:
         #   structure, budget = structure_generator.get_next_structure()
@@ -140,25 +165,20 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        for candidate, iteration in self.bandit_learner.next_candidate(ds):
-            # Optimize hyperparameters
-            n_configs = int(candidate.budget)
-            for i in range(n_configs):
-                config_id = candidate.cid.with_config(i)
-                if pre_sample:
-                    config, cfg_key = self.cfg_cache.sample_configuration(candidate.pipeline.configuration_space,
-                                                                          ds.meta_features)
-                    job = Job(ds, config_id, candidate, timeout, config, cfg_key)
-                else:
-                    job = Job(ds, config_id, candidate, timeout, None)
-                self.dispatcher.submit_job(job)
+        iterations = []
+        timeout = False
+        while not timeout:
+            self.bandit_learner.reset()
+            timeout = _optimize()
+
+            for it in self.bandit_learner.iterations:
+                iterations.append(copy.deepcopy(it.data))
 
         end = time.time()
         self.meta_data['end'] = end
         self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
 
-        return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
-                          {**self.meta_data, **self.bandit_learner.meta_data})
+        return RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
 
     def job_callback(self, job: Job) -> None:
         """

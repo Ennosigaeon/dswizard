@@ -70,6 +70,9 @@ class BanditLearner(abc.ABC):
                     # Done
                     break
 
+    def reset(self):
+        self.iterations = []
+
     def register_result(self, job: Job, update_model: bool = True):
         self.iterations[-1].register_result(job.cs)
         self.structure_generator.register_result(job.cs, job.result, update_model=update_model)

@@ -87,7 +87,7 @@ class Worker(abc.ABC):
         result = None
         try:
             self.process_logger = ProcessLogger(self.workdir, job.cid)
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.compute)
             c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.pipeline, **job.kwargs)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
@@ -189,7 +189,7 @@ class Worker(abc.ABC):
         self.logger.info('start processing job {} with estimator {}'.format(job.cid, job.cs))
         X = None
         try:
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.transform_dataset)
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.transform_dataset)
             X = wrapper(job.ds, job.config, self.cfg_cache, job.pipeline, **job.kwargs)
 
             if wrapper.exit_status == 0 and X is not None:

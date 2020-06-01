@@ -18,8 +18,8 @@ class RunHistory:
 
     def __init__(self,
                  data: List[Dict[CandidateId, CandidateStructure]],
-                 algorithm_config: dict):
-        self.HB_config = algorithm_config
+                 meta_config: dict):
+        self.meta_config = meta_config
         self.data: Dict[CandidateId, CandidateStructure] = dict(ChainMap(*data))
 
     def __getitem__(self, k):
@@ -62,7 +62,7 @@ class RunHistory:
         """
         all_runs = []
         for k in self.data.keys():
-            all_runs.append(self.get_runs_by_id(k))
+            all_runs.extend(self.get_runs_by_id(k))
         return all_runs
 
     def get_id2config_mapping(self) -> Dict[CandidateId, CandidateStructure]:

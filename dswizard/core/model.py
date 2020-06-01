@@ -188,14 +188,14 @@ class Job:
                  ds: Dataset,
                  candidate_id: CandidateId,
                  cs: Union[CandidateStructure, EstimatorComponent],
-                 timeout: float = None,
+                 cutoff: float = None,
                  config: Optional[Configuration] = None,
                  cfg_key: Optional[Tuple[float, int]] = None,
                  **kwargs):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
-        self.timeout = timeout
+        self.cutoff = cutoff
         self.config = config
         self.cfg_key = cfg_key
 

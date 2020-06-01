@@ -19,8 +19,9 @@ from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.structure_generators.fixed import FixedStructure
 from optimizers.config_generators import Hyperopt
+from optimizers.structure_generators.mcts import MCTS
 
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
                     datefmt='%Y-%m-%dT%H:%M:%S%z',
                     stream=sys.stdout)
@@ -31,7 +32,8 @@ parser = argparse.ArgumentParser(description='Example 1 - sequential and local e
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=1)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=10)
 parser.add_argument('--n_configs', type=float, help='Number of configurations to test on a single structure', default=1)
-parser.add_argument('--timeout', type=float, help='Maximum timeout for a single evaluation in seconds', default=60)
+parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=60)
+parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=60)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/logs/')
 args = parser.parse_args()
@@ -43,7 +45,7 @@ ds = Dataset(X, y)
 
 steps = [
     ('1', DataPreprocessorChoice()),
-    ('2', FeaturePreprocessorChoice()),
+    # ('2', FeaturePreprocessorChoice()),
     ('3', DecisionTree())
 ]
 
@@ -54,8 +56,8 @@ master = Master(
 
     config_generator_class=Hyperopt,
 
-    # structure_generator_class=FixedStructure,
-    # structure_generator_kwargs={'steps': steps},
+    structure_generator_class=FixedStructure,
+    structure_generator_kwargs={'steps': steps},
 
     bandit_learner_class=HyperbandLearner,
     bandit_learner_kwargs={'min_budget': args.min_budget,
@@ -63,7 +65,7 @@ master = Master(
 )
 
 try:
-    res = master.optimize(ds, n_configs=args.n_configs, timeout=args.timeout, pre_sample=False)
+    res = master.optimize(ds, wallclock_limit=args.wallclock_limit, cutoff=args.cutoff, pre_sample=False)
 
     # Analysis
     id2config = res.get_id2config_mapping()
