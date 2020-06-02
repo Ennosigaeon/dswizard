@@ -10,7 +10,7 @@ from multiprocessing.managers import SyncManager
 from typing import Type, TYPE_CHECKING
 
 import math
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+from ConfigSpace.configuration_space import ConfigurationSpace
 
 from core.base_structure_generator import BaseStructureGenerator
 from core.dispatcher import Dispatcher
@@ -31,10 +31,15 @@ if TYPE_CHECKING:
 
 class Master:
     def __init__(self,
+                 ds: Dataset,
                  run_id: str,
                  working_directory: str = '.',
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
+
+                 wallclock_limit: int = 60,
+                 cutoff: int = None,
+                 pre_sample: bool = True,
 
                  n_workers: int = 1,
                  worker_class: Type[Worker] = SklearnWorker,
@@ -80,6 +85,11 @@ class Master:
         self.jobs = []
         self.meta_data = {}
 
+        self.ds = ds
+        self.wallclock_limit = wallclock_limit
+        self.cutoff = cutoff
+        self.pre_sample = pre_sample
+
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
 
@@ -95,6 +105,7 @@ class Master:
                                                                 workdir=self.working_directory)
 
         bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
+                                                                                 cutoff=self.cutoff,
                                                                                  **structure_generator_kwargs)
         self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
 
@@ -116,17 +127,9 @@ class Master:
         self.dispatcher.shutdown()
         self.dispatcher_thread.join()
 
-    # TODO Multiple calls to optimize do not work. State of previous dataset is stored
-    def optimize(self, ds: Dataset,
-                 wallclock_limit: int = 60,
-                 cutoff: int = None,
-                 pre_sample: bool = True) -> RunHistory:
+    def optimize(self) -> RunHistory:
         """
         run optimization
-        :param ds:
-        :param wallclock_limit:
-        :param cutoff:
-        :param pre_sample:
         :return:
         """
 
@@ -136,23 +139,23 @@ class Master:
                          '\twallclock_limit: {}\n'
                          '\tcutoff: {}\n'
                          '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(start)),
-                                                   wallclock_limit, cutoff, pre_sample))
+                                                   self.wallclock_limit, self.cutoff, self.pre_sample))
 
         def _optimize() -> bool:
-            for candidate, iteration in self.bandit_learner.next_candidate(ds):
+            for candidate, iteration in self.bandit_learner.next_candidate(self.ds):
                 # Optimize hyperparameters
                 n_configs = int(candidate.budget)
                 for i in range(n_configs):
                     config_id = candidate.cid.with_config(i)
-                    if pre_sample:
+                    if self.pre_sample:
                         config, cfg_key = self.cfg_cache.sample_configuration(
                             configspace=candidate.pipeline.configuration_space,
-                            mf=ds.meta_features)
-                        job = Job(ds, config_id, candidate, cutoff, config, [cfg_key])
+                            mf=self.ds.meta_features)
+                        job = Job(self.ds, config_id, candidate, self.cutoff, config, [cfg_key])
                     else:
-                        job = Job(ds, config_id, candidate, cutoff, None, candidate.cfg_keys)
+                        job = Job(self.ds, config_id, candidate, self.cutoff, None, candidate.cfg_keys)
 
-                    if time.time() > start + wallclock_limit:
+                    if time.time() > start + self.wallclock_limit:
                         self.logger.info("Timeout reached. Stopping optimization")
                         return True
 
@@ -195,7 +198,7 @@ class Master:
                 if job.config is None:
                     self.logger.error(
                         'Encountered job without a configuration: {}. Using empty config as fallback'.format(job.cid))
-                    job.config = Configuration(ConfigurationSpace())
+                    job.config = ConfigurationSpace().get_default_configuration()
 
                 if self.result_logger is not None:
                     self.result_logger.log_evaluated_config(job)

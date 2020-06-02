@@ -50,9 +50,14 @@ steps = [
 ]
 
 master = Master(
+    ds=ds,
     run_id=args.run_id,
     result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
     n_workers=1,
+
+    wallclock_limit=args.wallclock_limit,
+    cutoff=args.cutoff,
+    pre_sample=False,
 
     config_generator_class=Hyperopt,
 
@@ -65,7 +70,7 @@ master = Master(
 )
 
 try:
-    res = master.optimize(ds, wallclock_limit=args.wallclock_limit, cutoff=args.cutoff, pre_sample=False)
+    res = master.optimize()
 
     # Analysis
     id2config = res.get_id2config_mapping()
