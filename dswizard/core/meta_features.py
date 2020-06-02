@@ -176,7 +176,9 @@ class MetaFeatureFactory(object):
         wrapper = pynisher2.enforce_limits(wall_time_in_s=timeout, mem_in_mb=memory)(MetaFeatureFactory._calculate)
         res = wrapper(X, y, max_nan_percentage=max_nan_percentage, max_features=max_features,
                       random_state=random_state)
+        # TODO improve error handling
         if wrapper.exit_status is pynisher2.TimeoutException or wrapper.exit_status is pynisher2.MemorylimitException:
+            LOGGER.warning('Failed to extract MF due to resource constraints')
             return None
         elif wrapper.exit_status is pynisher2.AnythingException:
             LOGGER.warning('Failed to extract MF due to {}'.format(res[0]))
@@ -202,8 +204,7 @@ class MetaFeatureFactory(object):
         """
         # Checks if number of features is bigger than max_features.
         if X.shape[1] > max_features:
-            LOGGER.info('Number of features is bigger then {}'.format(max_features))
-            return None
+            raise ValueError('Number of features is bigger then {}'.format(max_features))
 
         X = pd.DataFrame(X, index=range(X.shape[0]), columns=range(X.shape[1]))
 
@@ -245,8 +246,7 @@ class MetaFeatureFactory(object):
                     X.drop(i, inplace=True, axis=1)
 
         if X.shape[0] == 0 or X.shape[1] == 0:
-            LOGGER.info('X has no samples, no features or only constant values. Marking dataset as skipped.')
-            return None
+            raise ValueError('X has no samples, no features or only constant values.')
         """
        Selects Meta Features and extracts them
        """
