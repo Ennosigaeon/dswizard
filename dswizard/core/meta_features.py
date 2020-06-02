@@ -250,11 +250,10 @@ class MetaFeatureFactory(object):
         """
        Selects Meta Features and extracts them
        """
-        mfe = MFE(features=(['nr_inst', 'nr_attr', 'nr_class', 'nr_outliers', 'skewness', 'kurtosis', 'cor', 'cov',
-                             'sparsity', 'var', 'class_ent', 'attr_ent', 'mut_inf',
+        mfe = MFE(features=(['nr_inst', 'nr_attr', 'nr_num', 'nr_cat', 'nr_class', 'nr_outliers', 'skewness',
+                             'kurtosis', 'cor', 'cov', 'sparsity', 'var', 'class_ent', 'attr_ent', 'mut_inf',
                              'eq_num_attr', 'ns_ratio', 'nodes', 'leaves', 'leaves_branch', 'nodes_per_attr',
-                             'var_importance', 'one_nn', 'best_node', 'linear_discr',
-                             'naive_bayes', 'leaves_per_class']))
+                             'var_importance', 'leaves_per_class']))
         mfe.fit(X.to_numpy(), y, transform_cat=True)
         f_name, f_value = mfe.extract(cat_cols='auto', suppress_warnings=True)
 
@@ -263,6 +262,8 @@ class MetaFeatureFactory(object):
         """
         nr_inst = int(f_value[f_name.index('nr_inst')])
         nr_attr = int(f_value[f_name.index('nr_attr')])
+        nr_num = int(f_value[f_name.index('nr_num')])
+        nr_cat = int(f_value[f_name.index('nr_cat')])
         nr_class = int(f_value[f_name.index('nr_class')])
         nr_outliers = int(f_value[f_name.index('nr_outliers')])
         class_ent = float(f_value[f_name.index('class_ent')])
@@ -314,18 +315,6 @@ class MetaFeatureFactory(object):
         var_importance_mean = get_value('var_importance.mean')
         var_importance_sd = get_value('var_importance.sd') if nr_attr > 1 else 0
 
-        one_nn_mean = get_value('one_nn.mean')
-        one_nn_sd = get_value('one_nn.sd')
-
-        best_node_mean = get_value('best_node.mean')
-        best_node_sd = get_value('best_node.sd')
-
-        linear_discr_mean = get_value('linear_discr.mean')
-        linear_discr_sd = get_value('linear_discr.sd')
-
-        naive_bayes_mean = get_value('naive_bayes.mean')
-        naive_bayes_sd = get_value('naive_bayes.sd')
-
         # ##########################################################################
         # #  Extracting Meta Features with AutoSklearn  ############################
         # ##########################################################################
@@ -340,13 +329,11 @@ class MetaFeatureFactory(object):
 
         # Meta-features must have exactly same order as in mlb
         # TODO normalize all values
-        return [nr_inst, nr_attr, nr_class, nr_missing_values, pct_missing_values,
+        return [nr_inst, nr_attr, nr_num, nr_cat, nr_class, nr_missing_values, pct_missing_values,
                 nr_inst_mv, pct_inst_mv, nr_attr_mv, pct_attr_mv, nr_outliers,
                 skewness_mean, skewness_sd, kurtosis_mean, kurtosis_sd, cor_mean, cor_sd,
                 cov_mean, cov_sd, sparsity_mean, sparsity_sd, var_mean, var_sd,
                 class_prob_mean, class_prob_std, class_ent, attr_ent_mean, attr_ent_sd,
                 mut_inf_mean, mut_inf_sd, eq_num_attr, ns_ratio, nodes, leaves,
                 leaves_branch_mean, leaves_branch_sd, nodes_per_attr, leaves_per_class_mean,
-                leaves_per_class_sd, var_importance_mean, var_importance_sd, one_nn_mean,
-                one_nn_sd, best_node_mean, best_node_sd, linear_discr_mean, linear_discr_sd,
-                naive_bayes_mean, naive_bayes_sd]
+                leaves_per_class_sd, var_importance_mean, var_importance_sd]
