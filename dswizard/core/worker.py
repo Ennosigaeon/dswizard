@@ -6,7 +6,7 @@ import logging
 import os
 import socket
 import threading
-from typing import Optional, TYPE_CHECKING, Tuple
+from typing import Optional, TYPE_CHECKING, Tuple, List
 
 import numpy as np
 from ConfigSpace import Configuration
@@ -88,7 +88,7 @@ class Worker(abc.ABC):
         try:
             self.process_logger = ProcessLogger(self.workdir, job.cid)
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.compute)
-            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.pipeline, **job.kwargs)
+            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.cfg_keys, job.component, **job.kwargs)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -107,12 +107,13 @@ class Worker(abc.ABC):
                 runtime = Runtime(wrapper.wall_clock_time)
 
             if job.config is None:
-                config, partial_configs = self.process_logger.restore_config(job.pipeline)
+                config, partial_configs = self.process_logger.restore_config(job.component)
             else:
                 config = job.config
                 partial_configs = None
 
-            steps = [(name, comp.name()) for name, comp in job.pipeline.steps]
+            # job.component has to be always a FlexiblePipeline
+            steps = [(name, comp.name()) for name, comp in job.component.steps]
             result = Result(status, config, steps, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
@@ -127,6 +128,7 @@ class Worker(abc.ABC):
                 self.busy = False
                 callback.register_result(job.cid, result)
                 self.thread_cond.notify()
+        self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         return result
 
     @staticmethod
@@ -164,6 +166,7 @@ class Worker(abc.ABC):
                 config_id: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
+                cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
                 budget: float
                 ) -> Tuple[float, Runtime]:
@@ -173,6 +176,7 @@ class Worker(abc.ABC):
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
         :param cfg_cache:
+        :param cfg_keys:
         :param pipeline: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         """

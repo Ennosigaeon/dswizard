@@ -8,6 +8,8 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
+from sklearn.base import BaseEstimator
+
 from automl.components.base import EstimatorComponent
 
 from dswizard.core.meta_features import MetaFeatureFactory
@@ -108,7 +110,6 @@ class Result:
         self.runtime = runtime
         if partial_configs is None:
             partial_configs = []
-
         self.partial_configs: List[PartialConfig] = partial_configs
 
     def as_dict(self):
@@ -130,10 +131,12 @@ class CandidateStructure:
     def __init__(self,
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
+                 cfg_keys: List[Tuple[float, int]],
                  budget: float = 1,
                  model_based_pick: bool = False):
         self.configspace = configspace
         self.pipeline = pipeline
+        self.cfg_keys = cfg_keys
         self.budget = budget
         self.model_based_pick = model_based_pick
 
@@ -159,6 +162,7 @@ class CandidateStructure:
         return {
             'configspace': config_json.write(self.configspace),
             'pipeline': self.pipeline.as_list(),
+            'cfg_keys': self.cfg_keys,
             'budget': self.budget,
             'model_based_pick': self.model_based_pick,
             'cid': self.cid.as_tuple(),
@@ -173,7 +177,7 @@ class CandidateStructure:
         # TODO circular imports with FlexiblePipeline
         # FlexiblePipeline.from_list(raw['pipeline'])
         # noinspection PyTypeChecker
-        cs = CandidateStructure(config_json.read(raw['configspace']), None,
+        cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'],
                                 raw['budget'], raw['model_based_pick'])
         cs.cid = CandidateId(*raw['cid'])
         cs.status = raw['status']
@@ -189,15 +193,15 @@ class Job:
                  candidate_id: CandidateId,
                  cs: Union[CandidateStructure, EstimatorComponent],
                  cutoff: float = None,
-                 config: Optional[Configuration] = None,
-                 cfg_key: Optional[Tuple[float, int]] = None,
+                 config: Optional[Union[Configuration, PartialConfig]] = None,
+                 cfg_keys: Optional[List[Tuple[float, int]]] = None,
                  **kwargs):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
         self.cutoff = cutoff
         self.config = config
-        self.cfg_key = cfg_key
+        self.cfg_keys = cfg_keys
 
         self.kwargs = kwargs
 
@@ -209,8 +213,11 @@ class Job:
 
     # Decorator pattern only used for better readability
     @property
-    def pipeline(self) -> FlexiblePipeline:
-        return self.cs.pipeline
+    def component(self) -> Union[FlexiblePipeline, BaseEstimator]:
+        if isinstance(self.cs, CandidateStructure):
+            return self.cs.pipeline
+        else:
+            return self.cs
 
 
 class Dataset:
@@ -229,10 +236,13 @@ class PartialConfig:
     def __init__(self, cfg_key: Tuple[float, int],
                  configuration: Configuration,
                  name: str,
-                 mf: MetaFeatures):
+                 mf: Optional[MetaFeatures]):
         self.cfg_key = cfg_key
         self.config: Configuration = configuration
         self.name = name
+
+        if mf is None:
+            mf = np.zeros((1, 1))
         self.mf = mf
 
     def is_empty(self):

@@ -1,10 +1,12 @@
 import importlib
 import timeit
 import warnings
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union, List
 
+import numpy as np
 from ConfigSpace import Configuration
 from sklearn import clone
+from sklearn.base import is_classifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 from automl.components.base import EstimatorComponent
@@ -27,8 +29,9 @@ class SklearnWorker(Worker):
                 config_id: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
+                cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
-                n_folds: int = 4) -> Tuple[float, Runtime]:
+                **kwargs) -> Tuple[float, Runtime]:
         start = timeit.default_timer()
 
         X = ds.X
@@ -40,7 +43,8 @@ class SklearnWorker(Worker):
             # Derive configuration on complete data set. Test performance via CV
             cloned_pipeline = clone(pipeline)
             cloned_pipeline.cfg_cache = cfg_cache
-            cloned_pipeline.fit(X, y, logger=self.process_logger)
+            cloned_pipeline.cfg_keys = cfg_keys
+            cloned_pipeline.fit(ds.X, ds.y, logger=self.process_logger)
             config = self.process_logger.get_config(cloned_pipeline)
             pipeline.set_hyperparameters(config.get_dictionary())
 

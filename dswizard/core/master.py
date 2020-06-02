@@ -93,8 +93,9 @@ class Master:
         if 'worker' not in structure_generator_kwargs:
             structure_generator_kwargs['worker'] = worker_class(run_id=run_id, wid='structure',
                                                                 workdir=self.working_directory)
-        if 'structure_generator' not in bandit_learner_kwargs:
-            bandit_learner_kwargs['structure_generator'] = structure_generator_class(**structure_generator_kwargs)
+
+        bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
+                                                                                 **structure_generator_kwargs)
         self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
 
         if n_workers < 1:
@@ -144,11 +145,12 @@ class Master:
                 for i in range(n_configs):
                     config_id = candidate.cid.with_config(i)
                     if pre_sample:
-                        config, cfg_key = self.cfg_cache.sample_configuration(candidate.pipeline.configuration_space,
-                                                                              ds.meta_features)
-                        job = Job(ds, config_id, candidate, cutoff, config, cfg_key)
+                        config, cfg_key = self.cfg_cache.sample_configuration(
+                            configspace=candidate.pipeline.configuration_space,
+                            mf=ds.meta_features)
+                        job = Job(ds, config_id, candidate, cutoff, config, [cfg_key])
                     else:
-                        job = Job(ds, config_id, candidate, cutoff, None)
+                        job = Job(ds, config_id, candidate, cutoff, None, candidate.cfg_keys)
 
                     if time.time() > start + wallclock_limit:
                         self.logger.info("Timeout reached. Stopping optimization")

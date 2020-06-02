@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from automl.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
+from core.config_cache import ConfigCache
 from dswizard.core.model import Dataset
 from dswizard.util import util
 
@@ -20,10 +21,13 @@ class BaseStructureGenerator(abc.ABC):
     complex empirical prediction models for promising structures.
     """
 
-    def __init__(self, logger: logging.Logger = None, **kwargs):
+    def __init__(self, cfg_cache: ConfigCache, logger: logging.Logger = None, **kwargs):
         """
+        :param cfg_cache:
         :param logger: for some debug output
         """
+        self.cfg_cache = cfg_cache
+
         if logger is None:
             self.logger = logging.getLogger('StructureGenerator')
         else:
