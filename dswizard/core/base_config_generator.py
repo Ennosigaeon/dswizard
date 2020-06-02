@@ -34,7 +34,7 @@ class BaseConfigGenerator(abc.ABC):
         self.configspace: ConfigurationSpace = configspace
 
     @abc.abstractmethod
-    def sample_config(self) -> Configuration:
+    def sample_config(self, default: bool = False) -> Configuration:
         pass
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,

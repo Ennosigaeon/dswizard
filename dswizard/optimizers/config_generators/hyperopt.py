@@ -74,10 +74,10 @@ class Hyperopt(BaseConfigGenerator):
 
         self.kde: KdeWrapper = self._build_kde_wrapper(self.configspace)
 
-    def sample_config(self) -> Configuration:
+    def sample_config(self, default: bool = False) -> Configuration:
         try:
             sample = None
-            if len(self.kde.losses) == 0:
+            if len(self.kde.losses) == 0 or default:
                 sample = self.configspace.get_default_configuration()
             elif self.kde.is_trained():
                 sample = self._draw_sample()

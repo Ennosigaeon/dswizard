@@ -65,7 +65,7 @@ class SmacGenerator(BaseConfigGenerator):
             'cutoff_time': 60,
 
             'cs': self.configspace,
-            'initial_incumbent': 'RANDOM',
+            'initial_incumbent': 'DEFAULT',
 
             'input_psmac_dirs': self.working_directory + 'in/',
             'output_dir': self.working_directory + 'out/'
@@ -84,7 +84,10 @@ class SmacGenerator(BaseConfigGenerator):
         self.thread.start()
         self.logger.debug('Started SMAC thread')
 
-    def sample_config(self) -> Configuration:
+    def sample_config(self, default: bool = False) -> Configuration:
+        if default:
+            return self.configspace.get_default_configuration()
+
         return self.tae_run.configs.get(block=True)
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
