@@ -228,7 +228,7 @@ class Dataset:
         self.X = X
         self.y = y
 
-        self.meta_features: MetaFeatures = MetaFeatureFactory.calculate(X, y)
+        self.mf_dict, self.meta_features = MetaFeatureFactory.calculate(X, y)
 
 
 class PartialConfig:

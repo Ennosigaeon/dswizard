@@ -1,154 +1,19 @@
 import logging
-from abc import abstractmethod, ABC
-from collections import defaultdict
-from typing import List, Optional
+from typing import Optional, Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from pymfe.mfe import MFE
+from pymfe import _internal
+from pymfe.general import MFEGeneral
+from pymfe.info_theory import MFEInfoTheory
+from pymfe.model_based import MFEModelBased
+from pymfe.statistical import MFEStatistical
 
 import pynisher2
 
 LOGGER = logging.getLogger('mf')
 
 MetaFeatures = np.ndarray
-
-
-# ##########################################################################
-# #  Extracting MetaFeatures with the help of AutoSklearn  #################
-# ##########################################################################
-
-class AbstractMetaFeature(ABC):
-
-    @abstractmethod
-    def calculate(self, X, y):
-        pass
-
-
-class NumberOfMissingValues(AbstractMetaFeature):
-    def calculate(self, X, y):
-        X_numeric = X.select_dtypes(include=['number'])
-        X_object = X.select_dtypes(include=['category', 'object'])
-
-        if X_object.empty:
-            missing = ~np.isfinite(X_numeric)
-            missing = missing.sum().sum()
-
-            return int(missing)
-        else:
-            missing_o = pd.isna(X_object)
-            missing_o = missing_o.sum().sum()
-
-            missing_n = ~np.isfinite(X_numeric)
-            missing_n = missing_n.sum().sum()
-
-            missing = missing_n + missing_o
-
-            return int(missing)
-
-
-class PercentageOfMissingValues(AbstractMetaFeature):
-    def calculate(self, X, y):
-        X_numeric = X.select_dtypes(include=['number'])
-        X_object = X.select_dtypes(include=['category', 'object'])
-
-        if X_object.empty:
-            missing = ~np.isfinite(X_numeric)
-            missing = missing.sum().sum()
-
-            return (float(missing) / float(X.shape[0] * X.shape[1])) * 100
-        else:
-            missing_o = pd.isna(X_object)
-            missing_o = missing_o.sum().sum()
-
-            missing_n = ~np.isfinite(X_numeric)
-            missing_n = missing_n.sum().sum()
-
-            missing = missing_n + missing_o
-
-            return (float(missing) / float(X.shape[0] * X.shape[1])) * 100
-
-
-class NumberOfInstancesWithMissingValues(AbstractMetaFeature):
-    def calculate(self, X, y):
-        X_numeric = X.select_dtypes(include=['number'])
-        X_object = X.select_dtypes(include=['category', 'object'])
-
-        if X_object.empty:
-            missing = ~np.isfinite(X_numeric)
-            num_missing = missing.sum(axis=1)
-
-            return int(np.sum([1 if num > 0 else 0 for num in num_missing]))
-        else:
-            missing_o = pd.isna(X_object)
-            num_missing_o = missing_o.sum(axis=1)
-
-            missing_n = ~np.isfinite(X_numeric)
-            num_missing_n = missing_n.sum(axis=1)
-            num_missing = num_missing_n + num_missing_o
-
-            return int(np.sum([1 if num > 0 else 0 for num in num_missing]))
-
-
-class NumberOfFeaturesWithMissingValues(AbstractMetaFeature):
-    def calculate(self, X, y):
-        X_numeric = X.select_dtypes(include=['number'])
-        X_object = X.select_dtypes(include=['category', 'object'])
-
-        if X_object.empty:
-            missing = ~np.isfinite(X_numeric)
-            return int((missing.sum(axis=0) > 0).sum())
-        else:
-            missing_o = pd.isna(X_object)
-            num_missing_o = (missing_o.sum(axis=0) > 0).sum()
-
-            missing_n = ~np.isfinite(X_numeric)
-            num_missing_n = (missing_n.sum(axis=0) > 0).sum()
-            return int(num_missing_n + num_missing_o)
-
-
-class ClassOccurrences(AbstractMetaFeature):
-    def calculate(self, X, y):
-        if len(y.shape) == 2:
-            occurrences = []
-            for i in range(y.shape[1]):
-                occurrences.append(self.calculate(X, y[:, i]))
-            return occurrences
-        else:
-            occurrence_dict = defaultdict(float)
-            for value in y:
-                occurrence_dict[value] += 1
-            return occurrence_dict
-
-
-class ClassProbabilityMean(AbstractMetaFeature):
-    def calculate(self, X, y):
-        occurrence_dict = ClassOccurrences().calculate(X, y)
-
-        if len(y.shape) == 2:
-            occurrences = []
-            for i in range(y.shape[1]):
-                occurrences.extend([occurrence for occurrence in occurrence_dict[i].value.values()])
-            occurrences = np.array(occurrences)
-        else:
-            occurrences = np.array([occurrence for occurrence in occurrence_dict.values()], dtype=np.float64)
-        return float((occurrences / y.shape[0]).mean())
-
-
-class ClassProbabilitySTD(AbstractMetaFeature):
-    def calculate(self, X, y):
-        occurrence_dict = ClassOccurrences().calculate(X, y)
-
-        if len(y.shape) == 2:
-            stds = []
-            for i in range(y.shape[1]):
-                std = np.array([occurrence for occurrence in occurrence_dict[i].values()], dtype=np.float64)
-                std = (std / y.shape[0]).std()
-                stds.append(std)
-            return np.mean(stds)
-        else:
-            occurrences = np.array([occurrence for occurrence in occurrence_dict.values()], dtype=np.float64)
-            return float((occurrences / y.shape[0]).std())
 
 
 class MetaFeatureFactory(object):
@@ -160,7 +25,7 @@ class MetaFeatureFactory(object):
                   max_features: int = 10000,
                   random_state: int = 42,
                   timeout: int = 600,
-                  memory: int = 6144) -> Optional[MetaFeatures]:
+                  memory: int = 6144) -> Tuple[Optional[Dict[str, float]], Optional[MetaFeatures]]:
         """
         Calculates the meta-features for the given DataFrame. The actual computation is dispatched to another process
         to prevent crashes due to extensive memory usage.
@@ -179,19 +44,20 @@ class MetaFeatureFactory(object):
         # TODO improve error handling
         if wrapper.exit_status is pynisher2.TimeoutException or wrapper.exit_status is pynisher2.MemorylimitException:
             LOGGER.warning('Failed to extract MF due to resource constraints')
-            return None
+            return None, None
         elif wrapper.exit_status is pynisher2.AnythingException:
             LOGGER.warning('Failed to extract MF due to {}'.format(res[0]))
-            return None
+            return None, None
         elif wrapper.exit_status == 0 and res is not None:
-            return np.array([res])
+            # TODO assert that all values in res are finite
+            return res, np.atleast_2d(np.fromiter(res.values(), dtype=float))
 
     @staticmethod
     def _calculate(X: np.ndarray,
                    y: np.ndarray,
                    max_nan_percentage: float = 0.9,
                    max_features: int = 10000,
-                   random_state: int = 42) -> Optional[List[float]]:
+                   random_state: int = 42) -> Optional[Dict[str, float]]:
         """
         Calculates the meta-features for the given DataFrame. _Attention_: Meta-feature calculation can require a lot of
         memory. This method should not be called directly to prevent the caller from crashing.
@@ -206,35 +72,36 @@ class MetaFeatureFactory(object):
         if X.shape[1] > max_features:
             raise ValueError('Number of features is bigger then {}'.format(max_features))
 
-        X = pd.DataFrame(X, index=range(X.shape[0]), columns=range(X.shape[1]))
+        missing = pd.isna(X)
+        nr_missing_values = MetaFeatureFactory.ft_nr_missing_val(missing)
+        nr_inst_mv = MetaFeatureFactory.ft_nr_inst_missing_values(missing)
+        nr_attr_mv = MetaFeatureFactory.ft_nr_attr_missing_values(missing)
+        pct_missing_values = (float(nr_missing_values) / float(X.shape[0] * X.shape[1])) * 100
+        pct_inst_mv = (float(nr_inst_mv) / float(X.shape[0])) * 100
+        pct_attr_mv = (float(nr_attr_mv) / float(X.shape[1])) * 100
+        class_prob = MetaFeatureFactory.ft_class_prob(y)
 
-        # Extracting Missing Value Meta Features with AutoSklearn
-        nr_missing_values = NumberOfMissingValues().calculate(X, y)
-        pct_missing_values = PercentageOfMissingValues().calculate(X, y)
-        nr_inst_mv = NumberOfInstancesWithMissingValues().calculate(X, y)
-        nr_attr_mv = NumberOfFeaturesWithMissingValues().calculate(X, y)
-
-        # Meta-Feature calculation does not work with missing data
+        # Meta-Feature calculation does not work with missing data.
+        X = pd.DataFrame(X)
         numeric = X.select_dtypes(include=['number']).columns
-        if np.any(pd.isna(X)):
-            n = X.shape[0]
+        n = X.shape[0]
 
-            for i in X.columns:
-                col = X[i]
-                nan = pd.isna(col)
-                if not nan.any():
-                    continue
-                elif nan.value_counts(normalize=True)[True] > max_nan_percentage:
-                    X.drop(i, axis=1, inplace=True)
-                elif i in numeric:
-                    filler = np.random.normal(col.mean(), col.std(), n)
-                    X[i] = col.combine_first(pd.Series(filler))
-                else:
-                    items = col.dropna().unique()
-                    probability = col.value_counts(dropna=True, normalize=True)
-                    probability = probability.where(probability > 0).dropna()
-                    filler = np.random.choice(items, n, p=probability)
-                    X[i] = col.combine_first(pd.Series(filler))
+        for i in X.columns:
+            col = X[i]
+            nan = missing[:, i]
+            if not nan.any():
+                continue
+            elif nan.value_counts(normalize=True)[True] > max_nan_percentage:
+                X.drop(i, axis=1, inplace=True)
+            elif i in numeric:
+                filler = np.random.normal(col.mean(), col.std(), n)
+                X[i] = col.combine_first(pd.Series(filler))
+            else:
+                items = col.dropna().unique()
+                probability = col.value_counts(dropna=True, normalize=True)
+                probability = probability.where(probability > 0).dropna()
+                filler = np.random.choice(items, n, p=probability)
+                X[i] = col.combine_first(pd.Series(filler))
 
         for i in X.columns:
             col = X[i]
@@ -247,93 +114,145 @@ class MetaFeatureFactory(object):
 
         if X.shape[0] == 0 or X.shape[1] == 0:
             raise ValueError('X has no samples, no features or only constant values.')
-        """
-       Selects Meta Features and extracts them
-       """
-        mfe = MFE(features=(['nr_inst', 'nr_attr', 'nr_num', 'nr_cat', 'nr_class', 'nr_outliers', 'skewness',
-                             'kurtosis', 'cor', 'cov', 'sparsity', 'var', 'class_ent', 'attr_ent', 'mut_inf',
-                             'eq_num_attr', 'ns_ratio', 'nodes', 'leaves', 'leaves_branch', 'nodes_per_attr',
-                             'var_importance', 'leaves_per_class']))
-        mfe.fit(X.to_numpy(), y, transform_cat=True)
-        f_name, f_value = mfe.extract(cat_cols='auto', suppress_warnings=True)
 
-        """
-        Mapping values to Meta Feature variables
-        """
-        nr_inst = int(f_value[f_name.index('nr_inst')])
-        nr_attr = int(f_value[f_name.index('nr_attr')])
-        nr_num = int(f_value[f_name.index('nr_num')])
-        nr_cat = int(f_value[f_name.index('nr_cat')])
-        nr_class = int(f_value[f_name.index('nr_class')])
-        nr_outliers = int(f_value[f_name.index('nr_outliers')])
-        class_ent = float(f_value[f_name.index('class_ent')])
-        eq_num_attr = float(f_value[f_name.index('eq_num_attr')])
-        ns_ratio = float(f_value[f_name.index('ns_ratio')])
-        nodes = float(f_value[f_name.index('nodes')])
-        leaves = float(f_value[f_name.index('leaves')])
-        nodes_per_attr = float(f_value[f_name.index('nodes_per_attr')])
+        C_tmp = X.select_dtypes(exclude=['number'])
+        N_tmp = X.select_dtypes(include=['number'])
 
-        def get_value(key: str):
-            try:
-                return float(f_value[f_name.index(key)])
-            except:
-                return float(f_value[f_name.index(key.split('.')[0])])
+        C = MetaFeatureFactory._set_data_categoric(N_tmp, C_tmp, True)
+        N = MetaFeatureFactory._set_data_numeric(N_tmp, C_tmp, True)
+        X = X.to_numpy()
 
-        skewness_mean = get_value('skewness.mean')
-        skewness_sd = get_value('skewness.sd') if nr_attr > 1 else 0
+        nr_inst = MFEGeneral.ft_nr_inst(X)
+        nr_attr = MFEGeneral.ft_nr_attr(X)
 
-        kurtosis_mean = get_value('kurtosis.mean')
-        kurtosis_sd = get_value('kurtosis.sd') if nr_attr > 1 else 0
+        precomp_statistical = MFEStatistical.precompute_statistical_cor_cov(N)
+        skewness = MFEStatistical.ft_skewness(N)
+        kurtosis = MFEStatistical.ft_kurtosis(N)
 
-        cor_mean = get_value('cor.mean') if nr_attr > 1 else 1
-        cor_sd = get_value('cor.sd') if nr_attr > 2 else 0
+        if N.shape[1] > 1:
+            cor = MFEStatistical.ft_cor(N, abs_corr_mat=precomp_statistical['abs_corr_mat'])
+            cov = MFEStatistical.ft_cov(N, cov_mat=precomp_statistical['cov_mat'])
+        else:
+            cor = np.ones(1)
+            cov = np.zeros(1)
+        sparsity = MFEStatistical.ft_sparsity(X)
+        var = MFEStatistical.ft_var(N)
 
-        cov_mean = get_value('cov.mean') if nr_attr > 1 else 0
-        cov_sd = get_value('cov.sd') if nr_attr > 2 else 0
+        precomp_info = MFEInfoTheory.precompute_class_freq(y)
+        precomp_info.update(MFEInfoTheory.precompute_entropy(y, C))
+        if C.size > 0:
+            attr_ent = MFEInfoTheory.ft_attr_ent(C, precomp_info['attr_ent'])
+            mut_inf = MFEInfoTheory.ft_mut_inf(C, y, precomp_info['mut_inf'])
+            eq_num_attr = MFEInfoTheory.ft_eq_num_attr(C, y, class_ent=precomp_info['class_ent'],
+                                                       mut_inf=precomp_info['mut_inf'])
+            ns_ratio = MFEInfoTheory.ft_ns_ratio(C, y, attr_ent=precomp_info['attr_ent'],
+                                                 mut_inf=precomp_info['mut_inf'])
+        else:
+            attr_ent = np.zeros(2)
+            mut_inf = np.zeros(2)
+            eq_num_attr = 0
+            ns_ratio = 0
 
-        sparsity_mean = get_value('sparsity.mean')
-        sparsity_sd = get_value('sparsity.sd') if nr_attr > 1 else 0
+        precomp_model = MFEModelBased.precompute_model_based_class(N, y, None)
+        leaves_branch = MFEModelBased.ft_leaves_branch(precomp_model['table'], precomp_model['tree_depth'])
+        leaves_per_class = MFEModelBased.ft_leaves_per_class(precomp_model['table'])
+        var_importance = MFEModelBased.ft_var_importance(precomp_model['model'])
 
-        var_mean = get_value('var.mean')
-        var_sd = get_value('var.sd') if nr_attr > 1 else 0
+        return {
+                   'nr_inst': int(nr_inst),
+                   'nr_attr': int(nr_attr),
+                   'nr_num': int(X.shape[1] - C_tmp.shape[1]),
+                   'nr_cat': int(C_tmp.shape[1]),
+                   'nr_class': int(MFEGeneral.ft_nr_class(y)),
+                   'nr_missing_values': int(nr_missing_values),
+                   'pct_missing_values': float(pct_missing_values),
+                   'nr_inst_mv': int(nr_inst_mv),
+                   'pct_inst_mv': float(pct_inst_mv),
+                   'nr_attr_mv': int(nr_attr_mv),
+                   'pct_attr_mv': float(pct_attr_mv),
 
-        attr_ent_mean = get_value('attr_ent.mean')
-        attr_ent_sd = get_value('attr_ent.sd') if nr_attr > 1 else 0
+                   'nr_outliers': int(MFEStatistical.ft_nr_outliers(N)),
+                   'skewness_mean': float(skewness.mean()),
+                   'skewness_sd': float(skewness.std(ddof=1)) if nr_attr > 1 else 0,
+                   'kurtosis_mean': float(kurtosis.mean()),
+                   'kurtosis_sd': float(kurtosis.std(ddof=1)) if nr_attr > 1 else 0,
+                   'cor_mean': float(cor.mean()) if nr_attr > 1 else 1,
+                   'cor_sd': float(cor.std(ddof=1)) if nr_attr > 2 else 0,
+                   'cov_mean': float(cov.mean()) if nr_attr > 1 else 0,
+                   'cov_sd': float(cov.std(ddof=1)) if nr_attr > 2 else 0,
+                   'sparsity_mean': float(sparsity.mean()),
+                   'sparsity_sd': float(sparsity.std(ddof=1)) if nr_attr > 1 else 0,
+                   'var_mean': float(var.mean()),
+                   'var_sd': float(var.std(ddof=1)) if nr_attr > 1 else 0,
+                   'class_prob_mean': float(class_prob.mean()),
+                   'class_prob_std': float(class_prob.std(ddof=0)),
 
-        mut_inf_mean = get_value('mut_inf.mean')
-        mut_inf_sd = get_value('mut_inf.sd') if nr_attr > 1 else 0
+                   'class_ent': float(
+                       MFEInfoTheory.ft_class_ent(y, precomp_info['class_ent'], precomp_info['class_freqs'])),
+                   'attr_ent_mean': float(attr_ent.mean()),
+                   'attr_ent_sd': float(attr_ent.std(ddof=1)) if nr_attr > 1 else 0,
+                   'mut_inf_mean': float(mut_inf.mean()),
+                   'mut_inf_sd': float(mut_inf.std(ddof=1)) if nr_attr > 1 else 0,
+                   'eq_num_attr': float(eq_num_attr),
+                   'ns_ratio': float(ns_ratio),
 
-        leaves_branch_mean = get_value('leaves_branch.mean')
-        leaves_branch_sd = get_value('leaves_branch.sd')
+                   'nodes': float(MFEModelBased.ft_nodes(precomp_model['table'])),
+                   'leaves': float(MFEModelBased.ft_leaves(precomp_model['table'])),
+                   'leaves_branch_mean': float(leaves_branch.mean()),
+                   'leaves_branch_sd': float(leaves_branch.std(ddof=1)),
+                   'nodes_per_attr': float(MFEModelBased.ft_nodes_per_attr(N, precomp_model['table'])),
+                   'leaves_per_class_mean': float(leaves_per_class.mean()),
+                   'leaves_per_class_sd': float(leaves_per_class.std(ddof=1)) if not np.isnan(
+                       leaves_per_class).any() else 0,
+                   'var_importance_mean': float(var_importance.mean()),
+                   'var_importance_sd': float(var_importance.std(ddof=1)) if nr_attr > 1 else 0,
 
-        leaves_per_class_mean = get_value('leaves_per_class.mean')
-        leaves_per_class_sd = get_value('leaves_per_class.sd')
-        # not sure under which conditions this exactly happens.
-        if np.isnan(leaves_per_class_sd):
-            leaves_per_class_sd = 0
+                   'one_nn_mean': 0, 'one_nn_sd': 0,
+                   'best_node_mean': 0, 'best_node_sd': 0,
+                   'linear_discr_mean': 0, 'linear_discr_sd': 0,
+                   'naive_bayes_mean': 0, 'naive_bayes_sd': 0
+               }
 
-        var_importance_mean = get_value('var_importance.mean')
-        var_importance_sd = get_value('var_importance.sd') if nr_attr > 1 else 0
+    @classmethod
+    def ft_nr_missing_val(cls, M):
+        return int(M.sum().sum())
 
-        # ##########################################################################
-        # #  Extracting Meta Features with AutoSklearn  ############################
-        # ##########################################################################
+    @classmethod
+    def ft_nr_inst_missing_values(cls, M):
+        return int((M.sum(axis=1) > 0).sum())
 
-        pct_inst_mv = (float(nr_inst_mv) / float(nr_inst)) * 100
+    @classmethod
+    def ft_nr_attr_missing_values(cls, M):
+        return int((M.sum(axis=0) > 0).sum())
 
-        pct_attr_mv = (float(nr_attr_mv) / float(nr_attr)) * 100
+    @classmethod
+    def ft_class_prob(cls, y):
+        return np.bincount(y) / y.size
 
-        class_prob_mean = ClassProbabilityMean().calculate(X, y)
+    @classmethod
+    def _set_data_categoric(cls, N, C, transform_num: bool,
+                            num_bins: bool = None) -> np.ndarray:
+        data_cat = C.to_numpy()
 
-        class_prob_std = ClassProbabilitySTD().calculate(X, y)
+        if transform_num and not N.empty:
+            data_num_discretized = _internal.transform_num(N, num_bins=num_bins)
 
-        # Meta-features must have exactly same order as in mlb
-        # TODO normalize all values
-        return [nr_inst, nr_attr, nr_num, nr_cat, nr_class, nr_missing_values, pct_missing_values,
-                nr_inst_mv, pct_inst_mv, nr_attr_mv, pct_attr_mv, nr_outliers,
-                skewness_mean, skewness_sd, kurtosis_mean, kurtosis_sd, cor_mean, cor_sd,
-                cov_mean, cov_sd, sparsity_mean, sparsity_sd, var_mean, var_sd,
-                class_prob_mean, class_prob_std, class_ent, attr_ent_mean, attr_ent_sd,
-                mut_inf_mean, mut_inf_sd, eq_num_attr, ns_ratio, nodes, leaves,
-                leaves_branch_mean, leaves_branch_sd, nodes_per_attr, leaves_per_class_mean,
-                leaves_per_class_sd, var_importance_mean, var_importance_sd]
+            if data_num_discretized is not None:
+                data_cat = np.concatenate((data_cat, data_num_discretized), axis=1)
+        return data_cat
+
+    @classmethod
+    def _set_data_numeric(
+            cls,
+            N, C,
+            transform_cat: bool) -> np.ndarray:
+        data_num = N
+
+        if transform_cat and not C.empty:
+            categorical_dummies = pd.get_dummies(C)
+
+            if categorical_dummies is not None:
+                data_num = pd.concat([data_num, categorical_dummies],
+                                     axis=1).astype(float)
+
+        return data_num.to_numpy()
