@@ -34,9 +34,6 @@ class SklearnWorker(Worker):
                 **kwargs) -> Tuple[float, Runtime]:
         start = timeit.default_timer()
 
-        X = ds.X
-        y = ds.y
-
         if config is not None:
             pipeline.set_hyperparameters(config.get_dictionary())
         else:
@@ -48,10 +45,16 @@ class SklearnWorker(Worker):
             config = self.process_logger.get_config(cloned_pipeline)
             pipeline.set_hyperparameters(config.get_dictionary())
 
+        score, _ = self._score(ds, pipeline)
+        return score, Runtime(timeit.default_timer() - start, pipeline.fit_time, pipeline.config_time)
+
+    def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], n_folds: int = 4):
+        y = ds.y
+
         try:
-            y_pred = self._cross_val_predict(pipeline, X, y, cv=n_folds)
+            y_pred = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
         except Exception as ex:
-            self.logger.exception(ex)
+            self.logger.info(ex)
             raise ex
 
         # Always compute minimization problem
@@ -70,8 +73,7 @@ class SklearnWorker(Worker):
             score = 1 - multiclass_roc_auc_score(y, y_pred, average='weighted')
         else:
             raise ValueError
-
-        return score, Runtime(timeit.default_timer() - start, pipeline.fit_time, pipeline.config_time)
+        return score, y_pred
 
     def create_estimator(self, conf: dict):
         try:
@@ -89,7 +91,13 @@ class SklearnWorker(Worker):
             self.logger.error('Invalid name with config {}'.format(conf))
             raise ex
 
-    def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent):
+    def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent) \
+            -> Tuple[np.ndarray, Optional[float]]:
         component.set_hyperparameters(config.get_dictionary())
-        X = component.fit(ds.X, ds.y).transform(ds.X)
-        return X
+        if is_classifier(component):
+            score, y_pred = self._score(ds, component)
+            X = np.hstack((ds.X, np.reshape(y_pred, (-1, 1))))
+        else:
+            score = None
+            X = component.fit(ds.X, ds.y).transform(ds.X)
+        return X, score

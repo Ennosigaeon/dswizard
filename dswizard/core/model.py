@@ -27,6 +27,7 @@ class StatusType(Enum):
     ABORT = 4
     MEMOUT = 5
     CAPPED = 6
+    INEFFECTIVE = 7
 
 
 class CandidateId:
@@ -102,12 +103,15 @@ class Result:
                  steps: List[Tuple[str, str]] = None,
                  loss: Optional[float] = None,
                  runtime: Runtime = None,
-                 partial_configs: Optional[List[PartialConfig]] = None):
+                 partial_configs: Optional[List[PartialConfig]] = None,
+                 transformed_X: np.ndarray = None):
         self.status = status
         self.config = config
         self.steps = steps
         self.loss = loss
         self.runtime = runtime
+        self.transformed_X = transformed_X
+
         if partial_configs is None:
             partial_configs = []
         self.partial_configs: List[PartialConfig] = partial_configs

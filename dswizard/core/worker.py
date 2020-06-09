@@ -182,39 +182,31 @@ class Worker(abc.ABC):
         """
         pass
 
-    def start_transform_dataset(self,
-                                callback: Dispatcher,
-                                job: Job) -> Optional[np.ndarray]:
-        with self.thread_cond:
-            while self.busy:
-                self.thread_cond.wait()
-            self.busy = True
-
+    def start_transform_dataset(self,job: Job) -> Result:
         self.logger.info('start processing job {} with estimator {}'.format(job.cid, job.cs))
         X = None
         try:
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.transform_dataset)
-            X = wrapper(job.ds, job.config, self.cfg_cache, job.pipeline, **job.kwargs)
+            X, score = wrapper(job.ds, job.config, job.component)
 
             if wrapper.exit_status == 0 and X is not None:
-                X = X
+                status = StatusType.SUCCESS
+            else:
+                status = StatusType.CRASHED
         except KeyboardInterrupt:
             raise
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
-        finally:
-            with self.thread_cond:
-                self.busy = False
-                callback.register_transformation_result(job.cid, X)
-                self.thread_cond.notify()
-        return X
+            status = StatusType.CRASHED
+            score = 1
+        return Result(status=status, loss=score, partial_configs=[job.config], transformed_X=X)
 
     @abc.abstractmethod
     def transform_dataset(self,
                           ds: Dataset,
                           config: Configuration,
-                          component: EstimatorComponent):
+                          component: EstimatorComponent) -> Tuple[np.ndarray, Optional[float]]:
         pass
 
     def is_busy(self) -> bool:

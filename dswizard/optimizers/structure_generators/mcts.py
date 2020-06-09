@@ -12,10 +12,11 @@ from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
 from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
+from core.model import CandidateId, PartialConfig, StatusType
 from core.worker import Worker
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.model import CandidateStructure, Dataset
+from dswizard.core.model import CandidateStructure, Dataset, Job
 from dswizard.core.model import Result
 
 
@@ -52,10 +53,12 @@ class Node(ABC):
                  id: int,
                  ds: Optional[Dataset],
                  estimator: Optional[Type[EstimatorComponent]],
-                 pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None
+                 pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None,
+                 partial_config: PartialConfig = None
                  ):
         self.id = id
         self.ds = ds
+        self.partial_config = partial_config
 
         if estimator is None:
             self.label = 'ROOT'
@@ -79,11 +82,14 @@ class Node(ABC):
         return is_classifier(self.estimator)
 
     # noinspection PyMethodMayBeStatic
-    def all_available_actions(self) -> Set[Type[EstimatorComponent]]:
+    def available_actions(self, include_preprocessing: bool = True,
+                          include_classifier: bool = True) -> Set[Type[EstimatorComponent]]:
         components = set()
-        components.update(ClassifierChoice().get_components().values())
-        components.update(DataPreprocessorChoice().get_components().values())
-        components.update(FeaturePreprocessorChoice().get_components().values())
+        if include_classifier:
+            components.update(ClassifierChoice().get_components().values())
+        if include_preprocessing:
+            components.update(DataPreprocessorChoice().get_components().values())
+            components.update(FeaturePreprocessorChoice().get_components().values())
         return components
 
     def __hash__(self) -> int:
@@ -128,13 +134,10 @@ class Tree:
     def get_all_children(self, node: int) -> List[Node]:
         return [self.G.nodes[n]['value'] for n in nx.dfs_tree(self.G, node).nodes.keys()]
 
-    def get_predecessors(self, node: int) -> Node:
-        return self.get_node(next(self.G.predecessors(node)))
-
     def fully_expanded(self, node: Node, global_max: int = 20):
         # global_max is used as failsafe to prevent massive expansion of single node
 
-        possible_children = len(node.all_available_actions())
+        possible_children = len(node.available_actions())
         max_children = math.floor(math.pow(node.visits, self.coef_progressive_widening))
         max_children = min(max_children, possible_children)
 
@@ -159,8 +162,13 @@ class Policy:
         self.exploration_weight = exploration_weight
 
     # noinspection PyMethodMayBeStatic
-    def get_next_action(self, n: Node, current_children: List[Node]) -> Optional[Type[EstimatorComponent]]:
-        actions = n.all_available_actions()
+    def get_next_action(self,
+                        n: Node,
+                        current_children: List[Node],
+                        include_preprocessing: bool = True,
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
+        actions = n.available_actions(include_preprocessing=include_preprocessing,
+                                      include_classifier=include_classifier)
         exhausted_actions = [n.estimator for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
 
@@ -190,9 +198,10 @@ class Policy:
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, worker: Worker, **kwargs):
+    def __init__(self, worker: Worker, cutoff: int, **kwargs):
         super().__init__(**kwargs)
         self.worker = worker
+        self.cutoff = cutoff
         self.tree: Optional[Tree] = None
         self.policy = Policy()
 
@@ -205,9 +214,10 @@ class MCTS(BaseStructureGenerator):
         self.logger.debug('MCTS SELECT')
         path = self._select()
 
+        # TODO add option to skip tree expansion
         # expand last node in path if possible
         self.logger.debug('MCTS EXPAND')
-        expansion = self._expand(path[-1])
+        expansion, result = self._expand(path)
         if expansion is not None:
             path.append(expansion)
 
@@ -221,10 +231,16 @@ class MCTS(BaseStructureGenerator):
                 'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
                     ', '.join([n.label for n in path])))
 
-        print(node.steps)
+        self.logger.debug('Sampled pipeline structure: {}'.format(node.steps))
         pipeline = FlexiblePipeline(node.steps)
 
-        return CandidateStructure(pipeline.configuration_space, pipeline)
+        cs = CandidateStructure(pipeline.configuration_space, pipeline,
+                                [n.partial_config.cfg_key for n in path if n.partial_config is not None])
+
+        # If no simulation was necessary, add the default configuration as first result
+        if result is not None and result.loss is not None and result.loss < 1:
+            cs.results.append(result)
+        return cs
 
     def _select(self) -> List[Node]:
         """Find an unexplored descendent of `node`"""
@@ -242,57 +258,89 @@ class MCTS(BaseStructureGenerator):
             if len(self.tree.get_children(node.id)) == 0:
                 return path
 
+            # TODO guarantee that no failed algorithm nodes are selected
             node = self.policy.uct(node, self.tree)  # descend a layer deeper
 
-    def _expand(self, node: Node) -> Optional[Node]:
+    def _expand(self, nodes: List[Node]) -> Tuple[Optional[Node], Optional[Result]]:
+        node = nodes[-1]
         if self.tree.fully_expanded(node):
-            return None
+            return None, None
 
-        n_actions = len(node.all_available_actions())
+        n_actions = len(node.available_actions())
         n_children = len(self.tree.get_children(node.id))
         while n_children < n_actions:
             current_children = self.tree.get_children(node.id)
             action = self.policy.get_next_action(node, current_children)
-            self.logger.debug('\tExpanding with {}. Option {}/{}'.format(action().name(), n_children + 1, n_actions))
+            component = action()
 
-            try:
-                component = action()
-                self.logger.debug('\tFitting with default ')
-                # TODO calculate score for classifiers and pass to config generators
-                X = self.worker.transform_dataset(node.ds,
-                                                  component.get_hyperparameter_search_space().get_default_configuration(),
-                                                  component)
-                ds = Dataset(X, node.ds.y)
-                # TODO validate that transformation was really successful
+            self.logger.debug('\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
+            new_node = self.tree.add_node(estimator=action, ds=None, parent_node=node)
 
-                return self.tree.add_node(estimator=action, ds=ds, parent_node=node)
-            except KeyboardInterrupt:
-                raise
-            except Exception as ex:
-                self.logger.debug('\t{} failed with {}'.format(action().name(), ex))
-                new_child = self.tree.add_node(estimator=action, ds=None, parent_node=node)
-                self._backpropagate([key for key, values in new_child.steps], np.inf)
+            ds = node.ds
+            config, key = self.cfg_cache.sample_configuration(
+                configspace=component.get_hyperparameter_search_space(),
+                mf=ds.meta_features,
+                default=True)
 
+            job = Job(ds, CandidateId(-1, -1, -1), cs=component, cutoff=self.cutoff, config=config, cfg_keys=[key])
+            result = self.worker.start_transform_dataset(job)
+
+            if result.status.value == StatusType.SUCCESS.value:
+                ds = Dataset(result.transformed_X, node.ds.y)
+
+                if ds.meta_features is None:
+                    result.status = StatusType.CRASHED
+                    result.loss = 1
+                elif np.allclose(node.ds.meta_features, ds.meta_features):
+                    self.logger.debug('\t{} did not modify dataset'.format(component.name()))
+                    result.status = StatusType.INEFFECTIVE
+                    result.loss = 1
+
+                partial_config = PartialConfig(key, config, '', ds.meta_features)
+                result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
+                result.partial_configs.append(partial_config)
+
+                new_node.partial_config = partial_config
+                new_node.ds = ds
+            else:
+                self.logger.debug(
+                    '\t{} failed with as default hyperparamter: {}'.format(component.name(), result.status))
+                result.loss = 1
+
+            if result.loss is not None:
                 n_children += 1
+                self._backpropagate([key for key, values in new_node.steps], result.loss)
+                job.result = result
+                self.cfg_cache.register_result(job)
+                if result.loss < 1:
+                    # Successful classifiers
+                    return new_node, result
+
+            else:
+                # Successful preprocessors
+                return new_node, result
+        return None, None
 
     # noinspection PyMethodMayBeStatic
-    def _simulate(self, path: List[Node], max_depths: int = 3) -> Optional[Node]:
+    def _simulate(self, path: List[Node], max_depths: int = 1) -> Optional[Node]:
         """Returns the reward for a random simulation (to completion) of `node`"""
         node = path[-1]
         for i in range(max_depths):
             if node.is_terminal():
-                return node
+                break
 
             # TODO use meta-learning
-            # TODO always select classifier as last step
-            action = self.policy.get_next_action(node, [])
+            action = self.policy.get_next_action(node, [], include_preprocessing=i < max_depths - 1)
             if action is None:
                 break
 
             node = Node(id=-(i + 1), ds=None, estimator=action, pipeline_prefix=node.steps)
 
-        self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
-        return None
+        if node.is_terminal():
+            return node
+        else:
+            self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
+            return None
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:

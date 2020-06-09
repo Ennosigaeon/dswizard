@@ -83,7 +83,6 @@ class Hyperopt(BaseConfigGenerator):
                 sample = self._draw_sample()
 
             if sample is None:
-                self.logger.debug('Generating random configuration')
                 sample = self.configspace.sample_configuration()
         except:
             self.logger.warning(

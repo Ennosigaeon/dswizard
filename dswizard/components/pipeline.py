@@ -142,7 +142,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
             # Configure transformer on the fly if necessary
             if self.configuration is None:
-                config: Configuration = self._get_config_for_step(self.cfg_keys[step_idx], prefix, name, logger)
+                config: Configuration = self._get_config_for_step(step_idx, prefix, name, logger)
                 cloned_transformer.set_hyperparameters(configuration=config.get_dictionary())
 
             # Fit or load from cache the current transformer
@@ -197,7 +197,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
                 # Configure estimator on the fly if necessary
                 if self.configuration is None:
-                    config = self._get_config_for_step(self.cfg_keys[-1], prefix, self.steps[-1][0], logger)
+                    config = self._get_config_for_step(len(self.steps) - 1, prefix, self.steps[-1][0], logger)
                     self._final_estimator.set_hyperparameters(configuration=config.get_dictionary())
 
                 self._final_estimator.fit(Xt, y, **fit_params)
@@ -205,12 +205,16 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                 raise NotImplementedError('passthrough pipelines are currently not supported')
         return self
 
-    def _get_config_for_step(self, cfg_key: Tuple[float, int], prefix: str, name: str,
+    def _get_config_for_step(self, idx: int, prefix: str, name: str,
                              logger: ProcessLogger) -> Configuration:
         start = timeit.default_timer()
 
         estimator = self.get_step(name)
+        if idx >= len(self.cfg_keys):
+            # TODO for all simulated steps config is generated randomly
+            return estimator.get_hyperparameter_search_space().sample_configuration()
 
+        cfg_key = self.cfg_keys[idx]
         if isinstance(estimator, SubPipeline):
             config, cfg_key = ConfigurationSpace().get_default_configuration(), (0, 0)
         else:
