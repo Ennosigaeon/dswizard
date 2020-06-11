@@ -153,7 +153,7 @@ class MetaFeatureFactory(object):
             eq_num_attr = 0
             ns_ratio = 0
 
-        precomp_model = MFEModelBased.precompute_model_based_class(N, y, None)
+        precomp_model = MFEModelBased.precompute_model_based_class(N, y, random_state=random_state)
         leaves_branch = MFEModelBased.ft_leaves_branch(precomp_model['table'], precomp_model['tree_depth'])
         leaves_per_class = MFEModelBased.ft_leaves_per_class(precomp_model['table'])
         var_importance = MFEModelBased.ft_var_importance(precomp_model['model'])
