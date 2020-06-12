@@ -13,7 +13,7 @@ from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
 from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
-from core.meta_features import MetaFeatures
+from automl.components.meta_features import MetaFeatures
 from core.model import CandidateId, PartialConfig, StatusType
 from core.worker import Worker
 from dswizard.components.pipeline import FlexiblePipeline

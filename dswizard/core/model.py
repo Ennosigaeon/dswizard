@@ -11,13 +11,12 @@ from ConfigSpace.read_and_write import json as config_json
 from sklearn.base import BaseEstimator
 
 from automl.components.base import EstimatorComponent
-
-from dswizard.core.meta_features import MetaFeatureFactory
+from automl.components.meta_features import MetaFeatureFactory
 from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
-    from dswizard.core.meta_features import MetaFeatures
+    from automl.components.meta_features import MetaFeatures
 
 
 class StatusType(Enum):

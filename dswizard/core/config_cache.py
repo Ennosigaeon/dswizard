@@ -12,7 +12,7 @@ from sklearn.neighbors import NearestNeighbors
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
-    from dswizard.core.meta_features import MetaFeatures
+    from automl.components.meta_features import MetaFeatures
 
 
 class ConfigCache:
