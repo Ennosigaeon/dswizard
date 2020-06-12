@@ -7,11 +7,13 @@ import math
 import networkx as nx
 import numpy as np
 from sklearn.base import is_classifier
+from sklearn.neighbors import NearestNeighbors
 
 from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
 from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
+from core.meta_features import MetaFeatures
 from core.model import CandidateId, PartialConfig, StatusType
 from core.worker import Worker
 from dswizard.components.pipeline import FlexiblePipeline
@@ -208,11 +210,15 @@ class MCTS(BaseStructureGenerator):
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
         self.policy = Policy()
+        self.neighbours = NearestNeighbors()
+        self.mfs: Optional[MetaFeatures] = None
 
     def get_candidate(self, ds: Dataset) -> CandidateStructure:
         # Initialize tree if not exists
         if self.tree is None:
             self.tree = Tree(ds)
+            self.mfs = ds.meta_features
+            self.neighbours.fit(self.mfs)
 
         # traverse from root to a leaf node
         self.logger.debug('MCTS SELECT')
@@ -265,7 +271,7 @@ class MCTS(BaseStructureGenerator):
             # TODO guarantee that no failed algorithm nodes are selected
             node = self.policy.uct(node, self.tree)  # descend a layer deeper
 
-    def _expand(self, nodes: List[Node]) -> Tuple[Optional[Node], Optional[Result]]:
+    def _expand(self, nodes: List[Node], max_distance: float = 1) -> Tuple[Optional[Node], Optional[Result]]:
         node = nodes[-1]
         if self.tree.fully_expanded(node):
             return None, None
@@ -295,10 +301,21 @@ class MCTS(BaseStructureGenerator):
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED
                     result.loss = 1
-                elif np.allclose(node.ds.meta_features, ds.meta_features):
-                    self.logger.debug('\t{} did not modify dataset'.format(component.name()))
-                    result.status = StatusType.INEFFECTIVE
-                    result.loss = 1
+                else:
+                    # Check if any node in the tree is similar to the new dataset
+                    distance, idx = self.neighbours.kneighbors(ds.meta_features, n_neighbors=1)
+                    if np.allclose(node.ds.meta_features, ds.meta_features):
+                        self.logger.debug('\t{} did not modify dataset'.format(component.name()))
+                        result.status = StatusType.INEFFECTIVE
+                        result.loss = 1
+                    elif distance[0][0] <= max_distance:
+                        # TODO: currently always the existing node is selected. This node could represent simpler model
+                        self.logger.debug('\t{} produced a dataset similar to {}'.format(component.name(), idx[0][0]))
+                        result.status = StatusType.DUPLICATE
+                        result.loss = 1
+                    else:
+                        self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
+                        self.neighbours.fit(self.mfs)
 
                 partial_config = PartialConfig(key, config, str(node.id), ds.meta_features)
                 new_node.partial_config = partial_config
