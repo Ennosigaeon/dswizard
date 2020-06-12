@@ -188,6 +188,10 @@ class Policy:
             if n.visits == 0:
                 return math.inf
 
+            if n.ds.meta_features is None or n.partial_config is None:
+                # Always ignore nodes without meta-features
+                return 0
+
             return n.reward / n.visits + self.exploration_weight * math.sqrt(
                 log_N_vertex / node.visits
             )
@@ -296,10 +300,7 @@ class MCTS(BaseStructureGenerator):
                     result.status = StatusType.INEFFECTIVE
                     result.loss = 1
 
-                partial_config = PartialConfig(key, config, '', ds.meta_features)
-                result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
-                result.partial_configs.append(partial_config)
-
+                partial_config = PartialConfig(key, config, str(node.id), ds.meta_features)
                 new_node.partial_config = partial_config
                 new_node.ds = ds
             else:
@@ -310,9 +311,14 @@ class MCTS(BaseStructureGenerator):
             if result.loss is not None:
                 n_children += 1
                 self._backpropagate([key for key, values in new_node.steps], result.loss)
-                job.result = result
-                self.cfg_cache.register_result(job)
                 if result.loss < 1:
+                    result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
+                    result.partial_configs.append(new_node.partial_config)
+                    result.steps = [(str(n.id), n.label) for n in nodes if n.partial_config is not None]
+                    result.config = PartialConfig.merge(result.partial_configs)
+
+                    job.result = result
+                    self.cfg_cache.register_result(job)
                     # Successful classifiers
                     return new_node, result
 

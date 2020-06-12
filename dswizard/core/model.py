@@ -13,6 +13,7 @@ from sklearn.base import BaseEstimator
 from automl.components.base import EstimatorComponent
 
 from dswizard.core.meta_features import MetaFeatureFactory
+from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -28,6 +29,7 @@ class StatusType(Enum):
     MEMOUT = 5
     CAPPED = 6
     INEFFECTIVE = 7
+    DUPLICATE = 8
 
 
 class CandidateId:
@@ -197,7 +199,7 @@ class Job:
                  candidate_id: CandidateId,
                  cs: Union[CandidateStructure, EstimatorComponent],
                  cutoff: float = None,
-                 config: Optional[Union[Configuration, PartialConfig]] = None,
+                 config: Optional[Configuration] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None,
                  **kwargs):
         self.ds = ds
@@ -270,6 +272,22 @@ class PartialConfig:
         config = Configuration(config_json.read(raw['configspace']), vector=np.array(raw['config']))
         # noinspection PyTypeChecker
         return PartialConfig(raw['cfg_key'], config, raw['name'], np.array(raw['mf']))
+
+    @staticmethod
+    def merge(partial_configs: List[PartialConfig]):
+        if len(partial_configs) == 1:
+            return partial_configs[0].config
+
+        complete = {}
+        cs = ConfigurationSpace()
+
+        for partial_config in partial_configs:
+            for param, value in partial_config.config.get_dictionary().items():
+                param = prefixed_name(partial_config.name, param)
+                complete[param] = value
+            cs.add_configuration_space(partial_config.name, partial_config.config.configuration_space)
+
+        return Configuration(cs, complete)
 
     def __eq__(self, other):
         if isinstance(other, PartialConfig):

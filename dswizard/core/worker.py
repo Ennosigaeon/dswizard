@@ -182,7 +182,7 @@ class Worker(abc.ABC):
         """
         pass
 
-    def start_transform_dataset(self,job: Job) -> Result:
+    def start_transform_dataset(self, job: Job) -> Result:
         self.logger.info('start processing job {} with estimator {}'.format(job.cid, job.cs))
         X = None
         try:
@@ -200,7 +200,7 @@ class Worker(abc.ABC):
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
             status = StatusType.CRASHED
             score = 1
-        return Result(status=status, loss=score, partial_configs=[job.config], transformed_X=X)
+        return Result(status=status, loss=score, transformed_X=X)
 
     @abc.abstractmethod
     def transform_dataset(self,
