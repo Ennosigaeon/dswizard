@@ -128,15 +128,14 @@ class ProcessLogger:
         complete = {}
         missing_steps = set(pipeline.all_names())
 
-        latest_mf = None
         for partial_config in partial_configs:
             for param, value in partial_config.config.get_dictionary().items():
                 param = prefixed_name(partial_config.name, param)
                 complete[param] = value
-            latest_mf = partial_config.mf
             missing_steps.remove(partial_config.name)
 
         # Create random configuration for missing steps
+        latest_mf = None if len(partial_configs) == 0 else partial_configs[-1].mf
         for name in missing_steps:
             config = pipeline.get_step(name).get_hyperparameter_search_space(mf=latest_mf) \
                 .sample_configuration()
