@@ -52,7 +52,7 @@ class Node(ABC):
     def __init__(self,
                  id: int,
                  ds: Optional[Dataset],
-                 estimator: Optional[Type[EstimatorComponent]],
+                 component: Optional[Type[EstimatorComponent]],
                  pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None,
                  partial_config: PartialConfig = None
                  ):
@@ -60,26 +60,26 @@ class Node(ABC):
         self.ds = ds
         self.partial_config = partial_config
 
-        if estimator is None:
+        if component is None:
             self.label = 'ROOT'
-            self.estimator = None
+            self.component = None
         else:
-            self.estimator = estimator()
-            self.label = self.estimator.name()
+            self.component = component()
+            self.label = self.component.name()
 
         if pipeline_prefix is None:
             pipeline_prefix = []
         else:
             pipeline_prefix = deepcopy(pipeline_prefix)
             # TODO check if also add if pipeline_prefix is None
-            pipeline_prefix.append((str(id), self.estimator))
+            pipeline_prefix.append((str(id), self.component))
         self.steps: List[Tuple[str, EstimatorComponent]] = pipeline_prefix
 
         self.visits = 0
         self.reward = 0
 
     def is_terminal(self):
-        return is_classifier(self.estimator)
+        return is_classifier(self.component)
 
     # noinspection PyMethodMayBeStatic
     def available_actions(self, include_preprocessing: bool = True,
@@ -169,7 +169,7 @@ class Policy:
                         include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         actions = n.available_actions(include_preprocessing=include_preprocessing,
                                       include_classifier=include_classifier)
-        exhausted_actions = [n.estimator for n in current_children]
+        exhausted_actions = [n.component for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
 
         if len(actions) == 0:
@@ -334,7 +334,7 @@ class MCTS(BaseStructureGenerator):
             if action is None:
                 break
 
-            node = Node(id=-(i + 1), ds=None, estimator=action, pipeline_prefix=node.steps)
+            node = Node(id=-(i + 1), ds=None, component=action, pipeline_prefix=node.steps)
 
         if node.is_terminal():
             return node
