@@ -87,11 +87,12 @@ class Node(ABC):
     def available_actions(self, include_preprocessing: bool = True,
                           include_classifier: bool = True) -> Set[Type[EstimatorComponent]]:
         components = set()
+        mf = self.ds.mf_dict
         if include_classifier:
-            components.update(ClassifierChoice().get_components().values())
+            components.update(ClassifierChoice().get_available_components(mf=mf).values())
         if include_preprocessing:
-            components.update(DataPreprocessorChoice().get_components().values())
-            components.update(FeaturePreprocessorChoice().get_components().values())
+            components.update(DataPreprocessorChoice().get_available_components(mf=mf).values())
+            components.update(FeaturePreprocessorChoice().get_available_components(mf=mf).values())
         return components
 
     def __hash__(self) -> int:
