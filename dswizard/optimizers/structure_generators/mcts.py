@@ -332,7 +332,6 @@ class MCTS(BaseStructureGenerator):
                 if result.loss < 1:
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
-                    result.steps = [(str(n.id), n.label) for n in nodes if n.partial_config is not None]
                     result.config = PartialConfig.merge(result.partial_configs)
 
                     job.result = result

@@ -70,17 +70,24 @@ master = Master(
 )
 
 try:
-    res = master.optimize()
+    run_history = master.optimize()
 
     # Analysis
-    id2config = res.get_id2config_mapping()
-    incumbent = id2config[res.get_incumbent_id()]
+    id2config = run_history.get_id2config_mapping()
+    incumbent = id2config[run_history.get_incumbent_id()]
 
-    print('Best found configuration: {}\n{} with loss {}'.format(incumbent.get_incumbent().steps,
+    if logging.getLogger().level <= logging.DEBUG:
+        print('Tested configurations:')
+        for cid, structure in id2config.items():
+            print('{}\t -> {}'.format(cid, structure.steps))
+            for res in structure.results:
+                print('\t{} -> {}'.format(res.config, res.loss))
+
+    print('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
                                                                  incumbent.get_incumbent().config,
                                                                  incumbent.get_incumbent().loss))
     print('A total of {} structures where sampled.'.format(len(id2config.keys())))
-    print('A total of {} runs where executed.'.format(len(res.get_all_runs())))
+    print('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
 
 finally:
     master.shutdown()

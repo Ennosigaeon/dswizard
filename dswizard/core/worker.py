@@ -114,13 +114,13 @@ class Worker(abc.ABC):
 
             # job.component has to be always a FlexiblePipeline
             steps = [(name, comp.name()) for name, comp in job.component.steps]
-            result = Result(status, config, steps, cost, runtime, partial_configs)
+            result = Result(status, config, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
-            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, [], 1, None,
+            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
                             partial_configs if 'partial_configs' in locals() else None)
         finally:
             self.process_logger = None
