@@ -90,14 +90,14 @@ class BaseIteration(abc.ABC):
             candidate = self.data[cid]
             assert candidate.budget == self.budgets[self.stage], 'Config budget does not align with current stage!'
             candidate.status = 'RUNNING'
-            self.num_running += 1
+            self.num_running += int(candidate.budget)
             return candidate
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
             candidate = self._add_candidate(ds)
             candidate.status = 'RUNNING'
-            self.num_running += 1
+            self.num_running += int(candidate.budget)
             return candidate
         elif self.num_running == 0:
             # at this point a stage is completed
@@ -166,8 +166,8 @@ class BaseIteration(abc.ABC):
                 # Only structure candidates are advanced to next iteration. Specific config does not matter and is
                 # ignored
                 # TODO check if it reasonable to ignore best performing hyperparameter configurations
-                self.logger.debug('Advancing candidate structure {} to next budget {}'
-                                  .format(cid, self.budgets[self.stage]))
+                self.logger.debug('Advancing candidate structure {} to next budget {} with loss {}'
+                                  .format(cid, self.budgets[self.stage], losses[i]))
 
                 candidate = self.data[cid]
                 candidate.status = 'QUEUED'
