@@ -32,6 +32,7 @@ class BaseConfigGenerator(abc.ABC):
         else:
             self.logger = logger
         self.configspace: ConfigurationSpace = configspace
+        self.expected_size = self.configspace.get_default_configuration().get_array().size
 
     @abc.abstractmethod
     def sample_config(self, default: bool = False) -> Configuration:

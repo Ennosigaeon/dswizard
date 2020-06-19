@@ -181,6 +181,12 @@ class Hyperopt(BaseConfigGenerator):
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:
         super().register_result(config, loss, status)
+        if config.get_array().size != self.expected_size:
+            self.logger.warning(
+                'Expected {} with {} values, got {} with {} values. Ignoring result'.format(self.configspace,
+                                                                                            self.expected_size,
+                                                                                            config.get_array().size,
+                                                                                            config))
 
         if loss is None or not np.isfinite(loss):
             # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations
