@@ -103,6 +103,7 @@ class Worker(abc.ABC):
                 cost, runtime = c
             else:
                 status = StatusType.CRASHED
+                self.logger.debug('Worker failed with {}\n{}'.format(c[0], c[1]))
                 cost = 1
                 runtime = Runtime(wrapper.wall_clock_time)
 

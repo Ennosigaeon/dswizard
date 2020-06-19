@@ -50,12 +50,7 @@ class SklearnWorker(Worker):
 
     def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], n_folds: int = 4):
         y = ds.y
-
-        try:
-            y_pred = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
-        except Exception as ex:
-            self.logger.info(ex)
-            raise ex
+        y_pred = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
 
         # Always compute minimization problem
         if self.metric == 'accuracy':

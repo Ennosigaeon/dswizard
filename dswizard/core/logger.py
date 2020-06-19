@@ -125,6 +125,9 @@ class ProcessLogger:
         return config, partial_configs
 
     def _merge_configs(self, partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
+        if len(partial_configs) == 0:
+            self.logger.warning('Encountered job without any partial configurations. Simulating complete config')
+
         complete = {}
         missing_steps = set(pipeline.all_names())
 
