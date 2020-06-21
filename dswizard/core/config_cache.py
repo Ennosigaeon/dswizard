@@ -57,6 +57,9 @@ class ConfigCache:
         if cfg_key is not None:
             return self.cache[cfg_key[0]].generators[cfg_key[1]], cfg_key
 
+        if configspace is None or mf is None:
+            raise ValueError('If cfg_key is not given, both configspace and mf must not be None.')
+
         hash_key = hash(configspace)
         if hash_key not in self.cache:
             self.cache[hash_key] = ConfigCache.Entry()
