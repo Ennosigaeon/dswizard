@@ -93,6 +93,8 @@ class Runtime:
 
     @staticmethod
     def from_dict(raw: dict) -> 'Runtime':
+        if raw is None:
+            return None
         return Runtime(**raw)
 
 
@@ -119,7 +121,7 @@ class Result:
         return {
             'status': str(self.status),
             'loss': self.loss,
-            'runtime': self.runtime.as_dict(),
+            'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
         }
 
