@@ -126,6 +126,7 @@ class Master:
         time.sleep(1)
         self.dispatcher.shutdown()
         self.dispatcher_thread.join()
+        self.bandit_learner.structure_generator.shutdown()
 
     def optimize(self) -> RunHistory:
         """

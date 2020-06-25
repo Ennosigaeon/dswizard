@@ -62,12 +62,14 @@ class Node(ABC):
         self.ds = ds
         self.partial_config = partial_config
 
+        self.failure_message: Optional[str] = None
+
         if component is None:
             self.label = 'ROOT'
             self.component = None
         else:
             self.component = component()
-            self.label = self.component.name()
+            self.label = self.component.name(short=True)
 
         if pipeline_prefix is None:
             pipeline_prefix = []
@@ -82,6 +84,10 @@ class Node(ABC):
 
     def is_terminal(self):
         return is_classifier(self.component)
+
+    @property
+    def failed(self):
+        return self.failure_message is not None
 
     # noinspection PyMethodMayBeStatic
     def available_actions(self, include_preprocessing: bool = True,
@@ -148,10 +154,22 @@ class Tree:
 
         return (current_children != 0 or possible_children == 0) and current_children >= min(global_max, max_children)
 
-    def highlight_path(self, end: int, start: int = 0):
-        for n in nx.shortest_path(self.G, source=start, target=end):
-            self.G.nodes[n]['fillcolor'] = 'gray'
-            self.G.nodes[n]['style'] = 'filled'
+    def plot(self, file: str):
+        for n, data in self.G.nodes(data=True):
+            node: Node = data['value']
+            if node.label.endswith('Component'):
+                data['label'] = node.label[:-9]
+
+            score = node.reward / node.visits if node.visits > 0 else 0
+            data['label'] = '{} ({})\n{:.4f} / {}'.format(data['label'], n, score, node.visits)
+
+            if node.failed:
+                data['fillcolor'] = 'gray'
+                data['style'] = 'filled'
+                data['label'] += '\n' + node.failure_message
+
+        H = nx.nx_agraph.to_agraph(self.G)
+        H.draw(file, prog='dot')
 
     def __contains__(self, node: int) -> bool:
         return node in self.G.nodes
@@ -302,6 +320,7 @@ class MCTS(BaseStructureGenerator):
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED
                     result.loss = 1
+                    new_node.failure_message = 'Missing MF'
                 else:
                     # Check if any node in the tree is similar to the new dataset
                     distance, idx = self.neighbours.kneighbors(ds.meta_features, n_neighbors=1)
@@ -309,11 +328,13 @@ class MCTS(BaseStructureGenerator):
                         self.logger.debug('\t{} did not modify dataset'.format(component.name()))
                         result.status = StatusType.INEFFECTIVE
                         result.loss = 1
+                        new_node.failure_message = 'Ineffective'
                     elif distance[0][0] <= max_distance:
                         # TODO: currently always the existing node is selected. This node could represent simpler model
                         self.logger.debug('\t{} produced a dataset similar to {}'.format(component.name(), idx[0][0]))
                         result.status = StatusType.DUPLICATE
                         result.loss = 1
+                        new_node.failure_message = 'Duplicate {}'.format(idx[0][0])
                     else:
                         self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
                         self.neighbours.fit(self.mfs)
@@ -325,6 +346,7 @@ class MCTS(BaseStructureGenerator):
                 self.logger.debug(
                     '\t{} failed with as default hyperparamter: {}'.format(component.name(), result.status))
                 result.loss = 1
+                new_node.failure_message = 'Crashed'
 
             if result.loss is not None:
                 n_children += 1
@@ -405,3 +427,6 @@ class MCTS(BaseStructureGenerator):
             return n.reward / n.visits  # average reward
 
         return min(children, key=score)
+
+    def shutdown(self):
+        self.tree.plot('search_graph.pdf')
