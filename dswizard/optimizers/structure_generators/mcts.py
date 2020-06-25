@@ -258,14 +258,16 @@ class MCTS(BaseStructureGenerator):
 
         self.logger.debug('MCTS SIMULATE')
         for i in range(10):
-            node = self._simulate(path)
-            if node is not None:
+            extended_path = self._simulate(path)
+            if extended_path is not None:
+                path = extended_path
                 break
         else:
             raise ValueError(
                 'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
                     ', '.join([n.label for n in path])))
 
+        node = path[-1]
         self.logger.debug('Sampled pipeline structure: {}'.format(node.steps))
         pipeline = FlexiblePipeline(node.steps)
 
@@ -380,9 +382,10 @@ class MCTS(BaseStructureGenerator):
         return None, None
 
     # noinspection PyMethodMayBeStatic
-    def _simulate(self, path: List[Node], max_depths: int = 1) -> Optional[Node]:
+    def _simulate(self, path: List[Node], max_depths: int = 3) -> Optional[List[Node]]:
         """Returns the reward for a random simulation (to completion) of `node`"""
-        node = path[-1]
+        p = copy.copy(path)
+        node = p[-1]
         for i in range(max_depths):
             if node.is_terminal():
                 break
@@ -393,9 +396,10 @@ class MCTS(BaseStructureGenerator):
                 break
 
             node = Node(id=-(i + 1), ds=None, component=action, pipeline_prefix=node.steps)
+            p.append(node)
 
         if node.is_terminal():
-            return node
+            return p
         else:
             self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
             return None
