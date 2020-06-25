@@ -1,3 +1,4 @@
+import copy
 import random
 from abc import ABC
 from copy import deepcopy
@@ -277,10 +278,11 @@ class MCTS(BaseStructureGenerator):
         return cs
 
     def _select(self) -> List[Node]:
-        """Find an unexplored descendent of `node`"""
+        """Find an unexplored descendent of ROOT"""
 
         path: List[Node] = []
         node = self.tree.get_node(Tree.ROOT)
+        score = -math.inf
         while True:
             self.logger.debug('\tSelecting {}'.format(node.label))
             if node.failed:
@@ -296,8 +298,11 @@ class MCTS(BaseStructureGenerator):
             if len(self.tree.get_children(node.id)) == 0:
                 return path
 
-            # TODO guarantee that no failed algorithm nodes are selected
-            node = self.policy.uct(node, self.tree)  # descend a layer deeper
+            candidate, candidate_score = self.policy.uct(node, self.tree)  # descend a layer deeper
+            if candidate_score < score and (node.is_terminal() or not self.tree.fully_expanded(node)):
+                return path
+            else:
+                node, score = candidate, candidate_score
 
     def _expand(self, nodes: List[Node], max_distance: float = 1) -> Tuple[Optional[Node], Optional[Result]]:
         node = nodes[-1]
@@ -348,8 +353,7 @@ class MCTS(BaseStructureGenerator):
                         self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
                         self.neighbours.fit(self.mfs)
 
-                partial_config = PartialConfig(key, config, str(node.id), ds.meta_features)
-                new_node.partial_config = partial_config
+                new_node.partial_config = PartialConfig(key, config, str(new_node.id), ds.meta_features)
                 new_node.ds = ds
             else:
                 self.logger.debug(
@@ -414,10 +418,10 @@ class MCTS(BaseStructureGenerator):
 
         ls = list(path)
         ls.append('0')
-        for name in ls:
-            id = int(name)
-            if id >= 0:
-                n = self.tree.get_node(id)
+        for node_id in ls:
+            node_id = int(node_id)
+            if node_id >= 0:
+                n = self.tree.get_node(node_id)
                 n.visits += 1
                 n.reward += reward
 
