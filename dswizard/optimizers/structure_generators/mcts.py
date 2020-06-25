@@ -83,7 +83,7 @@ class Node(ABC):
         self.reward = 0
 
     def is_terminal(self):
-        return is_classifier(self.component)
+        return self.component is not None and is_classifier(self.component)
 
     @property
     def failed(self):
@@ -93,7 +93,7 @@ class Node(ABC):
     def available_actions(self, include_preprocessing: bool = True,
                           include_classifier: bool = True) -> Set[Type[EstimatorComponent]]:
         components = set()
-        mf = self.ds.mf_dict
+        mf = self.ds.mf_dict if self.ds is not None else None
         if include_classifier:
             components.update(ClassifierChoice().get_available_components(mf=mf).values())
         if include_preprocessing:
@@ -190,7 +190,7 @@ class Policy:
                         include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         actions = n.available_actions(include_preprocessing=include_preprocessing,
                                       include_classifier=include_classifier)
-        exhausted_actions = [n.component for n in current_children]
+        exhausted_actions = [type(n.component) for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
 
         if len(actions) == 0:
@@ -250,6 +250,11 @@ class MCTS(BaseStructureGenerator):
         if expansion is not None:
             path.append(expansion)
 
+        if len(path) == 1:
+            # TODO selecting is deterministic. Retrying yields same result
+            self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
+            return self.get_candidate(ds)
+
         self.logger.debug('MCTS SIMULATE')
         for i in range(10):
             node = self._simulate(path)
@@ -268,7 +273,7 @@ class MCTS(BaseStructureGenerator):
 
         # If no simulation was necessary, add the default configuration as first result
         if result is not None and result.loss is not None and result.loss < 1:
-            cs.results.append(result)
+            cs.add_result(result)
         return cs
 
     def _select(self) -> List[Node]:
@@ -278,12 +283,16 @@ class MCTS(BaseStructureGenerator):
         node = self.tree.get_node(Tree.ROOT)
         while True:
             self.logger.debug('\tSelecting {}'.format(node.label))
+            if node.failed:
+                self.logger.warning(
+                    'Selected node has no dataset, meta-features or partial configurations. This should not happen')
+
             path.append(node)
 
             if not self.tree.fully_expanded(node):
                 return path
 
-            # node is terminal
+            # node is leaf
             if len(self.tree.get_children(node.id)) == 0:
                 return path
 
