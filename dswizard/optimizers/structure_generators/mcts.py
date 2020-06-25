@@ -7,6 +7,7 @@ from typing import List, Optional, Set, Tuple, Type
 import math
 import networkx as nx
 import numpy as np
+from scipy.stats import gamma
 from sklearn.base import is_classifier
 from sklearn.neighbors import NearestNeighbors
 
@@ -198,7 +199,7 @@ class Policy:
             return None
         return random.choice(actions)
 
-    def uct(self, node: Node, tree: Tree) -> Node:
+    def uct(self, node: Node, tree: Tree, alpha=2., scale=2.) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
         if node.visits == 0:
             log_N_vertex = 0
@@ -210,15 +211,17 @@ class Policy:
             if n.visits == 0:
                 return math.inf
 
-            if n.ds.meta_features is None or n.partial_config is None:
+            if n.failed:
                 # Always ignore nodes without meta-features
-                return 0
+                return -1
 
-            return n.reward / n.visits + self.exploration_weight * math.sqrt(
-                log_N_vertex / node.visits
-            )
+            exploitation = (1 - n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
+            exploration = math.sqrt(log_N_vertex / node.visits)
+            overfitting = gamma.pdf(len(n.steps), a=alpha, scale=scale)
+            return (exploitation + self.exploration_weight * exploration) * overfitting
 
-        return max(tree.get_children(node.id), key=uct)
+        node = max(tree.get_children(node.id), key=uct)
+        return node, uct(node)
 
 
 class MCTS(BaseStructureGenerator):
@@ -409,9 +412,7 @@ class MCTS(BaseStructureGenerator):
         reward = result.loss
 
         if reward is None or not np.isfinite(reward):
-            # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations
-            # Same for non numeric losses. Note that this means losses of minus infinity will count as bad!
-            reward = np.inf
+            reward = 1
 
         self._backpropagate(candidate.pipeline.steps_.keys(), reward)
 
