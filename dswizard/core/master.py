@@ -106,6 +106,7 @@ class Master:
 
         bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
                                                                                  cutoff=self.cutoff,
+                                                                                 workdir=self.working_directory,
                                                                                  **structure_generator_kwargs)
         self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
 

@@ -227,9 +227,10 @@ class Policy:
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, worker: Worker, cutoff: int, **kwargs):
+    def __init__(self, worker: Worker, cutoff: int, workdir: str, **kwargs):
         super().__init__(**kwargs)
         self.worker = worker
+        self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
         self.policy = Policy()
@@ -447,4 +448,4 @@ class MCTS(BaseStructureGenerator):
         return min(children, key=score)
 
     def shutdown(self):
-        self.tree.plot('search_graph.pdf')
+        self.tree.plot(self.workdir + '/search_graph.pdf')
