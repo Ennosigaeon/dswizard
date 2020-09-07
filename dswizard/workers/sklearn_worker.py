@@ -54,18 +54,18 @@ class SklearnWorker(Worker):
 
         # Always compute minimization problem
         if self.metric == 'accuracy':
-            score = 1 - accuracy_score(y, y_pred)
+            score = -1 * accuracy_score(y, y_pred)
         elif self.metric == 'precision':
-            score = 1 - precision_score(y, y_pred, average='weighted')
+            score = -1 * precision_score(y, y_pred, average='weighted')
         elif self.metric == 'recall':
-            score = 1 - recall_score(y, y_pred, average='weighted')
+            score = -1 * recall_score(y, y_pred, average='weighted')
         elif self.metric == 'f1':
-            score = 1 - f1_score(y, y_pred, average='weighted')
+            score = -1 * f1_score(y, y_pred, average='weighted')
         elif self.metric == 'logloss':
             # TODO not working
             score = logloss(y, y_pred)
         elif self.metric == 'rocauc':
-            score = 1 - multiclass_roc_auc_score(y, y_pred, average='weighted')
+            score = -1 * multiclass_roc_auc_score(y, y_pred, average='weighted')
         else:
             raise ValueError
         return score, y_pred

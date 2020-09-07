@@ -215,7 +215,7 @@ class Policy:
                 # Always ignore nodes without meta-features
                 return -1
 
-            exploitation = (1 - n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
+            exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
             exploration = math.sqrt(log_N_vertex / node.visits)
             overfitting = gamma.pdf(len(n.steps), a=alpha, scale=scale)
             return (exploitation + self.exploration_weight * exploration) * overfitting
@@ -311,6 +311,7 @@ class MCTS(BaseStructureGenerator):
                 node, score = candidate, candidate_score
 
     def _expand(self, nodes: List[Node], max_distance: float = 1) -> Tuple[Optional[Node], Optional[Result]]:
+        # TODO When using multiple cores, multiple expansions should be performed in parallel. Currently only 1 worker
         node = nodes[-1]
         if self.tree.fully_expanded(node):
             return None, None
