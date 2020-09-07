@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator
 
 from automl.components.base import EstimatorComponent
 from automl.components.meta_features import MetaFeatureFactory
-from dswizard.util.util import prefixed_name
+from dswizard.util import util
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
@@ -232,9 +232,14 @@ class Dataset:
 
     def __init__(self,
                  X: np.ndarray,
-                 y: np.ndarray):
+                 y: np.ndarray,
+                 metric: str = 'f1'):
         self.X = X
         self.y = y
+
+        if metric not in util.valid_metrics:
+            raise KeyError('Unknown metric {}'.format(metric))
+        self.metric = metric
 
         self.mf_dict, self.meta_features = MetaFeatureFactory.calculate(X, y)
 
@@ -285,7 +290,7 @@ class PartialConfig:
 
         for partial_config in partial_configs:
             for param, value in partial_config.config.get_dictionary().items():
-                param = prefixed_name(partial_config.name, param)
+                param = util.prefixed_name(partial_config.name, param)
                 complete[param] = value
             cs.add_configuration_space(partial_config.name, partial_config.config.configuration_space)
 

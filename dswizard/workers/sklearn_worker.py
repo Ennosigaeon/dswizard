@@ -7,14 +7,13 @@ import numpy as np
 from ConfigSpace import Configuration
 from sklearn import clone
 from sklearn.base import is_classifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import CandidateId, Runtime, Dataset
 from dswizard.core.worker import Worker
-from util.util import multiclass_roc_auc_score, logloss
+from dswizard.util import util
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -51,23 +50,8 @@ class SklearnWorker(Worker):
     def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], n_folds: int = 4):
         y = ds.y
         y_pred = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
+        score = util.score(y, y_pred, ds.metric)
 
-        # Always compute minimization problem
-        if self.metric == 'accuracy':
-            score = -1 * accuracy_score(y, y_pred)
-        elif self.metric == 'precision':
-            score = -1 * precision_score(y, y_pred, average='weighted')
-        elif self.metric == 'recall':
-            score = -1 * recall_score(y, y_pred, average='weighted')
-        elif self.metric == 'f1':
-            score = -1 * f1_score(y, y_pred, average='weighted')
-        elif self.metric == 'logloss':
-            # TODO not working
-            score = logloss(y, y_pred)
-        elif self.metric == 'rocauc':
-            score = -1 * multiclass_roc_auc_score(y, y_pred, average='weighted')
-        else:
-            raise ValueError
         return score, y_pred
 
     def create_estimator(self, conf: dict):

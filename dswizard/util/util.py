@@ -3,6 +3,32 @@ from typing import Optional
 
 from sklearn.metrics import roc_auc_score, log_loss
 from sklearn.preprocessing import LabelBinarizer
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
+valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'rocauc'}
+
+
+def score(y, y_pred, metric: str):
+    if metric == 'accuracy':
+        score = accuracy_score(y, y_pred)
+    elif metric == 'precision':
+        score = precision_score(y, y_pred, average='weighted')
+    elif metric == 'recall':
+        score = recall_score(y, y_pred, average='weighted')
+    elif metric == 'f1':
+        score = f1_score(y, y_pred, average='weighted')
+    elif metric == 'logloss':
+        # TODO not working
+        score = logloss(y, y_pred)
+    elif metric == 'rocauc':
+        score = multiclass_roc_auc_score(y, y_pred, average='weighted')
+    else:
+        raise ValueError
+
+    # Always compute minimization problem
+    if metric != 'logloss':
+        score = -1 * score
+    return score
 
 
 def multiclass_roc_auc_score(y_test, y_pred, average="macro"):

@@ -101,7 +101,7 @@ class Master:
                                                       run_id=run_id)
 
         if 'worker' not in structure_generator_kwargs:
-            structure_generator_kwargs['worker'] = worker_class(run_id=run_id, wid='structure',
+            structure_generator_kwargs['worker'] = worker_class(run_id=run_id, wid='structure', metric=ds.metric,
                                                                 workdir=self.working_directory)
 
         bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
@@ -114,7 +114,7 @@ class Master:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         worker = []
         for i in range(n_workers):
-            worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache,
+            worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
                                        workdir=self.working_directory))
 
         self.dispatcher = Dispatcher(worker, self.job_callback, run_id=run_id)
