@@ -12,15 +12,15 @@ from typing import Type, TYPE_CHECKING
 import math
 from ConfigSpace.configuration_space import ConfigurationSpace
 
-from core.base_structure_generator import BaseStructureGenerator
-from core.dispatcher import Dispatcher
+from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
+from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
-from optimizers.structure_generators.mcts import MCTS
-from workers import SklearnWorker
+from dswizard.optimizers.structure_generators.mcts import MCTS
+from dswizard.workers import SklearnWorker
 
 if TYPE_CHECKING:
     from dswizard.core.base_bandit_learner import BanditLearner

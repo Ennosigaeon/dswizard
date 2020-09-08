@@ -10,8 +10,8 @@ from smac.scenario.scenario import Scenario
 from smac.stats.stats import Stats
 from smac.tae.execute_ta_run import ExecuteTARun, StatusType as SmacStatus
 
-from core.base_config_generator import BaseConfigGenerator
-from core.model import StatusType
+from dswizard.core.base_config_generator import BaseConfigGenerator
+from dswizard.core.model import StatusType
 
 
 class GeneratingTARun(ExecuteTARun):

@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from automl.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
-from core.config_cache import ConfigCache
+from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import Dataset
 from dswizard.util import util
 

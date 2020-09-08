@@ -4,11 +4,10 @@ import numpy as np
 from ConfigSpace.configuration_space import ConfigurationSpace
 
 from automl.components.base import ComponentChoice, EstimatorComponent
-from core.config_cache import ConfigCache
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.model import CandidateStructure
-from dswizard.core.model import Dataset
+from dswizard.core.config_cache import ConfigCache
+from dswizard.core.model import CandidateStructure, Dataset
 
 
 class FixedStructure(BaseStructureGenerator):
