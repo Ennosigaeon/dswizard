@@ -447,4 +447,7 @@ class MCTS(BaseStructureGenerator):
         return min(children, key=score)
 
     def shutdown(self):
+        if self.tree is None:
+            self.logger.info("Search graph not initiated. Skipping rendering as pdf")
+            return
         self.tree.plot(self.workdir + '/search_graph.pdf')
