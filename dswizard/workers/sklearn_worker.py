@@ -32,12 +32,12 @@ class SklearnWorker(Worker):
                 pipeline: FlexiblePipeline,
                 **kwargs) -> Tuple[float, Runtime]:
         start = timeit.default_timer()
+        cloned_pipeline = clone(pipeline)
 
         if config is not None:
-            pipeline.set_hyperparameters(config.get_dictionary())
+            cloned_pipeline.set_hyperparameters(config.get_dictionary())
         else:
             # Derive configuration on complete data set. Test performance via CV
-            cloned_pipeline = clone(pipeline)
             cloned_pipeline.cfg_cache = cfg_cache
             cloned_pipeline.cfg_keys = cfg_keys
             cloned_pipeline.fit(ds.X, ds.y, logger=self.process_logger)
