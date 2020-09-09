@@ -7,19 +7,18 @@ import argparse
 import logging
 import sys
 
+import openml
 import sklearn
-from sklearn import datasets
 
-from automl.components.classification.decision_tree import DecisionTree
-from automl.components.data_preprocessing import DataPreprocessorChoice
-from automl.components.feature_preprocessing import FeaturePreprocessorChoice
+from automl.components.classification.linear_discriminant_analysis import LinearDiscriminantAnalysis
+from automl.components.data_preprocessing.robust_scaler import RobustScalerComponent
+from automl.components.feature_preprocessing.one_hot_encoding import OneHotEncoderComponent
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
-from dswizard.optimizers.structure_generators.fixed import FixedStructure
-from optimizers.config_generators import Hyperopt
-from optimizers.structure_generators.mcts import MCTS
+from dswizard.optimizers.config_generators import Hyperopt
+from dswizard.util import util
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
@@ -39,8 +38,9 @@ parser.add_argument('--log_dir', type=str, help='Directory used for logging', de
 args = parser.parse_args()
 
 # Load dataset
-X, y = datasets.load_digits(return_X_y=True)
-X, y = sklearn.utils.shuffle(X, y)
+ds = openml.datasets.get_dataset(23381)
+X, y, categorical_indicator, attribute_names = ds.get_data(target=ds.default_target_attribute)
+X, y = sklearn.utils.shuffle(X.to_numpy(), y.to_numpy())
 ds = Dataset(X, y)
 
 steps = [
@@ -70,11 +70,14 @@ master = Master(
 )
 
 try:
-    run_history = master.optimize()
+    pipeline, run_history = master.optimize()
+
+    pipeline.fit(X, y)
+    predicitions = pipeline.predict(X)
 
     # Analysis
     id2config = run_history.get_id2config_mapping()
-    incumbent = id2config[run_history.get_incumbent_id()]
+    _, incumbent = run_history.get_incumbent()
 
     if logging.getLogger().level <= logging.DEBUG:
         print('Tested configurations:')
@@ -88,6 +91,7 @@ try:
                                                                  incumbent.get_incumbent().loss))
     print('A total of {} structures where sampled.'.format(len(id2config.keys())))
     print('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
+    print('Final performance', util.score(y, predicitions, ds.metric))
 
 finally:
     master.shutdown()

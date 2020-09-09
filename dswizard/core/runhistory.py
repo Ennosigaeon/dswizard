@@ -1,11 +1,10 @@
 import copy
-import json
-import os
 from collections import ChainMap
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 
-from ConfigSpace import Configuration
+from sklearn import clone
 
+from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.model import CandidateId, CandidateStructure, Result
 
 
@@ -25,9 +24,9 @@ class RunHistory:
     def __getitem__(self, k):
         return self.data[k]
 
-    def get_incumbent_id(self) -> Optional[CandidateId]:
+    def get_incumbent(self) -> Optional[Tuple[FlexiblePipeline, CandidateStructure]]:
         """
-        Find the config_id of the incumbent.
+        Find the incumbent.
 
         The incumbent here is the configuration with the smallest loss among all runs on the maximum budget! If no run
         finishes on the maximum budget, None is returned!
@@ -43,7 +42,14 @@ class RunHistory:
                 pass
 
         if len(tmp_list) > 0:
-            return min(tmp_list)[1]
+            structure = self.data[min(tmp_list)[1]]
+            # TODO pipeline is not fitted. Maybe store fitted pipeline?
+            pipeline = clone(structure.pipeline)
+            result = structure.get_incumbent()
+            if result is None:
+                raise ValueError('Incumbent structure has no config evaluations')
+            pipeline.set_hyperparameters(result.config.get_dictionary())
+            return pipeline, structure
         return None
 
     def get_runs_by_id(self, config_id: CandidateId) -> List[Result]:
@@ -73,50 +79,3 @@ class RunHistory:
 
     def num_iterations(self) -> int:
         return max([k.iteration for k in self.data.keys()]) + 1
-
-
-def logged_results_to_runhistory(directory: str) -> RunHistory:
-    """
-    function to import logged 'live-results' and return a RunHistory object
-
-    You can load live run results with this function and the returned HB_result object gives you access to the results
-    the same way a finished run would.
-
-    :param directory: the directory containing the results.json and config.json files
-    :return:
-    """
-
-    data = {}
-    budget_set = set()
-
-    with open(os.path.join(directory, 'structures.json')) as fh:
-        for line in fh:
-            raw = json.loads(line)
-            cs = CandidateStructure.from_dict(raw)
-            data[cs.cid] = cs
-
-    with open(os.path.join(directory, 'results.json')) as fh:
-        for line in fh:
-            config_id, result, exception = json.loads(line)
-
-            # TODO budget is not logged anymore
-            budget = 0
-
-            cid = CandidateId(*config_id).without_config()
-
-            if result is not None:
-                res = Result(result.get('status'), Configuration(data[cid].configspace, result.get('config')),
-                             result.get('loss'), result.get('runtime'))
-                data[cid].add_result(res)
-                budget_set.add(budget)
-
-        # infer the hyperband configuration from the data
-        budget_list = sorted(list(budget_set))
-        algorithm_config = {
-            'eta': None if len(budget_list) < 2 else budget_list[1] / budget_list[0],
-            'min_budget': min(budget_set),
-            'max_budget': max(budget_set),
-            'budgets': budget_list,
-            'max_SH_iter': len(budget_set),
-        }
-        return RunHistory([data], algorithm_config)

@@ -7,10 +7,11 @@ import os
 import threading
 import time
 from multiprocessing.managers import SyncManager
-from typing import Type, TYPE_CHECKING
+from typing import Type, TYPE_CHECKING, Tuple
 
 import math
 from ConfigSpace.configuration_space import ConfigurationSpace
+from sklearn.pipeline import Pipeline
 
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
@@ -129,7 +130,7 @@ class Master:
         self.dispatcher_thread.join()
         self.bandit_learner.structure_generator.shutdown()
 
-    def optimize(self) -> RunHistory:
+    def optimize(self) -> Tuple[Pipeline, RunHistory]:
         """
         run optimization
         :return:
@@ -185,7 +186,9 @@ class Master:
         self.meta_data['end'] = end
         self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
 
-        return RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
+        rh = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
+        pipeline, _ = rh.get_incumbent()
+        return pipeline, rh
 
     def job_callback(self, job: Job) -> None:
         """
