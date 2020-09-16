@@ -6,10 +6,11 @@ import logging
 from typing import TYPE_CHECKING
 
 from automl.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
+from dswizard.core.config_cache import ConfigCache
+from dswizard.core.model import Dataset
 from dswizard.util import util
 
 if TYPE_CHECKING:
-    from dswizard.core.meta_features import MetaFeatures
     from dswizard.core.model import CandidateStructure, Result
 
 
@@ -20,17 +21,20 @@ class BaseStructureGenerator(abc.ABC):
     complex empirical prediction models for promising structures.
     """
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, cfg_cache: ConfigCache, logger: logging.Logger = None, **kwargs):
         """
+        :param cfg_cache:
         :param logger: for some debug output
         """
+        self.cfg_cache = cfg_cache
+
         if logger is None:
             self.logger = logging.getLogger('StructureGenerator')
         else:
             self.logger = logger
 
     @abc.abstractmethod
-    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset) -> CandidateStructure:
         """
         Sample a ConfigurationSpace and according Structure tuple
 
@@ -54,6 +58,9 @@ class BaseStructureGenerator(abc.ABC):
 
         if result.status == 'CRASHED':
             self.logger.warning('candidate {} failed'.format(candidate.cid))
+
+    def shutdown(self):
+        pass
 
     @staticmethod
     def _get_estimator_instance(clazz: str) -> EstimatorComponent:

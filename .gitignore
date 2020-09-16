@@ -1,4 +1,4 @@
 __pycache__
 *.swp
 .idea/
-logs/
+examples/run

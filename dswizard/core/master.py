@@ -7,17 +7,21 @@ import os
 import threading
 import time
 from multiprocessing.managers import SyncManager
-from typing import Type, TYPE_CHECKING
+from typing import Type, TYPE_CHECKING, Tuple
 
 import math
+from ConfigSpace.configuration_space import ConfigurationSpace
+from sklearn.pipeline import Pipeline
 
-from core.dispatcher import Dispatcher
+from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
+from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
-from workers import SklearnWorker
+from dswizard.optimizers.structure_generators.mcts import MCTS
+from dswizard.workers import SklearnWorker
 
 if TYPE_CHECKING:
     from dswizard.core.base_bandit_learner import BanditLearner
@@ -28,16 +32,24 @@ if TYPE_CHECKING:
 
 class Master:
     def __init__(self,
+                 ds: Dataset,
                  run_id: str,
                  working_directory: str = '.',
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
+
+                 wallclock_limit: int = 60,
+                 cutoff: int = None,
+                 pre_sample: bool = True,
 
                  n_workers: int = 1,
                  worker_class: Type[Worker] = SklearnWorker,
 
                  config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
                  config_generator_kwargs: dict = None,
+
+                 structure_generator_class: Type[BaseStructureGenerator] = MCTS,
+                 structure_generator_kwargs: dict = None,
 
                  bandit_learner_class: Type[BanditLearner] = HyperbandLearner,
                  bandit_learner_kwargs: dict = None
@@ -57,10 +69,11 @@ class Master:
             bandit_learner_kwargs = {}
         if config_generator_kwargs is None:
             config_generator_kwargs = {}
+        if structure_generator_kwargs is None:
+            structure_generator_kwargs = {}
 
         self.working_directory = os.path.join(working_directory, run_id)
         os.makedirs(self.working_directory, exist_ok=True)
-
         if 'working_directory' not in config_generator_kwargs:
             config_generator_kwargs['working_directory'] = self.working_directory
 
@@ -73,6 +86,11 @@ class Master:
         self.jobs = []
         self.meta_data = {}
 
+        self.ds = ds
+        self.wallclock_limit = wallclock_limit
+        self.cutoff = cutoff
+        self.pre_sample = pre_sample
+
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
 
@@ -83,41 +101,69 @@ class Master:
                                                       init_kwargs=config_generator_kwargs,
                                                       run_id=run_id)
 
+        if 'worker' not in structure_generator_kwargs:
+            structure_generator_kwargs['worker'] = worker_class(run_id=run_id, wid='structure', metric=ds.metric,
+                                                                workdir=self.working_directory)
+
+        bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
+                                                                                 cutoff=self.cutoff,
+                                                                                 workdir=self.working_directory,
+                                                                                 **structure_generator_kwargs)
+        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
+
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         worker = []
         for i in range(n_workers):
-            worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache,
+            worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
                                        workdir=self.working_directory))
+
         self.dispatcher = Dispatcher(worker, self.job_callback, run_id=run_id)
-
-        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
-
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
 
     def shutdown(self) -> None:
         self.logger.info('shutdown initiated')
+        # Sleep one second to guarantee dispatcher start, if startup procedure fails
+        time.sleep(1)
         self.dispatcher.shutdown()
         self.dispatcher_thread.join()
+        self.bandit_learner.structure_generator.shutdown()
 
-    def optimize(self, ds: Dataset,
-                 n_configs: int = 1,
-                 timeout: int = None,
-                 pre_sample: bool = True) -> RunHistory:
+    def optimize(self) -> Tuple[Pipeline, RunHistory]:
         """
         run optimization
-        :param ds:
-        :param n_configs:
-        :param timeout:
-        :param pre_sample:
         :return:
         """
 
         start = time.time()
         self.meta_data['start'] = start
-        self.logger.info('starting run at {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z',
-                                                                   time.localtime(start))))
+        self.logger.info('starting run at {}. Configuration:\n'
+                         '\twallclock_limit: {}\n'
+                         '\tcutoff: {}\n'
+                         '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(start)),
+                                                   self.wallclock_limit, self.cutoff, self.pre_sample))
+
+        def _optimize() -> bool:
+            for candidate, iteration in self.bandit_learner.next_candidate(self.ds):
+                # Optimize hyperparameters
+                n_configs = int(candidate.budget)
+                for i in range(n_configs):
+                    config_id = candidate.cid.with_config(i)
+                    if self.pre_sample:
+                        config, cfg_key = self.cfg_cache.sample_configuration(
+                            configspace=candidate.pipeline.configuration_space,
+                            mf=self.ds.meta_features)
+                        job = Job(self.ds, config_id, candidate, self.cutoff, config, [cfg_key])
+                    else:
+                        job = Job(self.ds, config_id, candidate, self.cutoff, None, candidate.cfg_keys)
+
+                    if time.time() > start + self.wallclock_limit:
+                        self.logger.info("Timeout reached. Stopping optimization")
+                        return True
+
+                    self.dispatcher.submit_job(job)
+            return False
 
         # while time_limit is not exhausted:
         #   structure, budget = structure_generator.get_next_structure()
@@ -127,26 +173,22 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        for candidate, iteration in self.bandit_learner.next_candidate(ds.meta_features, {'timeout': timeout}):
-            # Optimize hyperparameters
-            for i in range(n_configs):
-                config_id = candidate.cid.with_config(i)
-                if pre_sample:
-                    config, cfg_key = self.cfg_cache.sample_configuration(candidate.budget,
-                                                                          candidate.pipeline.configuration_space,
-                                                                          ds.meta_features)
-                    job = Job(ds, config_id, candidate, config, cfg_key)
-                else:
-                    job = Job(ds, config_id, candidate, None)
-                self.dispatcher.submit_job(job)
+        iterations = []
+        timeout = False
+        while not timeout:
+            self.bandit_learner.reset()
+            timeout = _optimize()
+
+            for it in self.bandit_learner.iterations:
+                iterations.append(copy.deepcopy(it.data))
 
         end = time.time()
         self.meta_data['end'] = end
         self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
 
-        # TODO runhistory does not contain useful information yet
-        return RunHistory([copy.deepcopy(i.data) for i in self.bandit_learner.iterations],
-                          {**self.meta_data, **self.bandit_learner.meta_data})
+        rh = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
+        pipeline, _ = rh.get_incumbent()
+        return pipeline, rh
 
     def job_callback(self, job: Job) -> None:
         """
@@ -157,14 +199,20 @@ class Master:
         :return:
         """
         with self.thread_cond:
-            if job.config is None:
-                # TODO handle this
-                self.logger.error('Encountered job without a configuration: {}. This should never happen!'.format(job.cid))
-                raise ValueError()
+            try:
+                if job.config is None:
+                    self.logger.error(
+                        'Encountered job without a configuration: {}. Using empty config as fallback'.format(job.cid))
+                    job.config = ConfigurationSpace().get_default_configuration()
 
-            if self.result_logger is not None:
-                self.result_logger.log_evaluated_config(job)
+                if self.result_logger is not None:
+                    self.result_logger.log_evaluated_config(job)
 
-            job.cs.add_result(job.result)
-            self.cfg_cache.register_result(job)
-            self.bandit_learner.register_result(job)
+                job.cs.add_result(job.result)
+                self.cfg_cache.register_result(job)
+                self.bandit_learner.register_result(job)
+            except KeyboardInterrupt:
+                raise
+            except Exception as ex:
+                self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
+                                  exc_info=True)

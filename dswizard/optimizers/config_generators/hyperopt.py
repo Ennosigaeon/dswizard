@@ -74,16 +74,15 @@ class Hyperopt(BaseConfigGenerator):
 
         self.kde: KdeWrapper = self._build_kde_wrapper(self.configspace)
 
-    def sample_config(self) -> Configuration:
+    def sample_config(self, default: bool = False) -> Configuration:
         try:
             sample = None
-            if len(self.kde.losses) == 0:
+            if len(self.kde.losses) == 0 or default:
                 sample = self.configspace.get_default_configuration()
             elif self.kde.is_trained():
                 sample = self._draw_sample()
 
             if sample is None:
-                self.logger.debug('Generating random configuration')
                 sample = self.configspace.sample_configuration()
         except:
             self.logger.warning(
@@ -182,6 +181,12 @@ class Hyperopt(BaseConfigGenerator):
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:
         super().register_result(config, loss, status)
+        if config.get_array().size != self.expected_size:
+            self.logger.warning(
+                'Expected {} with {} values, got {} with {} values. Ignoring result'.format(self.configspace,
+                                                                                            self.expected_size,
+                                                                                            config.get_array().size,
+                                                                                            config))
 
         if loss is None or not np.isfinite(loss):
             # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations

@@ -12,7 +12,7 @@ from sklearn.neighbors import NearestNeighbors
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
-    from dswizard.core.meta_features import MetaFeatures
+    from automl.components.meta_features import MetaFeatures
 
 
 class ConfigCache:
@@ -49,10 +49,18 @@ class ConfigCache:
 
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
-    def get_config_generator(self, budget: float, configspace: ConfigurationSpace, mf: MetaFeatures,
+    def get_config_generator(self,
+                             cfg_key: Tuple[float, int] = None,
+                             configspace: ConfigurationSpace = None,
+                             mf: MetaFeatures = None,
                              max_distance: float = 1, **kwargs) -> Tuple[BaseConfigGenerator, Tuple[float, int]]:
-        # Use a combined hash key of configspace and budget
-        hash_key = hash(configspace) + budget
+        if cfg_key is not None:
+            return self.cache[cfg_key[0]].generators[cfg_key[1]], cfg_key
+
+        if configspace is None or mf is None:
+            raise ValueError('If cfg_key is not given, both configspace and mf must not be None.')
+
+        hash_key = hash(configspace)
         if hash_key not in self.cache:
             self.cache[hash_key] = ConfigCache.Entry()
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
@@ -68,10 +76,14 @@ class ConfigCache:
             cg, idx = self.cache[hash_key].add(mf, cg)
             return cg, (hash_key, idx)
 
-    def sample_configuration(self, budget: float, configspace: ConfigurationSpace, mf: np.ndarray,
-                             max_distance: float = 1, **kwargs) -> Tuple[Configuration, Tuple[float, int]]:
-        cg, key = self.get_config_generator(budget, configspace, mf, max_distance, **kwargs)
-        return cg.sample_config(), key
+    def sample_configuration(self,
+                             cfg_key: Tuple[float, int] = None,
+                             configspace: ConfigurationSpace = None,
+                             mf: np.ndarray = None,
+                             max_distance: float = 1, default: bool = False, **kwargs) \
+            -> Tuple[Configuration, Tuple[float, int]]:
+        cg, key = self.get_config_generator(cfg_key, configspace, mf, max_distance, **kwargs)
+        return cg.sample_config(default=default), key
 
     # noinspection PyUnresolvedReferences
     def register_result(self, job: Job) -> None:
@@ -79,14 +91,17 @@ class ConfigCache:
             loss = job.result.loss
             status = job.result.status
 
+            if loss is None:
+                return
+
             if len(job.result.partial_configs) > 0:
                 for config in job.result.partial_configs:
                     if not config.is_empty():
                         self.cache[config.cfg_key[0]].generators[config.cfg_key[1]] \
                             .register_result(config.config, loss, status)
             else:
-                self.cache[job.cfg_key[0]].generators[job.cfg_key[1]] \
-                    .register_result(job.config, loss, status)
+                cfg_key = job.cfg_keys[0]
+                self.cache[cfg_key[0]].generators[cfg_key[1]].register_result(job.config, loss, status)
         except Exception as ex:
             self.logger.exception(ex)
             raise ex

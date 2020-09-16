@@ -12,8 +12,7 @@ from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.components.pipeline import FlexiblePipeline, SubPipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.meta_features import MetaFeatures
-from dswizard.core.model import CandidateStructure
+from dswizard.core.model import CandidateStructure, Dataset
 
 
 class RandomStructureGenerator(BaseStructureGenerator):
@@ -21,8 +20,9 @@ class RandomStructureGenerator(BaseStructureGenerator):
     # noinspection PyProtectedMember
     def __init__(self,
                  max_depth: int = 10,
-                 include_basic_estimators: bool = False):
-        super().__init__()
+                 include_basic_estimators: bool = False,
+                 **kwargs):
+        super().__init__(**kwargs)
 
         self.max_depth = max_depth
 
@@ -45,7 +45,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
         return max(min(self.max_depth, r), n_min)
 
-    def get_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset) -> CandidateStructure:
         attempts = 1
         while True:
             try:
@@ -53,10 +53,15 @@ class RandomStructureGenerator(BaseStructureGenerator):
                 cs, steps = self._generate_pipeline(depth)
 
                 pipeline = FlexiblePipeline(steps)
-
                 print(steps)
                 self.logger.debug('Created valid pipeline after {} tries'.format(attempts))
-                return CandidateStructure(cs, pipeline, model_based_pick=False)
+
+                cfg_keys = []
+                for step, task in steps:
+                    cg, key = self.cfg_cache.get_config_generator(configspace=task.get_hyperparameter_search_space(),
+                                                                  mf=np.ones((1, 1)) * len(cfg_keys))
+                    cfg_keys.append(key)
+                return CandidateStructure(cs, pipeline, cfg_keys, model_based_pick=False)
             except TypeError:
                 attempts += 1
 

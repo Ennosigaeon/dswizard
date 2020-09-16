@@ -2,18 +2,21 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Optional, Dict, List, TYPE_CHECKING, Tuple
+from typing import Optional, Dict, List, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
+from sklearn.base import BaseEstimator
 
-from dswizard.core.meta_features import MetaFeatureFactory
+from automl.components.base import EstimatorComponent
+from automl.components.meta_features import MetaFeatureFactory
+from dswizard.util import util
 
 if TYPE_CHECKING:
     from dswizard.components.pipeline import FlexiblePipeline
-    from dswizard.core.meta_features import MetaFeatures
+    from automl.components.meta_features import MetaFeatures
 
 
 class StatusType(Enum):
@@ -24,6 +27,8 @@ class StatusType(Enum):
     ABORT = 4
     MEMOUT = 5
     CAPPED = 6
+    INEFFECTIVE = 7
+    DUPLICATE = 8
 
 
 class CandidateId:
@@ -88,6 +93,8 @@ class Runtime:
 
     @staticmethod
     def from_dict(raw: dict) -> 'Runtime':
+        if raw is None:
+            return None
         return Runtime(**raw)
 
 
@@ -98,22 +105,24 @@ class Result:
                  config: Configuration = None,
                  loss: Optional[float] = None,
                  runtime: Runtime = None,
-                 partial_configs: Optional[List[PartialConfig]] = None):
+                 partial_configs: Optional[List[PartialConfig]] = None,
+                 transformed_X: np.ndarray = None):
         self.status = status
         self.config = config
         self.loss = loss
         self.runtime = runtime
+        self.transformed_X = transformed_X
+
         if partial_configs is None:
             partial_configs = []
-
         self.partial_configs: List[PartialConfig] = partial_configs
 
     def as_dict(self):
         return {
             'status': str(self.status),
             'loss': self.loss,
-            'runtime': self.runtime.as_dict(),
-            'config': self.config.get_dictionary()
+            'runtime': self.runtime.as_dict() if self.runtime is not None else None,
+            'config': self.config.get_dictionary(),
         }
 
     @staticmethod
@@ -126,45 +135,47 @@ class CandidateStructure:
     def __init__(self,
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
+                 cfg_keys: List[Tuple[float, int]],
                  budget: float = 1,
-                 timeout: int = None,
                  model_based_pick: bool = False):
         self.configspace = configspace
         self.pipeline = pipeline
+        self.cfg_keys = cfg_keys
         self.budget = budget
-        self.timeout = timeout
         self.model_based_pick = model_based_pick
 
         # noinspection PyTypeChecker
         self.cid: CandidateId = None
         self.status: str = 'QUEUED'
 
-        self.results: Dict[float, List[Result]] = {}
+        self.results: List[Result] = []
         self.timestamps: Dict[str, float] = {}
 
     def time_it(self, which_time: str) -> None:
         self.timestamps[which_time] = time.time()
 
-    def get_incumbent(self, budget: float = None) -> Result:
-        if budget is None:
-            budget = max(self.results.keys())
-        return min(self.results[budget], key=lambda res: res.loss)
+    def get_incumbent(self) -> Optional[Result]:
+        if len(self.results) == 0:
+            return None
+        return min(self.results, key=lambda res: res.loss)
 
-    def add_result(self, result: Result, budget: float = None):
-        if budget is None:
-            budget = self.budget
-        self.results.setdefault(budget, []).append(result)
+    def add_result(self, result: Result):
+        self.results.append(result)
+
+    @property
+    def steps(self):
+        return self.pipeline.steps
 
     def as_dict(self):
         return {
             'configspace': config_json.write(self.configspace),
             'pipeline': self.pipeline.as_list(),
+            'cfg_keys': self.cfg_keys,
             'budget': self.budget,
-            'timeout': self.timeout,
             'model_based_pick': self.model_based_pick,
             'cid': self.cid.as_tuple(),
             'status': self.status,
-            'results': {k: [res.as_dict() for res in v] for k, v in self.results.items()},
+            'results': [res.as_dict() for res in self.results],
             'timestamps': self.timestamps
         }
 
@@ -174,11 +185,11 @@ class CandidateStructure:
         # TODO circular imports with FlexiblePipeline
         # FlexiblePipeline.from_list(raw['pipeline'])
         # noinspection PyTypeChecker
-        cs = CandidateStructure(config_json.read(raw['configspace']), None,
-                                raw['budget'], raw['timeout'], raw['model_based_pick'])
+        cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'],
+                                raw['budget'], raw['model_based_pick'])
         cs.cid = CandidateId(*raw['cid'])
         cs.status = raw['status']
-        # cs.results = {k: [Result.from_dict(res) for res in v] for k, v in raw['results'].items()},
+        cs.results = [Result.from_dict(res) for res in raw['results']],
         cs.timestamps = raw['timestamps']
         return cs
 
@@ -188,15 +199,17 @@ class Job:
     def __init__(self,
                  ds: Dataset,
                  candidate_id: CandidateId,
-                 cs: CandidateStructure,
+                 cs: Union[CandidateStructure, EstimatorComponent],
+                 cutoff: float = None,
                  config: Optional[Configuration] = None,
-                 cfg_key: Optional[Tuple[float, int]] = None,
+                 cfg_keys: Optional[List[Tuple[float, int]]] = None,
                  **kwargs):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
+        self.cutoff = cutoff
         self.config = config
-        self.cfg_key = cfg_key
+        self.cfg_keys = cfg_keys
 
         self.kwargs = kwargs
 
@@ -208,27 +221,27 @@ class Job:
 
     # Decorator pattern only used for better readability
     @property
-    def pipeline(self) -> FlexiblePipeline:
-        return self.cs.pipeline
-
-    @property
-    def budget(self) -> float:
-        return self.cs.budget
-
-    @property
-    def timeout(self) -> float:
-        return self.cs.timeout
+    def component(self) -> Union[FlexiblePipeline, BaseEstimator]:
+        if isinstance(self.cs, CandidateStructure):
+            return self.cs.pipeline
+        else:
+            return self.cs
 
 
 class Dataset:
 
     def __init__(self,
                  X: np.ndarray,
-                 y: np.ndarray):
+                 y: np.ndarray,
+                 metric: str = 'f1'):
         self.X = X
         self.y = y
 
-        self.meta_features: MetaFeatures = MetaFeatureFactory.calculate(X, y)
+        if metric not in util.valid_metrics:
+            raise KeyError('Unknown metric {}'.format(metric))
+        self.metric = metric
+
+        self.mf_dict, self.meta_features = MetaFeatureFactory.calculate(X, y)
 
 
 class PartialConfig:
@@ -236,10 +249,13 @@ class PartialConfig:
     def __init__(self, cfg_key: Tuple[float, int],
                  configuration: Configuration,
                  name: str,
-                 mf: MetaFeatures):
+                 mf: Optional[MetaFeatures]):
         self.cfg_key = cfg_key
         self.config: Configuration = configuration
         self.name = name
+
+        if mf is None:
+            mf = np.zeros((1, 1))
         self.mf = mf
 
     def is_empty(self):
@@ -250,7 +266,7 @@ class PartialConfig:
         # meta data are serialized via pickle
         # noinspection PyUnresolvedReferences
         return {
-            'config': self.config.get_dictionary(),
+            'config': self.config.get_array().tolist(),
             'configspace': config_json.write(self.config.configuration_space),
             'cfg_key': self.cfg_key,
             'name': self.name,
@@ -260,9 +276,25 @@ class PartialConfig:
     @staticmethod
     def from_dict(raw: dict) -> 'PartialConfig':
         # meta data are deserialized via pickle
-        config = Configuration(config_json.read(raw['configspace']), raw['config'])
+        config = Configuration(config_json.read(raw['configspace']), vector=np.array(raw['config']))
         # noinspection PyTypeChecker
         return PartialConfig(raw['cfg_key'], config, raw['name'], np.array(raw['mf']))
+
+    @staticmethod
+    def merge(partial_configs: List[PartialConfig]):
+        if len(partial_configs) == 1:
+            return partial_configs[0].config
+
+        complete = {}
+        cs = ConfigurationSpace()
+
+        for partial_config in partial_configs:
+            for param, value in partial_config.config.get_dictionary().items():
+                param = util.prefixed_name(partial_config.name, param)
+                complete[param] = value
+            cs.add_configuration_space(partial_config.name, partial_config.config.configuration_space)
+
+        return Configuration(cs, complete)
 
     def __eq__(self, other):
         if isinstance(other, PartialConfig):

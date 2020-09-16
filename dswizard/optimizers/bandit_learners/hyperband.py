@@ -34,7 +34,7 @@ class HyperbandLearner(BanditLearner):
 
         self.meta_data.update({
             'eta': eta,
-            'min_budget': max_budget,
+            'min_budget': min_budget,
             'max_budget': max_budget,
             'budgets': self.budgets,
             'max_iterations': self.max_iterations

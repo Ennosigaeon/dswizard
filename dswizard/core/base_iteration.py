@@ -11,8 +11,7 @@ from dswizard.core.model import CandidateId
 if TYPE_CHECKING:
     from dswizard.core.base_structure_generator import BaseStructureGenerator
     from dswizard.core.logger import JsonResultLogger
-    from dswizard.core.meta_features import MetaFeatures
-    from dswizard.core.model import CandidateStructure
+    from dswizard.core.model import CandidateStructure, Dataset
 
 
 class BaseIteration(abc.ABC):
@@ -26,7 +25,6 @@ class BaseIteration(abc.ABC):
                  iteration: int,
                  num_candidates: List[int],
                  budgets: List[float],
-                 timeout: float = None,
                  structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None):
@@ -35,7 +33,6 @@ class BaseIteration(abc.ABC):
         :param iteration: The current Hyperband iteration index.
         :param num_candidates: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
-        :param timeout: the maximum timeout for evaluating a single configuration
         :param structure_generator: a function that returns a valid configuration. Its only argument should be the budget
             that this config is first scheduled for. This might be used to pick configurations that perform best after
             this particular budget is exhausted to build a better autoML system.
@@ -48,7 +45,6 @@ class BaseIteration(abc.ABC):
         self.iteration = iteration
         self.stage = 0  # internal iteration, but different name for clarity
         self.budgets = budgets
-        self.timeout = timeout
         self.num_candidates = num_candidates
         self.actual_num_candidates = [0] * len(num_candidates)
         self.structure_generator = structure_generator
@@ -72,7 +68,7 @@ class BaseIteration(abc.ABC):
         cs.status = 'REVIEW'
         self.num_running -= 1
 
-    def get_next_candidate(self, mf: MetaFeatures) -> Optional[CandidateStructure]:
+    def get_next_candidate(self, ds: Dataset) -> Optional[CandidateStructure]:
         """
         function to return the next configuration and budget to run.
 
@@ -81,7 +77,7 @@ class BaseIteration(abc.ABC):
 
         If there are empty slots to be filled in the current SH stage (which never happens in the original SH version),
         a new configuration will be sampled and scheduled to run next.
-        :param mf: meta-features of the data set
+        :param ds:
         :return: Tuple with ConfigId and Datum
         """
 
@@ -94,27 +90,27 @@ class BaseIteration(abc.ABC):
             candidate = self.data[cid]
             assert candidate.budget == self.budgets[self.stage], 'Config budget does not align with current stage!'
             candidate.status = 'RUNNING'
-            self.num_running += 1
+            self.num_running += int(candidate.budget)
             return candidate
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
-            candidate = self._add_candidate(mf)
+            candidate = self._add_candidate(ds)
             candidate.status = 'RUNNING'
-            self.num_running += 1
+            self.num_running += int(candidate.budget)
             return candidate
         elif self.num_running == 0:
             # at this point a stage is completed
             self.logger.debug('Stage {} completed'.format(self.stage))
             self._finish_stage()
-            return self.get_next_candidate(mf)
+            return self.get_next_candidate(ds)
         else:
             return None
 
-    def _add_candidate(self, mf: MetaFeatures) -> CandidateStructure:
+    def _add_candidate(self, ds: Dataset) -> CandidateStructure:
         """
         function to add a new configuration to the current iteration
-        :param mf:
+        :param ds:
         :return: The id of the new configuration
         """
         if self.is_finished:
@@ -124,10 +120,7 @@ class BaseIteration(abc.ABC):
             raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
                                                                                                  self.iteration))
 
-        candidate = self.structure_generator.get_candidate(mf)
-
-        # maybe adapt timeout based on current stage
-        candidate.timeout = self.timeout
+        candidate = self.structure_generator.get_candidate(ds)
         candidate.budget = self.budgets[self.stage]
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
@@ -164,9 +157,8 @@ class BaseIteration(abc.ABC):
         budgets = [self.data[cid].budget for cid in candidate_ids]
         if len(set(budgets)) > 1:
             raise RuntimeError('Not all configurations have the same budget!')
-        budget = self.budgets[self.stage - 1]
 
-        losses = np.array([self.data[cid].get_incumbent(budget).loss for cid in candidate_ids])
+        losses = np.array([self.data[cid].get_incumbent().loss for cid in candidate_ids])
         advance = self._advance_to_next_stage(losses)
 
         for i, cid in enumerate(candidate_ids):
@@ -174,8 +166,8 @@ class BaseIteration(abc.ABC):
                 # Only structure candidates are advanced to next iteration. Specific config does not matter and is
                 # ignored
                 # TODO check if it reasonable to ignore best performing hyperparameter configurations
-                self.logger.debug('Advancing candidate structure {} to next budget {}'
-                                  .format(cid, self.budgets[self.stage]))
+                self.logger.debug('Advancing candidate structure {} to next budget {} with loss {}'
+                                  .format(cid, self.budgets[self.stage], losses[i]))
 
                 candidate = self.data[cid]
                 candidate.status = 'QUEUED'

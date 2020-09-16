@@ -6,8 +6,7 @@ import logging
 import os
 import socket
 import threading
-import traceback
-from typing import Optional, TYPE_CHECKING, Tuple
+from typing import Optional, TYPE_CHECKING, Tuple, List
 
 import numpy as np
 from ConfigSpace import Configuration
@@ -18,6 +17,7 @@ from sklearn.utils import indexable
 from sklearn.utils.validation import _num_samples
 
 import pynisher2
+from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
@@ -82,13 +82,13 @@ class Worker(abc.ABC):
                 self.thread_cond.wait()
             self.busy = True
 
-        self.logger.info('start processing job {} with budget {:.4f}'.format(job.cid, job.budget))
+        self.logger.info('start processing job {}'.format(job.cid))
 
         result = None
         try:
             self.process_logger = ProcessLogger(self.workdir, job.cid)
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.timeout)(self.compute)
-            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.pipeline, job.budget, **job.kwargs)
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.compute)
+            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.cfg_keys, job.component, **job.kwargs)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -103,31 +103,37 @@ class Worker(abc.ABC):
                 cost, runtime = c
             else:
                 status = StatusType.CRASHED
+                self.logger.debug('Worker failed with {}\n{}'.format(c[0], c[1]))
                 cost = 1
                 runtime = Runtime(wrapper.wall_clock_time)
 
             if job.config is None:
-                config, partial_configs = self.process_logger.restore_config(job.pipeline)
+                config, partial_configs = self.process_logger.restore_config(job.component)
             else:
                 config = job.config
                 partial_configs = None
 
+            # job.component has to be always a FlexiblePipeline
+            steps = [(name, comp.name()) for name, comp in job.component.steps]
             result = Result(status, config, cost, runtime, partial_configs)
         except KeyboardInterrupt:
             raise
-        except Exception:
+        except Exception as ex:
             # Should never occur, just a safety net
-            self.logger.error('Unexpected error during computation: \'{}\''.format(traceback.format_exc()))
-            result = Result(StatusType.CRASHED, job.config, 1, None, None)
+            self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
+            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
+                            partial_configs if 'partial_configs' in locals() else None)
         finally:
             self.process_logger = None
             with self.thread_cond:
                 self.busy = False
                 callback.register_result(job.cid, result)
                 self.thread_cond.notify()
+        self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         return result
 
-    def _cross_val_predict(self, pipeline, X, y=None, cv=None):
+    @staticmethod
+    def _cross_val_predict(pipeline, X, y=None, cv=None):
         X, y, groups = indexable(X, y, None)
 
         cv = check_cv(cv, y, classifier=is_classifier(pipeline))
@@ -161,6 +167,7 @@ class Worker(abc.ABC):
                 config_id: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
+                cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
                 budget: float
                 ) -> Tuple[float, Runtime]:
@@ -170,9 +177,37 @@ class Worker(abc.ABC):
         :param config_id: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
         :param cfg_cache:
+        :param cfg_keys:
         :param pipeline: Additional information about the sampled configuration like pipeline structure.
         :param budget: the budget for the evaluation
         """
+        pass
+
+    def start_transform_dataset(self, job: Job) -> Result:
+        self.logger.info('start processing job {} with estimator {}'.format(job.cid, job.cs))
+        X = None
+        try:
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.transform_dataset)
+            X, score = wrapper(job.ds, job.config, job.component)
+
+            if wrapper.exit_status == 0 and X is not None:
+                status = StatusType.SUCCESS
+            else:
+                status = StatusType.CRASHED
+        except KeyboardInterrupt:
+            raise
+        except Exception as ex:
+            # Should never occur, just a safety net
+            self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
+            status = StatusType.CRASHED
+            score = 1
+        return Result(status=status, loss=score, transformed_X=X)
+
+    @abc.abstractmethod
+    def transform_dataset(self,
+                          ds: Dataset,
+                          config: Configuration,
+                          component: EstimatorComponent) -> Tuple[np.ndarray, Optional[float]]:
         pass
 
     def is_busy(self) -> bool:
