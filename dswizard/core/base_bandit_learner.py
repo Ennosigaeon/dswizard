@@ -17,6 +17,7 @@ class BanditLearner(abc.ABC):
                  structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None):
         self.run_id = run_id
+        self.offset = 0
         self.structure_generator = structure_generator
         self.meta_data = {}
 
@@ -70,7 +71,8 @@ class BanditLearner(abc.ABC):
                     # Done
                     break
 
-    def reset(self):
+    def reset(self, offset: int):
+        self.offset = offset
         self.iterations = []
 
     def register_result(self, job: Job, update_model: bool = True):

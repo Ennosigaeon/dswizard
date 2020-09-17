@@ -58,5 +58,6 @@ class HyperbandLearner(BanditLearner):
         n0 = int(np.floor(self.max_iterations / (s + 1)) * self.eta ** s)
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
 
-        return SuccessiveHalving(iteration=iteration, num_candidates=ns, budgets=self.budgets[(-s - 1):],
+        # Offset is necessary to get unique ids
+        return SuccessiveHalving(iteration=iteration + self.offset, num_candidates=ns, budgets=self.budgets[(-s - 1):],
                                  structure_generator=self.structure_generator, **iteration_kwargs)

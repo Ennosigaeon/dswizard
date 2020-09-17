@@ -176,7 +176,7 @@ class Master:
         iterations = []
         timeout = False
         while not timeout:
-            self.bandit_learner.reset()
+            self.bandit_learner.reset(len(iterations))
             timeout = _optimize()
 
             for it in self.bandit_learner.iterations:
