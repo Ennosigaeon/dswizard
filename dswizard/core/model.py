@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import time
 from enum import Enum
-from typing import Optional, Dict, List, TYPE_CHECKING, Tuple, Union
+from typing import Optional, List, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -124,8 +123,8 @@ class Result:
         }
 
     @staticmethod
-    def from_dict(raw: dict) -> 'Result':
-        return Result(raw['status'], raw['config'], raw['loss'], Runtime.from_dict(raw['runtime']))
+    def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
+        return Result(raw['status'], Configuration(cs, raw['config']), raw['loss'], Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:
@@ -145,10 +144,6 @@ class CandidateStructure:
         self.status: str = 'QUEUED'
 
         self.results: List[Result] = []
-        self.timestamps: Dict[str, float] = {}
-
-    def time_it(self, which_time: str) -> None:
-        self.timestamps[which_time] = time.time()
 
     def get_incumbent(self) -> Optional[Result]:
         if len(self.results) == 0:
@@ -168,21 +163,18 @@ class CandidateStructure:
             'pipeline': self.pipeline.as_list(),
             'cfg_keys': self.cfg_keys,
             'budget': self.budget,
-            'results': [res.as_dict() for res in self.results],
-            'timestamps': self.timestamps,
             'configspace': config_json.write(self.configspace),
         }
 
     @staticmethod
     def from_dict(raw: dict) -> 'CandidateStructure':
-        # TODO dataset properties missing
-        # TODO circular imports with FlexiblePipeline
-        # FlexiblePipeline.from_list(raw['pipeline'])
+        # local import due to circular imports
+        from dswizard.components.pipeline import FlexiblePipeline
+
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId(*raw['cid'])
-        cs.results = [Result.from_dict(res) for res in raw['results']],
-        cs.timestamps = raw['timestamps']
+        cs.pipeline = FlexiblePipeline.from_list(raw['pipeline'])
         return cs
 
 
