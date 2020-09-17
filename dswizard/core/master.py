@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import threading
 import time
+import timeit
 from multiprocessing.managers import SyncManager
 from typing import Type, TYPE_CHECKING, Tuple
 
@@ -101,9 +102,11 @@ class Master:
                                                       init_kwargs=config_generator_kwargs,
                                                       run_id=run_id)
 
+        self.workers = []
         if 'worker' not in structure_generator_kwargs:
-            structure_generator_kwargs['worker'] = worker_class(run_id=run_id, wid='structure', metric=ds.metric,
-                                                                workdir=self.working_directory)
+            self.workers.append(worker_class(run_id=run_id, wid='structure', metric=ds.metric,
+                                             workdir=self.working_directory))
+            structure_generator_kwargs['worker'] = self.workers[-1]
 
         bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
                                                                                  cutoff=self.cutoff,
@@ -113,12 +116,11 @@ class Master:
 
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
-        worker = []
         for i in range(n_workers):
-            worker.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
-                                       workdir=self.working_directory))
+            self.workers.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
+                                             workdir=self.working_directory))
 
-        self.dispatcher = Dispatcher(worker, self.job_callback, run_id=run_id)
+        self.dispatcher = Dispatcher(self.workers[1:], self.job_callback, run_id=run_id)
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
 
@@ -143,6 +145,9 @@ class Master:
                          '\tcutoff: {}\n'
                          '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(start)),
                                                    self.wallclock_limit, self.cutoff, self.pre_sample))
+        relative_start = timeit.default_timer()
+        for worker in self.workers:
+            worker.start_time = relative_start
 
         def _optimize() -> bool:
             for candidate, iteration in self.bandit_learner.next_candidate(self.ds):

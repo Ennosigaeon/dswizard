@@ -6,6 +6,7 @@ import logging
 import os
 import socket
 import threading
+import timeit
 from typing import Optional, TYPE_CHECKING, Tuple, List
 
 import numpy as np
@@ -71,6 +72,7 @@ class Worker(abc.ABC):
 
         self.logger.info('Running on {} with pid {}'.format(socket.gethostname(), os.getpid()))
 
+        self.start_time: float = None
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
 
@@ -93,19 +95,17 @@ class Worker(abc.ABC):
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
                 cost = 1
-                runtime = Runtime(wrapper.wall_clock_time)
             elif wrapper.exit_status is pynisher2.MemorylimitException:
                 status = StatusType.MEMOUT
                 cost = 1
-                runtime = Runtime(wrapper.wall_clock_time)
             elif wrapper.exit_status == 0 and c is not None:
                 status = StatusType.SUCCESS
-                cost, runtime = c
+                cost = c
             else:
                 status = StatusType.CRASHED
                 self.logger.debug('Worker failed with {}\n{}'.format(c[0], c[1]))
                 cost = 1
-                runtime = Runtime(wrapper.wall_clock_time)
+            runtime = Runtime(wrapper.wall_clock_time, timestamp=timeit.default_timer() - self.start_time)
 
             if job.config is None:
                 config, partial_configs = self.process_logger.restore_config(job.component)
@@ -170,7 +170,7 @@ class Worker(abc.ABC):
                 cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
                 budget: float
-                ) -> Tuple[float, Runtime]:
+                ) -> float:
         """
         The function you have to overload implementing your computation.
         :param ds:
@@ -201,7 +201,8 @@ class Worker(abc.ABC):
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
             status = StatusType.CRASHED
             score = 1
-        return Result(status=status, loss=score, transformed_X=X)
+        return Result(status=status, loss=score, transformed_X=X,
+                      runtime=Runtime(wrapper.wall_clock_time, timeit.default_timer() - self.start_time))
 
     @abc.abstractmethod
     def transform_dataset(self,

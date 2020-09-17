@@ -1,5 +1,4 @@
 import importlib
-import timeit
 import warnings
 from typing import Optional, Tuple, Union, List
 
@@ -11,7 +10,7 @@ from sklearn.base import is_classifier
 from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.config_cache import ConfigCache
-from dswizard.core.model import CandidateId, Runtime, Dataset
+from dswizard.core.model import CandidateId, Dataset
 from dswizard.core.worker import Worker
 from dswizard.util import util
 
@@ -30,8 +29,7 @@ class SklearnWorker(Worker):
                 cfg_cache: Optional[ConfigCache],
                 cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
-                **kwargs) -> Tuple[float, Runtime]:
-        start = timeit.default_timer()
+                **kwargs) -> float:
         cloned_pipeline = clone(pipeline)
 
         if config is not None:
@@ -45,7 +43,7 @@ class SklearnWorker(Worker):
             pipeline.set_hyperparameters(config.get_dictionary())
 
         score, _ = self._score(ds, pipeline)
-        return score, Runtime(timeit.default_timer() - start, pipeline.fit_time, pipeline.config_time)
+        return score
 
     def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], n_folds: int = 4):
         y = ds.y

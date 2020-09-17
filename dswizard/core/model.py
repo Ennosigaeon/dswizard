@@ -79,16 +79,14 @@ class CandidateId:
 
 class Runtime:
 
-    def __init__(self, total: float, fit: float = 0, config: float = 0):
+    def __init__(self, total: float, timestamp: float):
         self.total = total
-        self.fit = fit
-        self.config = config
+        self.timestamp = timestamp
 
     def as_dict(self):
         return {
             'total': self.total,
-            'fit': self.fit,
-            'conf': self.config,
+            'timestamp': self.timestamp,
         }
 
     @staticmethod
