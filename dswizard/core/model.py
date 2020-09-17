@@ -164,14 +164,13 @@ class CandidateStructure:
 
     def as_dict(self):
         return {
-            'configspace': config_json.write(self.configspace),
+            'cid': self.cid.without_config().as_tuple(),
             'pipeline': self.pipeline.as_list(),
             'cfg_keys': self.cfg_keys,
             'budget': self.budget,
-            'cid': self.cid.as_tuple(),
-            'status': self.status,
             'results': [res.as_dict() for res in self.results],
-            'timestamps': self.timestamps
+            'timestamps': self.timestamps,
+            'configspace': config_json.write(self.configspace),
         }
 
     @staticmethod
@@ -182,7 +181,6 @@ class CandidateStructure:
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId(*raw['cid'])
-        cs.status = raw['status']
         cs.results = [Result.from_dict(res) for res in raw['results']],
         cs.timestamps = raw['timestamps']
         return cs

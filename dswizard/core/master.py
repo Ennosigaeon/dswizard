@@ -150,10 +150,12 @@ class Master:
             worker.start_time = relative_start
 
         def _optimize() -> bool:
-            for candidate, iteration in self.bandit_learner.next_candidate(self.ds):
+            for candidate, iteration in self.bandit_learner.next_candidate(self.ds,
+                                                                           {'result_logger': self.result_logger}):
                 # Optimize hyperparameters
                 n_configs = int(candidate.budget)
-                for i in range(n_configs):
+                cid_offset = len(candidate.results)
+                for i in range(cid_offset, cid_offset + n_configs):
                     config_id = candidate.cid.with_config(i)
                     if self.pre_sample:
                         config, cfg_key = self.cfg_cache.sample_configuration(
@@ -180,12 +182,15 @@ class Master:
         # Main hyperparamter optimization logic
         iterations = []
         timeout = False
+        repetition = 0
         while not timeout:
+            self.logger.info('Starting repetition {}'.format(repetition))
             self.bandit_learner.reset(len(iterations))
             timeout = _optimize()
 
             for it in self.bandit_learner.iterations:
                 iterations.append(copy.deepcopy(it.data))
+            repetition += 1
 
         end = time.time()
         self.meta_data['end'] = end
@@ -211,7 +216,7 @@ class Master:
                     job.config = ConfigurationSpace().get_default_configuration()
 
                 if self.result_logger is not None:
-                    self.result_logger.log_evaluated_config(job)
+                    self.result_logger.log_evaluated_config(job.cid, job.result)
 
                 job.cs.add_result(job.result)
                 self.cfg_cache.register_result(job)

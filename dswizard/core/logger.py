@@ -12,7 +12,7 @@ from dswizard.core.model import PartialConfig
 from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
-    from dswizard.core.model import CandidateStructure, Job
+    from dswizard.core.model import CandidateStructure, CandidateId, Result
     from dswizard.components.pipeline import FlexiblePipeline
 
 
@@ -60,27 +60,28 @@ class JsonResultLogger:
         self.structure_ids = set()
 
     def new_structure(self, structure: CandidateStructure, draw_structure: bool = False) -> None:
-        if structure.cid not in self.structure_ids:
-            self.structure_ids.add(structure.cid)
+        if structure.cid.without_config() not in self.structure_ids:
+            self.structure_ids.add(structure.cid.without_config())
             with open(self.structure_fn, 'a') as fh:
                 fh.write(json.dumps(structure.as_dict()))
                 fh.write('\n')
+
+            # Results may already be created during structure creation
+            for idx, result in enumerate(structure.results):
+                self.log_evaluated_config(structure.cid.with_config(idx), result)
 
             if draw_structure:
                 G = structure.pipeline.to_networkx()
                 H = nx.nx_agraph.to_agraph(G)
                 H.draw('{}/{}.png'.format(self.directory, structure.cid), prog='dot')
 
-    def log_evaluated_config(self, job: Job) -> None:
-        if job.cid.without_config() not in self.structure_ids:
+    def log_evaluated_config(self, cid: CandidateId, result: Result) -> None:
+        if cid.without_config() not in self.structure_ids:
             # should never happen!
-            self.structure_ids.add(job.cid)
-            with open(self.structure_fn, 'a') as fh:
-                fh.write(json.dumps([job.cid.as_tuple(), job.config.get_dictionary(), {}]))
-                fh.write('\n')
+            raise ValueError('Unknown structure {}'.format(cid.without_config()))
         with open(self.results_fn, 'a') as fh:
             fh.write(
-                json.dumps([job.cid.as_tuple(), job.result.as_dict() if job.result is not None else None])
+                json.dumps([cid.as_tuple(), result.as_dict() if result is not None else None])
             )
             fh.write("\n")
 

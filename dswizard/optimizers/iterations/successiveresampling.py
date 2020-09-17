@@ -32,7 +32,6 @@ class SuccessiveResampling(BaseIteration):
         :param resampling_rate: fraction of configurations that are resampled at each stage
         :param min_samples_advance: number of samples that are guaranteed to proceed to the next stage regardless of
             the fraction.
-        :param kwargs:
         """
 
         super().__init__(iteration, num_candidates, budgets, structure_generator, logger, result_logger)

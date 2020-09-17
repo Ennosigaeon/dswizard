@@ -30,7 +30,7 @@ class BaseIteration(abc.ABC):
                  result_logger: JsonResultLogger = None):
         """
 
-        :param iteration: The current Hyperband iteration index.
+        :param iteration: The current Hyperband repetition index.
         :param num_candidates: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
         :param structure_generator: a function that returns a valid configuration. Its only argument should be the budget
@@ -117,8 +117,7 @@ class BaseIteration(abc.ABC):
             raise RuntimeError("This iteration is finished, you can't add more configurations!")
 
         if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
-            raise RuntimeError("Can't add another candidate to stage {} in iteration {}.".format(self.stage,
-                                                                                                 self.iteration))
+            raise RuntimeError("Can't add another candidate to stage {}.".format(self.stage))
 
         candidate = self.structure_generator.get_candidate(ds)
         candidate.budget = self.budgets[self.stage]
