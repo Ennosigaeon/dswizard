@@ -61,7 +61,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
                     cg, key = self.cfg_cache.get_config_generator(configspace=task.get_hyperparameter_search_space(),
                                                                   mf=np.ones((1, 1)) * len(cfg_keys))
                     cfg_keys.append(key)
-                return CandidateStructure(cs, pipeline, cfg_keys, model_based_pick=False)
+                return CandidateStructure(cs, pipeline, cfg_keys)
             except TypeError:
                 attempts += 1
 

@@ -136,13 +136,11 @@ class CandidateStructure:
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
                  cfg_keys: List[Tuple[float, int]],
-                 budget: float = 1,
-                 model_based_pick: bool = False):
+                 budget: float = 1):
         self.configspace = configspace
         self.pipeline = pipeline
         self.cfg_keys = cfg_keys
         self.budget = budget
-        self.model_based_pick = model_based_pick
 
         # noinspection PyTypeChecker
         self.cid: CandidateId = None
@@ -172,7 +170,6 @@ class CandidateStructure:
             'pipeline': self.pipeline.as_list(),
             'cfg_keys': self.cfg_keys,
             'budget': self.budget,
-            'model_based_pick': self.model_based_pick,
             'cid': self.cid.as_tuple(),
             'status': self.status,
             'results': [res.as_dict() for res in self.results],
@@ -185,8 +182,7 @@ class CandidateStructure:
         # TODO circular imports with FlexiblePipeline
         # FlexiblePipeline.from_list(raw['pipeline'])
         # noinspection PyTypeChecker
-        cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'],
-                                raw['budget'], raw['model_based_pick'])
+        cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId(*raw['cid'])
         cs.status = raw['status']
         cs.results = [Result.from_dict(res) for res in raw['results']],
