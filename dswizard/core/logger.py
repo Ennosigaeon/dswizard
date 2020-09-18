@@ -3,21 +3,21 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Dict
 
 import networkx as nx
 from ConfigSpace import Configuration
 
+from dswizard.core.model import CandidateStructure, CandidateId, Result
 from dswizard.core.model import PartialConfig
 from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
-    from dswizard.core.model import CandidateStructure, CandidateId, Result
     from dswizard.components.pipeline import FlexiblePipeline
 
 
 class JsonResultLogger:
-    def __init__(self, directory: str, overwrite: bool = False):
+    def __init__(self, directory: str, init: bool = True, overwrite: bool = False):
         """
         convenience logger for 'semi-live-results'
 
@@ -36,28 +36,28 @@ class JsonResultLogger:
         self.directory = directory
         self.structure_fn = os.path.join(directory, 'structures.json')
         self.results_fn = os.path.join(directory, 'results.json')
-
-        try:
-            with open(self.structure_fn, 'x'):
-                pass
-        except FileExistsError:
-            if overwrite:
-                with open(self.structure_fn, 'w'):
-                    pass
-            else:
-                raise FileExistsError('The file {} already exists.'.format(self.structure_fn))
-
-        try:
-            with open(self.results_fn, 'x'):
-                pass
-        except FileExistsError:
-            if overwrite:
-                with open(self.results_fn, 'w'):
-                    pass
-            else:
-                raise FileExistsError('The file {} already exists.'.format(self.structure_fn))
-
         self.structure_ids = set()
+
+        if init:
+            try:
+                with open(self.structure_fn, 'x'):
+                    pass
+            except FileExistsError:
+                if overwrite:
+                    with open(self.structure_fn, 'w'):
+                        pass
+                else:
+                    raise FileExistsError('The file {} already exists.'.format(self.structure_fn))
+
+            try:
+                with open(self.results_fn, 'x'):
+                    pass
+            except FileExistsError:
+                if overwrite:
+                    with open(self.results_fn, 'w'):
+                        pass
+                else:
+                    raise FileExistsError('The file {} already exists.'.format(self.structure_fn))
 
     def new_structure(self, structure: CandidateStructure, draw_structure: bool = False) -> None:
         if structure.cid.without_config() not in self.structure_ids:
@@ -84,6 +84,24 @@ class JsonResultLogger:
                 json.dumps([cid.as_tuple(), result.as_dict() if result is not None else None])
             )
             fh.write("\n")
+
+    def load(self) -> Dict[CandidateId, CandidateStructure]:
+        structures = {}
+        with open(self.structure_fn, 'r') as structure_file:
+            for line in structure_file:
+                raw = json.loads(line)
+                cs = CandidateStructure.from_dict(raw)
+                structures[cs.cid] = cs
+
+        with open(self.results_fn, 'r') as result_file:
+            for line in result_file:
+                raw = json.loads(line)
+                cid = CandidateId(*raw[0])
+
+                cs = structures[cid.without_config()]
+                res = Result.from_dict(raw[1], cs.configspace)
+                cs.add_result(res)
+        return structures
 
 
 class ProcessLogger:

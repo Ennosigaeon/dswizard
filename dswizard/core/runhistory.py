@@ -1,5 +1,4 @@
 import copy
-from collections import ChainMap
 from typing import List, Dict, Optional, Tuple
 
 from sklearn import clone
@@ -16,10 +15,10 @@ class RunHistory:
     """
 
     def __init__(self,
-                 data: List[Dict[CandidateId, CandidateStructure]],
+                 data: Dict[CandidateId, CandidateStructure],
                  meta_config: dict):
         self.meta_config = meta_config
-        self.data: Dict[CandidateId, CandidateStructure] = dict(ChainMap(*data))
+        self.data: Dict[CandidateId, CandidateStructure] = data
 
     def __getitem__(self, k):
         return self.data[k]

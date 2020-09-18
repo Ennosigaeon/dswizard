@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import logging
 import multiprocessing
 import os
@@ -180,22 +179,21 @@ class Master:
         #   Update score of selected structure with loss
 
         # Main hyperparamter optimization logic
-        iterations = []
         timeout = False
         repetition = 0
+        offset = 0
         while not timeout:
             self.logger.info('Starting repetition {}'.format(repetition))
-            self.bandit_learner.reset(len(iterations))
+            self.bandit_learner.reset(offset)
             timeout = _optimize()
-
-            for it in self.bandit_learner.iterations:
-                iterations.append(copy.deepcopy(it.data))
             repetition += 1
+            offset += sum([len(it.data) for it in self.bandit_learner.iterations])
 
         end = time.time()
         self.meta_data['end'] = end
         self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
 
+        iterations = self.result_logger.load()
         rh = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
         pipeline, _ = rh.get_incumbent()
         return pipeline, rh
