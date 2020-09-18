@@ -166,6 +166,7 @@ class Master:
 
                     if time.time() > start + self.wallclock_limit:
                         self.logger.info("Timeout reached. Stopping optimization")
+                        self.dispatcher.finish_work()
                         return True
 
                     self.dispatcher.submit_job(job)

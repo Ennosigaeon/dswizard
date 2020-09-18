@@ -141,3 +141,9 @@ class Dispatcher:
 
         with self.callback_cond:
             self.callback_cond.notify()
+
+    def finish_work(self):
+        # TODO remove busy waiting
+        while len(self.idle_workers) < len(self.worker_pool):
+            self.logger.debug('{} worker busy...'.format(len(self.worker_pool) - len(self.idle_workers)))
+            time.sleep(10)

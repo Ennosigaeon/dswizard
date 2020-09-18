@@ -23,7 +23,7 @@ class RunHistory:
     def __getitem__(self, k):
         return self.data[k]
 
-    def get_incumbent(self) -> Optional[Tuple[FlexiblePipeline, CandidateStructure]]:
+    def get_incumbent(self) -> Tuple[Optional[FlexiblePipeline], Optional[CandidateStructure]]:
         """
         Find the incumbent.
 
@@ -49,7 +49,7 @@ class RunHistory:
                 raise ValueError('Incumbent structure has no config evaluations')
             pipeline.set_hyperparameters(result.config.get_dictionary())
             return pipeline, structure
-        return None
+        return None, None
 
     def get_runs_by_id(self, config_id: CandidateId) -> List[Result]:
         """
