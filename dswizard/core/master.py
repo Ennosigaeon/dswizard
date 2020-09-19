@@ -16,6 +16,7 @@ from sklearn.pipeline import Pipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import Dispatcher
+from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import Job, Dataset
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
@@ -26,7 +27,6 @@ from dswizard.workers import SklearnWorker
 if TYPE_CHECKING:
     from dswizard.core.base_bandit_learner import BanditLearner
     from dswizard.core.base_config_generator import BaseConfigGenerator
-    from dswizard.core.logger import JsonResultLogger
     from dswizard.core.worker import Worker
 
 
@@ -82,6 +82,8 @@ class Master:
         else:
             self.logger = logger
 
+        if result_logger is None:
+            result_logger = JsonResultLogger(self.working_directory, overwrite=True)
         self.result_logger = result_logger
         self.jobs = []
         self.meta_data = {}
