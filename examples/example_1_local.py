@@ -5,6 +5,7 @@ Example 1 - Single Threaded
 """
 import argparse
 import logging
+import os
 import sys
 
 import openml
@@ -15,6 +16,7 @@ from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import Hyperopt
 from dswizard.util import util
+from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
 
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
@@ -30,11 +32,14 @@ parser.add_argument('--n_configs', type=float, help='Number of configurations to
 parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=300)
 parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=60)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
-parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/logs/')
+parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/')
+parser.add_argument('--task', type=int, help='OpenML task id', default=53)
 args = parser.parse_args()
 
 # Load dataset
-task = openml.tasks.get_task(18)
+# Tasks: 18, 53, 9983, 146822, 168912
+print('Processing task {}'.format(args.task))
+task = openml.tasks.get_task(args.task)
 train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=0, sample=0)
 
 # noinspection PyUnresolvedReferences
@@ -57,6 +62,10 @@ master = Master(
     pre_sample=False,
 
     config_generator_class=Hyperopt,
+
+    structure_generator_class=MCTS,
+    structure_generator_kwargs={'policy': TransferLearning,
+                                'policy_kwargs': {'task': args.task, 'dir': '../dswizard/assets'}},
 
     bandit_learner_class=HyperbandLearner,
     bandit_learner_kwargs={'min_budget': args.min_budget,

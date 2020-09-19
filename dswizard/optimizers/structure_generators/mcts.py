@@ -1,15 +1,20 @@
+import abc
 import copy
+import logging
+import os
 import random
 from abc import ABC
 from copy import deepcopy
-from typing import List, Optional, Set, Tuple, Type
+from typing import List, Optional, Tuple, Type, Dict
 
+import joblib
 import math
 import networkx as nx
 import numpy as np
 from scipy.stats import gamma
 from sklearn.base import is_classifier
 from sklearn.neighbors import NearestNeighbors
+from sklearn.pipeline import Pipeline
 
 from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
@@ -20,6 +25,7 @@ from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateId, PartialConfig, StatusType, CandidateStructure, Dataset, Job, Result
 from dswizard.core.worker import Worker
+from dswizard.util import util
 
 
 # Ideas
@@ -44,7 +50,7 @@ from dswizard.core.worker import Worker
 #
 
 
-class Node(ABC):
+class Node:
     """
     A representation of a single board state.
     MCTS works by constructing a tree of these Nodes.
@@ -90,15 +96,17 @@ class Node(ABC):
         return self.failure_message is not None
 
     # noinspection PyMethodMayBeStatic
-    def available_actions(self, include_preprocessing: bool = True,
-                          include_classifier: bool = True) -> Set[Type[EstimatorComponent]]:
-        components = set()
-        mf = self.ds.mf_dict if self.ds is not None else None
+    def available_actions(self,
+                          include_preprocessing: bool = True,
+                          include_classifier: bool = True,
+                          ignore_mf: bool = True) -> Dict[str, Type[EstimatorComponent]]:
+        components = {}
+        mf = self.ds.mf_dict if self.ds and not ignore_mf is not None else None
         if include_classifier:
-            components.update(ClassifierChoice().get_available_components(mf=mf).values())
+            components.update(ClassifierChoice().get_available_components(mf=mf))
         if include_preprocessing:
-            components.update(DataPreprocessorChoice().get_available_components(mf=mf).values())
-            components.update(FeaturePreprocessorChoice().get_available_components(mf=mf).values())
+            components.update(DataPreprocessorChoice().get_available_components(mf=mf))
+            components.update(FeaturePreprocessorChoice().get_available_components(mf=mf))
         return components
 
     def __hash__(self) -> int:
@@ -116,7 +124,7 @@ class Tree:
         self.id_count = -1
         self.add_node(None, ds)
 
-        self.coef_progressive_widening = 0.6020599913279623
+        self.coef_progressive_widening = 0.7
 
     def get_new_id(self) -> int:
         self.id_count += 1
@@ -143,7 +151,7 @@ class Tree:
     def get_all_children(self, node: int) -> List[Node]:
         return [self.G.nodes[n]['value'] for n in nx.dfs_tree(self.G, node).nodes.keys()]
 
-    def fully_expanded(self, node: Node, global_max: int = 20):
+    def fully_expanded(self, node: Node, global_max: int = 40):
         # global_max is used as failsafe to prevent massive expansion of single node
 
         possible_children = len(node.available_actions())
@@ -152,9 +160,10 @@ class Tree:
 
         current_children = len(list(self.G.successors(node.id)))
 
-        return (current_children != 0 or possible_children == 0) and current_children >= min(global_max, max_children)
+        return possible_children == 0 or (current_children != 0 and current_children >= min(global_max, max_children))
 
     def plot(self, file: str):
+        # TODO plot can only be called once
         for n, data in self.G.nodes(data=True):
             node: Node = data['value']
             if node.label.endswith('Component'):
@@ -175,27 +184,20 @@ class Tree:
         return node in self.G.nodes
 
 
-class Policy:
+class Policy(ABC):
 
-    # TODO include meta-learning here
-
-    def __init__(self, exploration_weight: float = 2):
+    def __init__(self, logger: logging.Logger, exploration_weight: float = 2, **kwargs):
+        self.logger = logger
         self.exploration_weight = exploration_weight
 
-    # noinspection PyMethodMayBeStatic
+    @abc.abstractmethod
     def get_next_action(self,
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
-        actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                      include_classifier=include_classifier)
-        exhausted_actions = [type(n.component) for n in current_children]
-        actions = [a for a in actions if a not in exhausted_actions]
-
-        if len(actions) == 0:
-            return None
-        return random.choice(actions)
+                        include_classifier: bool = True,
+                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+        pass
 
     def uct(self, node: Node, tree: Tree, alpha=2., scale=2.) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
@@ -222,18 +224,85 @@ class Policy:
         return node, uct(node)
 
 
+class RandomSelection(Policy):
+
+    def get_next_action(self,
+                        n: Node,
+                        current_children: List[Node],
+                        include_preprocessing: bool = True,
+                        include_classifier: bool = True,
+                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+        actions = n.available_actions(include_preprocessing=include_preprocessing,
+                                      include_classifier=include_classifier,
+                                      ignore_mf=depth > 1).values()
+        exhausted_actions = [type(n.component) for n in current_children]
+        actions = [a for a in actions if a not in exhausted_actions]
+
+        if len(actions) == 0:
+            return None
+        return random.choice(actions)
+
+
+class TransferLearning(Policy):
+
+    def __init__(self, logger: logging.Logger, dir: str, model: str = None, task: int = None, **kwargs):
+        super().__init__(logger, **kwargs)
+
+        if model is None:
+            model = os.path.join(dir, 'rf_d{}.pkl'.format(util.openml_mapping(task=task)))
+        else:
+            model = os.path.join(dir, model)
+
+        logger.info('Loading transfer model from {}'.format(model))
+        with open(model, 'rb') as f:
+            mean, var = joblib.load(f)
+        self.mean: Pipeline = mean
+        self.var: Pipeline = var
+
+    def get_next_action(self,
+                        n: Node,
+                        current_children: List[Node],
+                        include_preprocessing: bool = True,
+                        include_classifier: bool = True,
+                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+        available_actions = n.available_actions(include_preprocessing=include_preprocessing,
+                                                include_classifier=include_classifier,
+                                                ignore_mf=depth > 1)
+        exhausted_actions = [type(n.component) for n in current_children]
+        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+        actions = np.atleast_2d(actions)
+
+        step = np.atleast_2d(np.repeat(np.ones(1) * depth, actions.shape[1]))
+        X = np.repeat(n.ds.meta_features, actions.shape[1], axis=0)
+        X = np.hstack((X, actions.T, step.T))
+        # remove land-marking mf
+        X = np.delete(X, slice(42, 50), axis=1)
+
+        mean = self.mean.predict(X)
+        var = self.var.predict(X)
+        perf = np.random.multivariate_normal(mean, np.diag(var))
+
+        return available_actions[actions[0, np.argmax(perf)]]
+
+
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, worker: Worker, cutoff: int, workdir: str, **kwargs):
+    def __init__(self, worker: Worker, cutoff: int, workdir: str, policy: Type[Policy] = None,
+                 policy_kwargs: dict = None, **kwargs):
         super().__init__(**kwargs)
         self.worker = worker
         self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
-        self.policy = Policy()
         self.neighbours = NearestNeighbors()
         self.mfs: Optional[MetaFeatures] = None
+
+        if policy is None:
+            policy = RandomSelection
+        if policy_kwargs is None:
+            policy_kwargs = {}
+        self.policy = policy(self.logger, **policy_kwargs)
 
     def get_candidate(self, ds: Dataset) -> CandidateStructure:
         # Initialize tree if not exists
@@ -254,7 +323,6 @@ class MCTS(BaseStructureGenerator):
             path.append(expansion)
 
         if len(path) == 1:
-            # TODO selecting is deterministic. Retrying yields same result
             self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
             return self.get_candidate(ds)
 
@@ -372,7 +440,7 @@ class MCTS(BaseStructureGenerator):
                 if result.loss < 1:
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
-                    result.config = PartialConfig.merge(result.partial_configs)
+                    result.config = FlexiblePipeline(new_node.steps).configuration_space.get_default_configuration()
 
                     job.result = result
                     self.cfg_cache.register_result(job)
@@ -389,16 +457,15 @@ class MCTS(BaseStructureGenerator):
         """Returns the reward for a random simulation (to completion) of `node`"""
         p = copy.copy(path)
         node = p[-1]
-        for i in range(max_depths):
+        for i in range(1, max_depths + 1):
             if node.is_terminal():
                 break
 
-            # TODO use meta-learning
-            action = self.policy.get_next_action(node, [], include_preprocessing=i < max_depths - 1)
+            action = self.policy.get_next_action(node, [], include_preprocessing=i < max_depths, depth=i)
             if action is None:
                 break
 
-            node = Node(id=-(i + 1), ds=None, component=action, pipeline_prefix=node.steps)
+            node = Node(id=-(i + 1), ds=node.ds, component=action, pipeline_prefix=node.steps)
             p.append(node)
 
         if node.is_terminal():

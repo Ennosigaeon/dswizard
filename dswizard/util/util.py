@@ -31,6 +31,20 @@ def score(y, y_pred, metric: str):
     return score
 
 
+def openml_mapping(task: int = None, ds: int = None):
+    tasks = {3: 3, 12: 12, 18: 18, 31: 31, 53: 54, 3549: 458, 3560: 469, 3567: 478, 3896: 1043, 3913: 1063, 7592: 1590,
+             9952: 1489, 9961: 1498, 9977: 1486, 9983: 1471, 9986: 1476, 10101: 1464, 14965: 1461, 146195: 40668,
+             146212: 40685, 146606: 23512, 146818: 40981, 146821: 40975, 146822: 40984, 167119: 41027,
+             167120: 23517, 168329: 41169, 168330: 41168, 168911: 41143, 168912: 41146}
+    datasets = dict(map(reversed, tasks.items()))
+
+    if (task is None and ds is None) or (task is not None and ds is not None):
+        raise ValueError('Provide either task or ds id')
+    if task is not None:
+        return tasks[task]
+    return datasets[ds]
+
+
 def multiclass_roc_auc_score(y_test, y_pred, average="macro"):
     """
     from https://medium.com/@plog397/auc-roc-curve-scoring-function-for-multi-class-classification-9822871a6659
