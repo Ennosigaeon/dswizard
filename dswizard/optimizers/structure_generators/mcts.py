@@ -517,4 +517,4 @@ class MCTS(BaseStructureGenerator):
         if self.tree is None:
             self.logger.info("Search graph not initiated. Skipping rendering as pdf")
             return
-        self.tree.plot(self.workdir + '/search_graph.pdf')
+        self.tree.plot(os.path.join(self.workdir, 'search_graph.pdf'))

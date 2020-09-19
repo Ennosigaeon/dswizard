@@ -6,24 +6,15 @@ Example 1 - Single Threaded
 import argparse
 import logging
 import os
-import sys
 
 import openml
 
-from dswizard.core.logger import JsonResultLogger
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import Hyperopt
-from dswizard.util import util
 from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
-
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(name)-20s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S%z',
-                    stream=sys.stdout)
-
-logging.getLogger('matplotlib').setLevel(logging.WARNING)
+from dswizard.util import util
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=1)
@@ -33,12 +24,16 @@ parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization 
 parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=60)
 parser.add_argument('--run_id', type=str, help='Name of the run', default='run')
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/')
-parser.add_argument('--task', type=int, help='OpenML task id', default=53)
+parser.add_argument('--task', type=int, help='OpenML task id', default=9983)
 args = parser.parse_args()
+
+util.setup_logging(os.path.join(args.log_dir, str(args.task), args.run_id, 'log.txt'))
+logger = logging.getLogger()
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 # Load dataset
 # Tasks: 18, 53, 9983, 146822, 168912
-print('Processing task {}'.format(args.task))
+logger.info('Processing task {}'.format(args.task))
 task = openml.tasks.get_task(args.task)
 train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=0, sample=0)
 
@@ -54,7 +49,7 @@ ds = Dataset(X_train.to_numpy(), y_train.to_numpy())
 master = Master(
     ds=ds,
     run_id=args.run_id,
-    result_logger=JsonResultLogger(directory=args.log_dir, overwrite=True),
+    working_directory=os.path.join(args.log_dir, str(args.task)),
     n_workers=4,
 
     wallclock_limit=args.wallclock_limit,

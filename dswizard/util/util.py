@@ -1,4 +1,6 @@
 import importlib
+import logging
+import os
 from typing import Optional
 
 from sklearn.metrics import roc_auc_score, log_loss
@@ -6,6 +8,21 @@ from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'rocauc'}
+
+
+def setup_logging(log_file: str):
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(name)-20s %(message)s')
+
+    fh = logging.FileHandler(log_file, mode='w')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
 
 
 def score(y, y_pred, metric: str):
