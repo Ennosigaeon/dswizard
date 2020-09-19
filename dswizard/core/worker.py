@@ -60,7 +60,7 @@ class Worker(abc.ABC):
         self.cfg_cache = cfg_cache
 
         self.workdir = workdir
-        self.process_logger: ProcessLogger = None
+        self.process_logger: Optional[ProcessLogger] = None
 
         if wid is not None:
             self.worker_id += '.{}'.format(wid)
@@ -72,7 +72,7 @@ class Worker(abc.ABC):
 
         self.logger.info('Running on {} with pid {}'.format(socket.gethostname(), os.getpid()))
 
-        self.start_time: float = None
+        self.start_time: Optional[float] = None
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
 
@@ -121,6 +121,7 @@ class Worker(abc.ABC):
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
+            # noinspection PyUnboundLocalVariable
             result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
                             partial_configs if 'partial_configs' in locals() else None)
         finally:
@@ -188,21 +189,29 @@ class Worker(abc.ABC):
         X = None
         try:
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff)(self.transform_dataset)
-            X, score = wrapper(job.ds, job.config, job.component)
+            c = wrapper(job.ds, job.config, job.component)
 
-            if wrapper.exit_status == 0 and X is not None:
+            if wrapper.exit_status is pynisher2.TimeoutException:
+                status = StatusType.TIMEOUT
+                score = 1
+            elif wrapper.exit_status is pynisher2.MemorylimitException:
+                status = StatusType.MEMOUT
+                score = 1
+            elif wrapper.exit_status == 0 and c is not None:
                 status = StatusType.SUCCESS
+                X, score = c
             else:
                 status = StatusType.CRASHED
+                score = 1
+            result = Result(status=status, loss=score, transformed_X=X,
+                            runtime=Runtime(wrapper.wall_clock_time, timeit.default_timer() - self.start_time))
         except KeyboardInterrupt:
             raise
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
-            status = StatusType.CRASHED
-            score = 1
-        return Result(status=status, loss=score, transformed_X=X,
-                      runtime=Runtime(wrapper.wall_clock_time, timeit.default_timer() - self.start_time))
+            result = Result(status=StatusType.CRASHED, loss=1)
+        return result
 
     @abc.abstractmethod
     def transform_dataset(self,
