@@ -72,16 +72,16 @@ try:
     id2config = run_history.get_id2config_mapping()
     _, incumbent = run_history.get_incumbent()
 
-    print('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
-                                                                 incumbent.get_incumbent().config,
-                                                                 incumbent.get_incumbent().loss))
-    print('A total of {} structures where sampled.'.format(len(id2config.keys())))
-    print('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
+    logging.info('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
+                                                                        incumbent.get_incumbent().config,
+                                                                        incumbent.get_incumbent().loss))
+    logging.info('A total of {} structures where sampled.'.format(len(id2config.keys())))
+    logging.info('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
 
-    print('Final pipeline:\n{}'.format(pipeline))
+    logging.info('Final pipeline:\n{}'.format(pipeline))
     pipeline.fit(X, y)
     predictions = pipeline.predict(X_test)
-    print('Final test performance', util.score(y_test, predictions, ds.metric))
+    logging.info('Final test performance', util.score(y_test, predictions, ds.metric))
 
 finally:
     master.shutdown()
