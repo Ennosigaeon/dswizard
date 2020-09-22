@@ -86,6 +86,7 @@ class Master:
         self.meta_data = {}
 
         self.ds = ds
+        self.ds.cutoff = cutoff
         self.wallclock_limit = wallclock_limit
         self.cutoff = cutoff
         self.pre_sample = pre_sample

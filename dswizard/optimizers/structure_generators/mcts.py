@@ -402,7 +402,7 @@ class MCTS(BaseStructureGenerator):
             result = self.worker.start_transform_dataset(job)
 
             if result.status.value == StatusType.SUCCESS.value:
-                ds = Dataset(result.transformed_X, ds.y, ds.metric)
+                ds = Dataset(result.transformed_X, ds.y, ds.metric, ds.cutoff)
 
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED

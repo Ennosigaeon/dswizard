@@ -217,15 +217,17 @@ class Dataset:
     def __init__(self,
                  X: np.ndarray,
                  y: np.ndarray,
-                 metric: str = 'f1'):
+                 metric: str = 'f1',
+                 cutoff: int = 120):
         self.X = X
         self.y = y
 
         if metric not in util.valid_metrics:
             raise KeyError('Unknown metric {}'.format(metric))
         self.metric = metric
+        self.cutoff = cutoff
 
-        self.mf_dict, self.meta_features = MetaFeatureFactory.calculate(X, y)
+        self.mf_dict, self.meta_features = MetaFeatureFactory.calculate(X, y, timeout=self.cutoff)
 
 
 class PartialConfig:
