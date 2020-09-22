@@ -80,8 +80,10 @@ try:
 
     logging.info('Final pipeline:\n{}'.format(pipeline))
     pipeline.fit(X, y)
-    predictions = pipeline.predict(X_test)
-    logging.info('Final test performance', util.score(y_test, predictions, ds.metric))
+
+    func = pipeline.predict_proba if util.requires_proba(ds.metric) else pipeline.predict
+    predictions = func(X_test)
+    logging.info('Final test performance {}'.format(util.score(y_test, predictions, ds.metric)))
 
 finally:
     master.shutdown()

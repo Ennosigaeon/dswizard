@@ -3,9 +3,8 @@ import logging
 import os
 from typing import Optional
 
-from sklearn.metrics import roc_auc_score, log_loss
-from sklearn.preprocessing import LabelBinarizer
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score, log_loss
 
 valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'rocauc'}
 
@@ -35,10 +34,9 @@ def score(y, y_pred, metric: str):
     elif metric == 'f1':
         score = f1_score(y, y_pred, average='weighted')
     elif metric == 'logloss':
-        # TODO not working
-        score = logloss(y, y_pred)
+        score = log_loss(y, y_pred)
     elif metric == 'rocauc':
-        score = multiclass_roc_auc_score(y, y_pred, average='weighted')
+        score = roc_auc_score(y, y_pred, average='weighted', multi_class='ovr')
     else:
         raise ValueError
 
@@ -48,12 +46,17 @@ def score(y, y_pred, metric: str):
     return score
 
 
+def requires_proba(metric: str):
+    return metric in {'logloss', 'rocauc'}
+
+
 def worst_score(metric: str):
     if metric in ('accuracy', 'precision', 'recall', 'f1', 'rocauc'):
         return 0
     else:
         # TODO check logloss
         return 100
+
 
 def openml_mapping(task: int = None, ds: int = None):
     tasks = {3: 3, 12: 12, 18: 18, 31: 31, 53: 54, 3549: 458, 3560: 469, 3567: 478, 3896: 1043, 3913: 1063, 7592: 1590,
@@ -67,32 +70,6 @@ def openml_mapping(task: int = None, ds: int = None):
     if task is not None:
         return tasks[task]
     return datasets[ds]
-
-
-def multiclass_roc_auc_score(y_test, y_pred, average="macro"):
-    """
-    from https://medium.com/@plog397/auc-roc-curve-scoring-function-for-multi-class-classification-9822871a6659
-    """
-    lb = LabelBinarizer()
-    lb.fit(y_test)
-
-    y_test = lb.transform(y_test)
-    y_pred = lb.transform(y_pred)
-
-    return roc_auc_score(y_test, y_pred, average=average)
-
-
-def logloss(y_test, y_pred):
-    """
-    from https://medium.com/@plog397/auc-roc-curve-scoring-function-for-multi-class-classification-9822871a6659
-    """
-    lb = LabelBinarizer()
-    lb.fit(y_test)
-
-    y_test = lb.transform(y_test)
-    y_pred = lb.transform(y_pred)
-
-    return log_loss(y_test, y_pred)
 
 
 def prefixed_name(prefix: Optional[str], name: str) -> str:

@@ -47,7 +47,7 @@ class SklearnWorker(Worker):
 
     def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], n_folds: int = 4):
         y = ds.y
-        y_pred = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
+        y_pred = self._cross_val_predict(estimator, ds.X, y, cv=n_folds, proba=util.requires_proba(ds.metric))
         score = util.score(y, y_pred, ds.metric)
 
         return score, y_pred
@@ -73,7 +73,9 @@ class SklearnWorker(Worker):
         component.set_hyperparameters(config.get_dictionary())
         if is_classifier(component):
             score, y_pred = self._score(ds, component)
-            X = np.hstack((ds.X, np.reshape(y_pred, (-1, 1))))
+            if len(y_pred.shape) == 1:
+                y_pred = np.reshape(y_pred, (-1, 1))
+            X = np.hstack((ds.X, y_pred))
         else:
             score = None
             X = component.fit(ds.X, ds.y).transform(ds.X)

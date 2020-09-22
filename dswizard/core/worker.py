@@ -132,15 +132,16 @@ class Worker(abc.ABC):
         return result
 
     @staticmethod
-    def _cross_val_predict(pipeline, X, y=None, cv=None):
+    def _cross_val_predict(pipeline, X, y=None, cv=None, proba: bool = False):
         X, y, groups = indexable(X, y, None)
 
         cv = check_cv(cv, y, classifier=is_classifier(pipeline))
+        method = 'predict_proba' if proba else 'predict'
 
         prediction_blocks = []
         for train, test in cv.split(X, y, groups):
             cloned_pipeline = copy.copy(pipeline)
-            prediction_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, 'predict'))
+            prediction_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, method))
 
         # Concatenate the predictions
         predictions = [pred_block_i for pred_block_i, _ in prediction_blocks]
