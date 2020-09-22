@@ -22,6 +22,7 @@ from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
+from util import util
 
 if TYPE_CHECKING:
     from dswizard.core.dispatcher import Dispatcher
@@ -91,17 +92,17 @@ class Worker(abc.ABC):
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
-                cost = 1
+                cost = util.worst_score(job.ds.metric)
             elif wrapper.exit_status is pynisher2.MemorylimitException:
                 status = StatusType.MEMOUT
-                cost = 1
+                cost = util.worst_score(job.ds.metric)
             elif wrapper.exit_status == 0 and c is not None:
                 status = StatusType.SUCCESS
                 cost = c
             else:
                 status = StatusType.CRASHED
                 self.logger.debug('Worker failed with {}\n{}'.format(c[0], c[1]))
-                cost = 1
+                cost = util.worst_score(job.ds.metric)
             runtime = Runtime(wrapper.wall_clock_time, timestamp=timeit.default_timer() - self.start_time)
 
             if job.config is None:
@@ -190,16 +191,16 @@ class Worker(abc.ABC):
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
-                score = 1
+                score = util.worst_score(job.ds.metric)
             elif wrapper.exit_status is pynisher2.MemorylimitException:
                 status = StatusType.MEMOUT
-                score = 1
+                score = util.worst_score(job.ds.metric)
             elif wrapper.exit_status == 0 and c is not None:
                 status = StatusType.SUCCESS
                 X, score = c
             else:
                 status = StatusType.CRASHED
-                score = 1
+                score = util.worst_score(job.ds.metric)
             result = Result(status=status, loss=score, transformed_X=X,
                             runtime=Runtime(wrapper.wall_clock_time, timeit.default_timer() - self.start_time))
         except KeyboardInterrupt:

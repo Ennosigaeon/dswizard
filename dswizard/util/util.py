@@ -48,6 +48,13 @@ def score(y, y_pred, metric: str):
     return score
 
 
+def worst_score(metric: str):
+    if metric in ('accuracy', 'precision', 'recall', 'f1', 'rocauc'):
+        return 0
+    else:
+        # TODO check logloss
+        return 100
+
 def openml_mapping(task: int = None, ds: int = None):
     tasks = {3: 3, 12: 12, 18: 18, 31: 31, 53: 54, 3549: 458, 3560: 469, 3567: 478, 3896: 1043, 3913: 1063, 7592: 1590,
              9952: 1489, 9961: 1498, 9977: 1486, 9983: 1471, 9986: 1476, 10101: 1464, 14965: 1461, 146195: 40668,
