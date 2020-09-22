@@ -35,10 +35,8 @@ class ConfigCache:
     def __init__(self,
                  clazz: Type[BaseConfigGenerator],
                  init_kwargs: dict,
-                 run_id: str = '0',
                  logger: logging.Logger = None):
 
-        self.run_id = run_id
         self.clazz = clazz
         self.init_kwargs = init_kwargs
 

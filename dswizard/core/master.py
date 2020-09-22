@@ -33,7 +33,6 @@ if TYPE_CHECKING:
 class Master:
     def __init__(self,
                  ds: Dataset,
-                 run_id: str,
                  working_directory: str = '.',
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
@@ -58,8 +57,6 @@ class Master:
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are
         instantiations of Master, that handle the important steps of deciding what configurations to run on what
         budget when.
-        :param run_id: A unique identifier of that Hyperband run. Use, for example, the cluster's JobID when running
-            multiple concurrent runs to separate them
         :param working_directory: The top level working directory accessible to all compute nodes(shared filesystem).
         :param logger: the logger to output some (more or less meaningful) information
         :param result_logger: a result logger that writes live results to disk
@@ -72,7 +69,7 @@ class Master:
         if structure_generator_kwargs is None:
             structure_generator_kwargs = {}
 
-        self.working_directory = os.path.join(working_directory, run_id)
+        self.working_directory = working_directory
         os.makedirs(self.working_directory, exist_ok=True)
         if 'working_directory' not in config_generator_kwargs:
             config_generator_kwargs['working_directory'] = self.working_directory
@@ -100,28 +97,26 @@ class Master:
         mgr = multiprocessing.Manager()
         # noinspection PyUnresolvedReferences
         self.cfg_cache: ConfigCache = mgr.ConfigCache(clazz=config_generator_class,
-                                                      init_kwargs=config_generator_kwargs,
-                                                      run_id=run_id)
+                                                      init_kwargs=config_generator_kwargs)
 
         self.workers = []
         if 'worker' not in structure_generator_kwargs:
-            self.workers.append(worker_class(run_id=run_id, wid='structure', metric=ds.metric,
-                                             workdir=self.working_directory))
+            self.workers.append(worker_class(wid='structure', metric=ds.metric, workdir=self.working_directory))
             structure_generator_kwargs['worker'] = self.workers[-1]
 
         bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
                                                                                  cutoff=self.cutoff,
                                                                                  workdir=self.working_directory,
                                                                                  **structure_generator_kwargs)
-        self.bandit_learner: BanditLearner = bandit_learner_class(run_id=run_id, **bandit_learner_kwargs)
+        self.bandit_learner: BanditLearner = bandit_learner_class(**bandit_learner_kwargs)
 
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         for i in range(n_workers):
-            self.workers.append(worker_class(run_id=run_id, wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
+            self.workers.append(worker_class(wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
                                              workdir=self.working_directory))
 
-        self.dispatcher = Dispatcher(self.workers[1:], self.job_callback, run_id=run_id)
+        self.dispatcher = Dispatcher(self.workers[1:], self.job_callback)
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
 

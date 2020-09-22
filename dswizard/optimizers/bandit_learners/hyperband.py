@@ -7,7 +7,6 @@ from dswizard.optimizers.iterations import SuccessiveHalving
 
 class HyperbandLearner(BanditLearner):
     def __init__(self,
-                 run_id: str,
                  structure_generator: BaseStructureGenerator = None,
                  eta: float = 3,
                  min_budget: float = 1,
@@ -22,7 +21,7 @@ class HyperbandLearner(BanditLearner):
         :param min_budget: budget for the evaluation
         :param max_budget: budget for the evaluation
         """
-        super().__init__(run_id, structure_generator, **kwargs)
+        super().__init__(structure_generator, **kwargs)
 
         self.eta = eta
         self.min_budget = min_budget

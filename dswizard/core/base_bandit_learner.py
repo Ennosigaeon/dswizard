@@ -13,10 +13,8 @@ if TYPE_CHECKING:
 class BanditLearner(abc.ABC):
 
     def __init__(self,
-                 run_id: str,
                  structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None):
-        self.run_id = run_id
         self.offset = 0
         self.structure_generator = structure_generator
         self.meta_data = {}

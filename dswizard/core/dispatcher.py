@@ -18,11 +18,9 @@ class Dispatcher:
     def __init__(self,
                  workers: List[Worker],
                  new_result_callback: Callable[[Job], None],
-                 run_id: str = '0',
                  logger: logging.Logger = None,
                  ):
         self.new_result_callback = new_result_callback
-        self.run_id = run_id
         self.shutdown_all_threads = False
 
         if logger is None:
