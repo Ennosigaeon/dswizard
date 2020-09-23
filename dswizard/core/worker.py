@@ -22,7 +22,7 @@ from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
-from util import util
+from dswizard.util import util
 
 if TYPE_CHECKING:
     from dswizard.core.dispatcher import Dispatcher
