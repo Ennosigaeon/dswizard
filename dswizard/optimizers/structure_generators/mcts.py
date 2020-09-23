@@ -213,7 +213,7 @@ class Policy(ABC):
 
             if n.failed:
                 # Always ignore nodes without meta-features
-                return -1
+                return -math.inf
 
             exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
             exploration = math.sqrt(log_N_vertex / node.visits)
