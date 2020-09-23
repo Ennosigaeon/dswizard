@@ -302,7 +302,11 @@ class MCTS(BaseStructureGenerator):
             policy = RandomSelection
         if policy_kwargs is None:
             policy_kwargs = {}
-        self.policy = policy(self.logger, **policy_kwargs)
+        try:
+            self.policy = policy(self.logger, **policy_kwargs)
+        except KeyError as ex:
+            self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
+            self.policy = RandomSelection(self.logger)
 
     def get_candidate(self, ds: Dataset) -> CandidateStructure:
         # Initialize tree if not exists
