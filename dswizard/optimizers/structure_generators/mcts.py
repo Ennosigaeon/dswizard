@@ -199,7 +199,7 @@ class Policy(ABC):
                         depth: int = 1) -> Optional[Type[EstimatorComponent]]:
         pass
 
-    def uct(self, node: Node, tree: Tree, alpha=2., scale=2.) -> Tuple[Node, float]:
+    def uct(self, node: Node, tree: Tree, alpha=2., scale=2., force: bool = False) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
         if node.visits == 0:
             log_N_vertex = 0
@@ -214,6 +214,10 @@ class Policy(ABC):
             if n.failed:
                 # Always ignore nodes without meta-features
                 return -math.inf
+
+            # Always pick terminal node if forced
+            if force and n.is_terminal():
+                return math.inf
 
             exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
             exploration = math.sqrt(log_N_vertex / node.visits)
@@ -308,7 +312,7 @@ class MCTS(BaseStructureGenerator):
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
 
-    def get_candidate(self, ds: Dataset) -> CandidateStructure:
+    def get_candidate(self, ds: Dataset, retries=3) -> CandidateStructure:
         # Initialize tree if not exists
         if self.tree is None:
             self.tree = Tree(ds)
@@ -317,18 +321,20 @@ class MCTS(BaseStructureGenerator):
 
         # traverse from root to a leaf node
         self.logger.debug('MCTS SELECT')
-        path = self._select()
+        path = self._select(force=retries == 0)
 
-        # TODO add option to skip tree expansion
-        # expand last node in path if possible
-        self.logger.debug('MCTS EXPAND')
-        expansion, result = self._expand(path)
-        if expansion is not None:
-            path.append(expansion)
+        result = None
+        if retries != 0 or not path[-1].is_terminal():
+            # TODO add option to skip tree expansion
+            # expand last node in path if possible
+            self.logger.debug('MCTS EXPAND')
+            expansion, result = self._expand(path)
+            if expansion is not None:
+                path.append(expansion)
 
         if len(path) == 1:
             self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
-            return self.get_candidate(ds)
+            return self.get_candidate(ds, retries=retries - 1)
 
         self.logger.debug('MCTS SIMULATE')
         for i in range(10):
@@ -340,6 +346,11 @@ class MCTS(BaseStructureGenerator):
             raise ValueError(
                 'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
                     ', '.join([n.label for n in path])))
+
+        if not path[-1].is_terminal():
+            self.logger.warning(
+                'Current path does not end in a classifier. Trying tree traversal {} more times...'.format(retries))
+            return self.get_candidate(ds, retries=retries - 1)
 
         node = path[-1]
         self.logger.debug('Sampled pipeline structure: {}'.format(node.steps))
@@ -353,7 +364,7 @@ class MCTS(BaseStructureGenerator):
             cs.add_result(result)
         return cs
 
-    def _select(self) -> List[Node]:
+    def _select(self, force: bool = False) -> List[Node]:
         """Find an unexplored descendent of ROOT"""
 
         path: List[Node] = []
@@ -366,6 +377,10 @@ class MCTS(BaseStructureGenerator):
                     'Selected node has no dataset, meta-features or partial configurations. This should not happen')
 
             path.append(node)
+
+            # Failsafe mechanism to enforce structure selection
+            if force and node.is_terminal():
+                return path
 
             if not self.tree.fully_expanded(node):
                 return path
