@@ -2,6 +2,7 @@ import abc
 import copy
 import logging
 import os
+import pickle
 import random
 from abc import ABC
 from copy import deepcopy
@@ -293,7 +294,7 @@ class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
     def __init__(self, worker: Worker, cutoff: int, workdir: str, policy: Type[Policy] = None,
-                 policy_kwargs: dict = None, **kwargs):
+                 policy_kwargs: dict = None, store_ds: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.worker = worker
         self.workdir = workdir
@@ -301,6 +302,7 @@ class MCTS(BaseStructureGenerator):
         self.tree: Optional[Tree] = None
         self.neighbours = NearestNeighbors()
         self.mfs: Optional[MetaFeatures] = None
+        self.store_ds = store_ds
 
         if policy is None:
             policy = RandomSelection
@@ -444,6 +446,10 @@ class MCTS(BaseStructureGenerator):
                     else:
                         self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
                         self.neighbours.fit(self.mfs)
+
+                        if self.store_ds:
+                            with open(os.path.join(self.workdir, '{}.pkl'.format(new_node.id)), 'wb') as f:
+                                pickle.dump(ds, f)
 
                 new_node.partial_config = PartialConfig(key, config, str(new_node.id), ds.meta_features)
                 new_node.ds = ds
