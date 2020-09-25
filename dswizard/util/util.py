@@ -5,6 +5,7 @@ from typing import Optional
 
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.metrics import roc_auc_score, log_loss
+from sklearn.utils.multiclass import type_of_target
 
 valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'rocauc'}
 
@@ -25,6 +26,9 @@ def setup_logging(log_file: str):
 
 
 def score(y, y_pred, metric: str):
+    # Always compute minimization problem
+    sign = -1
+
     if metric == 'accuracy':
         score = accuracy_score(y, y_pred)
     elif metric == 'precision':
@@ -34,16 +38,17 @@ def score(y, y_pred, metric: str):
     elif metric == 'f1':
         score = f1_score(y, y_pred, average='weighted')
     elif metric == 'logloss':
+        sign = 1
         score = log_loss(y, y_pred)
     elif metric == 'rocauc':
+        y_type = type_of_target(y)
+        if y_type == "binary" and y_pred.ndim > 1:
+            y_pred = y_pred[:, 1]
         score = roc_auc_score(y, y_pred, average='weighted', multi_class='ovr')
     else:
         raise ValueError
 
-    # Always compute minimization problem
-    if metric != 'logloss':
-        score = -1 * score
-    return score
+    return sign * score
 
 
 def requires_proba(metric: str):
