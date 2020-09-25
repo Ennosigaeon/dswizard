@@ -69,13 +69,12 @@ try:
     pipeline, run_history = master.optimize()
 
     # Analysis
-    id2config = run_history.get_id2config_mapping()
     _, incumbent = run_history.get_incumbent()
 
     logging.info('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
                                                                         incumbent.get_incumbent().config,
                                                                         incumbent.get_incumbent().loss))
-    logging.info('A total of {} structures where sampled.'.format(len(id2config.keys())))
+    logging.info('A total of {} unique structures where sampled.'.format(len(run_history.data)))
     logging.info('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
 
     logging.info('Final pipeline:\n{}'.format(pipeline))

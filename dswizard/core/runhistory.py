@@ -1,10 +1,9 @@
-import copy
 from typing import List, Dict, Optional, Tuple
 
 from sklearn import clone
 
 from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.core.model import CandidateId, CandidateStructure, Result
+from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType
 
 
 class RunHistory:
@@ -33,7 +32,6 @@ class RunHistory:
         tmp_list = []
         for k, v in self.data.items():
             try:
-                # only things run for the max budget are considered
                 inc = v.get_incumbent()
                 if inc is not None:
                     tmp_list.append((inc.loss, k))
@@ -51,30 +49,26 @@ class RunHistory:
             return pipeline, structure
         return None, None
 
-    def get_runs_by_id(self, config_id: CandidateId) -> List[Result]:
-        """
-        returns a list of runs for a given config id
-        """
-        d = self.data[config_id]
-        if d is None:
-            return []
-        return d.results
-
     def get_all_runs(self, ) -> List[Result]:
         """
         returns all runs performed
         :return:
         """
         all_runs = []
-        for k in self.data.keys():
-            all_runs.extend(self.get_runs_by_id(k))
+        for structure in self.data.values():
+            all_runs.extend(structure.results)
         return all_runs
 
-    def get_id2config_mapping(self) -> Dict[CandidateId, CandidateStructure]:
+    def get_all_pipelines(self) -> List[Tuple[FlexiblePipeline, Result]]:
         """
-        returns a dict where the keys are the config_ids and the values are the actual configurations
+        returns all successful pipelines
+        :return:
         """
-        return copy.deepcopy(self.data)
-
-    def num_iterations(self) -> int:
-        return max([k.iteration for k in self.data.keys()]) + 1
+        all_pipelines = []
+        for structure in self.data.values():
+            for result in structure.results:
+                if result.status == StatusType.SUCCESS:
+                    pipeline = clone(structure.pipeline)
+                    pipeline.set_hyperparameters(result.config.get_dictionary())
+                    all_pipelines.append(pipeline)
+        return all_pipelines

@@ -116,7 +116,7 @@ class Result:
 
     def as_dict(self):
         return {
-            'status': str(self.status),
+            'status': self.status.name,
             'loss': self.loss,
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
@@ -124,7 +124,7 @@ class Result:
 
     @staticmethod
     def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
-        return Result(raw['status'], Configuration(cs, raw['config']), raw['loss'], Runtime.from_dict(raw['runtime']))
+        return Result(StatusType[raw['status']], Configuration(cs, raw['config']), raw['loss'], Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:
