@@ -71,12 +71,13 @@ class SklearnWorker(Worker):
     def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent) \
             -> Tuple[np.ndarray, Optional[float]]:
         component.set_hyperparameters(config.get_dictionary())
+        X = component.fit(ds.X, ds.y).transform(ds.X)
+        score = None
         if is_classifier(component):
+            # TODO _score executes cross-val fitting. multiple times fitted requires lot of time
+            # method = 'predict_proba' if util.requires_proba(ds.metric) else 'predict'
+            # func = getattr(component, method)
+            # y_pred = func(ds.X)
+            # score = util.score(ds.y, y_pred, ds.metric)
             score, y_pred = self._score(ds, component)
-            if len(y_pred.shape) == 1:
-                y_pred = np.reshape(y_pred, (-1, 1))
-            X = np.hstack((ds.X, y_pred))
-        else:
-            score = None
-            X = component.fit(ds.X, ds.y).transform(ds.X)
         return X, score
