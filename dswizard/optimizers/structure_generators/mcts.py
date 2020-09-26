@@ -323,11 +323,10 @@ class MCTS(BaseStructureGenerator):
 
         # traverse from root to a leaf node
         self.logger.debug('MCTS SELECT')
-        path = self._select(force=retries == 0)
+        path, expand = self._select(force=retries == 0)
 
         result = None
-        if retries != 0 or not path[-1].is_terminal():
-            # TODO add option to skip tree expansion
+        if expand or not path[-1].is_terminal():
             # expand last node in path if possible
             self.logger.debug('MCTS EXPAND')
             expansion, result = self._expand(path)
@@ -366,7 +365,7 @@ class MCTS(BaseStructureGenerator):
             cs.add_result(result)
         return cs
 
-    def _select(self, force: bool = False) -> List[Node]:
+    def _select(self, force: bool = False) -> Tuple[List[Node], bool]:
         """Find an unexplored descendent of ROOT"""
 
         path: List[Node] = []
@@ -382,18 +381,19 @@ class MCTS(BaseStructureGenerator):
 
             # Failsafe mechanism to enforce structure selection
             if force and node.is_terminal():
-                return path
+                return path, False
 
             if not self.tree.fully_expanded(node):
-                return path
+                return path, True
 
             # node is leaf
             if len(self.tree.get_children(node.id)) == 0:
-                return path
+                return path, True
 
             candidate, candidate_score = self.policy.uct(node, self.tree)  # descend a layer deeper
-            if candidate_score < score and (node.is_terminal() or not self.tree.fully_expanded(node)):
-                return path
+            # Current node is terminal and better than children
+            if candidate_score < score and node.is_terminal():
+                return path, False
             else:
                 node, score = candidate, candidate_score
 
