@@ -397,17 +397,25 @@ class MCTS(BaseStructureGenerator):
             else:
                 node, score = candidate, candidate_score
 
-    def _expand(self, nodes: List[Node], max_distance: float = 1) -> Tuple[Optional[Node], Optional[Result]]:
+    def _expand(self, nodes: List[Node], max_distance: float = 1, max_mf_missing: int = 3,
+                include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result]]:
         # TODO When using multiple cores, multiple expansions should be performed in parallel. Currently only 1 worker
         node = nodes[-1]
         if self.tree.fully_expanded(node):
             return None, None
 
+        mf_missing_count = 0
         n_actions = len(node.available_actions())
         n_children = len(self.tree.get_children(node.id))
         while n_children < n_actions:
             current_children = self.tree.get_children(node.id)
-            action = self.policy.get_next_action(node, current_children)
+            action = self.policy.get_next_action(node, current_children, include_preprocessing=include_preprocessing)
+            if action is None:
+                return None, None
+            if mf_missing_count > max_mf_missing:
+                self.logger.warning('Aborting expansion due to {} failed MF calculations'.format(mf_missing_count))
+                return None, None
+
             component = action()
 
             self.logger.debug('\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
@@ -429,6 +437,7 @@ class MCTS(BaseStructureGenerator):
                     result.status = StatusType.CRASHED
                     result.loss = util.worst_score(ds.metric)
                     new_node.failure_message = 'Missing MF'
+                    mf_missing_count += 1
                 else:
                     # Check if any node in the tree is similar to the new dataset
                     distance, idx = self.neighbours.kneighbors(ds.meta_features, n_neighbors=1)
