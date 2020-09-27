@@ -181,12 +181,15 @@ class Master:
         timeout = False
         repetition = 0
         offset = 0
-        while not timeout:
-            self.logger.info('Starting repetition {}'.format(repetition))
-            self.bandit_learner.reset(offset)
-            timeout = _optimize()
-            repetition += 1
-            offset += sum([len(it.data) for it in self.bandit_learner.iterations])
+        try:
+            while not timeout:
+                self.logger.info('Starting repetition {}'.format(repetition))
+                self.bandit_learner.reset(offset)
+                timeout = _optimize()
+                repetition += 1
+                offset += sum([len(it.data) for it in self.bandit_learner.iterations])
+        except KeyboardInterrupt:
+            self.logger.info('Aborting optimization due to user interrupt')
 
         end = time.time()
         self.meta_data['end'] = end
