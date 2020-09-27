@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import random
+import threading
 from abc import ABC
 from copy import deepcopy
 from typing import List, Optional, Tuple, Type, Dict
@@ -125,16 +126,14 @@ class Tree:
         self.add_node(None, ds)
 
         self.coef_progressive_widening = 0.7
-
-    def get_new_id(self) -> int:
-        self.id_count += 1
-        return self.id_count
+        self.lock = threading.Lock()
 
     def add_node(self,
                  estimator: Optional[Type[EstimatorComponent]],
                  ds: Optional[Dataset],
                  parent_node: Node = None) -> Node:
-        new_id = self.get_new_id()
+        self.id_count += 1
+        new_id = self.id_count
         node = Node(new_id, ds, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
 
         self.G.add_node(new_id, value=node, label=node.label)
@@ -144,6 +143,11 @@ class Tree:
 
     def get_node(self, node: int) -> Node:
         return self.G.nodes[node]['value']
+
+    def update_node(self, node: int, reward: float) -> None:
+        n = self.get_node(node)
+        n.visits += 1
+        n.reward += reward
 
     def get_children(self, node: int) -> List[Node]:
         return [self.G.nodes[n]['value'] for n in self.G.successors(node)]
@@ -161,6 +165,14 @@ class Tree:
         current_children = len(list(self.G.successors(node.id)))
 
         return possible_children == 0 or (current_children != 0 and current_children >= min(global_max, max_children))
+
+    def enter_node(self, node: Node):
+        # TODO add selection penalty to node
+        pass
+
+    def leave_nodes(self, nodes: List[str]):
+        # TODO remove selection penalty from all nodes
+        pass
 
     def plot(self, file: str):
         # TODO plot can only be called once
@@ -374,49 +386,54 @@ class MCTS(BaseStructureGenerator):
                 self.logger.warning(
                     'Selected node has no dataset, meta-features or partial configurations. This should not happen')
 
-            path.append(node)
+            with self.tree.lock:
+                self.tree.enter_node(node)
+                path.append(node)
 
-            # Failsafe mechanism to enforce structure selection
-            if force and node.is_terminal():
-                return path, False
+                # Failsafe mechanism to enforce structure selection
+                if force and node.is_terminal():
+                    return path, False
 
-            if not self.tree.fully_expanded(node):
-                return path, True
+                if not self.tree.fully_expanded(node):
+                    return path, True
 
-            # node is leaf
-            if len(self.tree.get_children(node.id)) == 0:
-                return path, True
+                # node is leaf
+                if len(self.tree.get_children(node.id)) == 0:
+                    return path, True
 
-            candidate, candidate_score = self.policy.uct(node, self.tree)  # descend a layer deeper
-            # Current node is terminal and better than children
-            if candidate_score < score and node.is_terminal():
-                return path, False
-            else:
-                node, score = candidate, candidate_score
+                candidate, candidate_score = self.policy.uct(node, self.tree)  # descend a layer deeper
+                # Current node is terminal and better than children
+                if candidate_score < score and node.is_terminal():
+                    return path, False
+                else:
+                    node, score = candidate, candidate_score
 
     def _expand(self, nodes: List[Node], max_distance: float = 1, max_mf_missing: int = 3,
                 include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result]]:
-        # TODO When using multiple cores, multiple expansions should be performed in parallel. Currently only 1 worker
         node = nodes[-1]
-        if self.tree.fully_expanded(node):
-            return None, None
-
         mf_missing_count = 0
         n_actions = len(node.available_actions())
-        n_children = len(self.tree.get_children(node.id))
-        while n_children < n_actions:
-            current_children = self.tree.get_children(node.id)
-            action = self.policy.get_next_action(node, current_children, include_preprocessing=include_preprocessing)
-            if action is None:
-                return None, None
-            if mf_missing_count > max_mf_missing:
-                self.logger.warning('Aborting expansion due to {} failed MF calculations'.format(mf_missing_count))
-                return None, None
+        while True:
+            with self.tree.lock:
+                if self.tree.fully_expanded(node):
+                    return None, None
 
-            component = action()
+                n_children = len(self.tree.get_children(node.id))
+                if n_children >= n_actions:
+                    break
 
-            self.logger.debug('\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
-            new_node = self.tree.add_node(estimator=action, ds=None, parent_node=node)
+                current_children = self.tree.get_children(node.id)
+                action = self.policy.get_next_action(node, current_children, include_preprocessing=include_preprocessing)
+                if action is None:
+                    return None, None
+                if mf_missing_count > max_mf_missing:
+                    self.logger.warning('Aborting expansion due to {} failed MF calculations'.format(mf_missing_count))
+                    return None, None
+
+                component = action()
+
+                self.logger.debug('\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
+                new_node = self.tree.add_node(estimator=action, ds=None, parent_node=node)
 
             ds = node.ds
             config, key = self.cfg_cache.sample_configuration(
@@ -491,6 +508,8 @@ class MCTS(BaseStructureGenerator):
             reward = 1
 
         self._backpropagate(candidate.pipeline.steps_.keys(), reward)
+        with self.tree.lock:
+            self.tree.leave_nodes(candidate.pipeline.steps_.keys())
 
     # noinspection PyMethodMayBeStatic
     def _backpropagate(self, path: List[str], reward: float) -> None:
@@ -499,28 +518,10 @@ class MCTS(BaseStructureGenerator):
 
         ls = list(path)
         ls.append('0')
-        for node_id in ls:
-            node_id = int(node_id)
-            if node_id >= 0:
-                n = self.tree.get_node(node_id)
-                n.visits += 1
-                n.reward += reward
-
-    def choose(self, node: Node = None):
-        """Choose the best successor of node. (Choose a move in the game)"""
-        if node is None:
-            node = self.tree.get_node(Tree.ROOT)
-
-        children = self.tree.get_all_children(node.id)
-        if len(children) == 0:
-            return node
-
-        def score(n: Node):
-            if n.visits == 0 or not n.is_terminal():
-                return math.inf  # avoid unseen moves
-            return n.reward / n.visits  # average reward
-
-        return min(children, key=score)
+        with self.tree.lock:
+            for node_id in ls:
+                node_id = int(node_id)
+                self.tree.update_node(node_id, reward)
 
     def shutdown(self):
         if self.tree is None:
