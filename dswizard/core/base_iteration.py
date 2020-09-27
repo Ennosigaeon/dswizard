@@ -162,9 +162,6 @@ class BaseIteration(abc.ABC):
 
         for i, cid in enumerate(candidate_ids):
             if advance[i]:
-                # Only structure candidates are advanced to next iteration. Specific config does not matter and is
-                # ignored
-                # TODO check if it reasonable to ignore best performing hyperparameter configurations
                 self.logger.debug('Advancing candidate structure {} to next budget {} with loss {}'
                                   .format(cid, self.budgets[self.stage], losses[i]))
 

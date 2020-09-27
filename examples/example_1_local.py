@@ -13,17 +13,17 @@ from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import Hyperopt
-from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
+from dswizard.optimizers.structure_generators.mcts import MCTS
 from dswizard.util import util
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
 parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=1)
 parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=10)
 parser.add_argument('--n_configs', type=float, help='Number of configurations to test on a single structure', default=1)
-parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=3600)
-parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=300)
+parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=300)
+parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=60)
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/')
-parser.add_argument('--task', type=int, help='OpenML task id', default=9983)
+parser.add_argument('--task', type=int, help='OpenML task id', default=3913)
 args = parser.parse_args()
 
 util.setup_logging(os.path.join(args.log_dir, str(args.task), 'log.txt'))
@@ -43,7 +43,7 @@ y_train = y[train_indices]
 X_test = X.loc[test_indices]
 y_test = y[test_indices]
 
-ds = Dataset(X_train.to_numpy(), y_train.to_numpy())
+ds = Dataset(X_train.to_numpy(), y_train.to_numpy(), metric='rocauc')
 
 master = Master(
     ds=ds,
@@ -57,8 +57,8 @@ master = Master(
     config_generator_class=Hyperopt,
 
     structure_generator_class=MCTS,
-    structure_generator_kwargs={'policy': TransferLearning,
-                                'policy_kwargs': {'task': args.task, 'dir': '../dswizard/assets'}},
+    # structure_generator_kwargs={'policy': TransferLearning,
+    #                             'policy_kwargs': {'task': args.task, 'dir': '../dswizard/assets'}},
 
     bandit_learner_class=HyperbandLearner,
     bandit_learner_kwargs={'min_budget': args.min_budget,

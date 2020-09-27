@@ -52,8 +52,4 @@ class BaseConfigGenerator(abc.ABC):
         :param update_model: determines whether a model inside the config_generator should be updated
         :return:
         """
-        # TODO check if base implementation is really necessary
         pass
-        #
-        # if status is not StatusType.SUCCESS:
-        #     self.logger.warning('job {} failed with {}'.format(job.cid, job.result.status))
