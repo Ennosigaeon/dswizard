@@ -104,11 +104,10 @@ class Master:
         if 'worker' not in structure_generator_kwargs:
             self.workers.append(worker_class(wid='structure', metric=ds.metric, workdir=self.working_directory))
             structure_generator_kwargs['worker'] = self.workers[-1]
-
-        bandit_learner_kwargs['structure_generator'] = structure_generator_class(cfg_cache=self.cfg_cache,
-                                                                                 cutoff=self.cutoff,
-                                                                                 workdir=self.working_directory,
-                                                                                 **structure_generator_kwargs)
+        self.structure_generator = structure_generator_class(cfg_cache=self.cfg_cache,
+                                                             cutoff=self.cutoff,
+                                                             workdir=self.working_directory,
+                                                             **structure_generator_kwargs)
         self.bandit_learner: BanditLearner = bandit_learner_class(**bandit_learner_kwargs)
 
         if n_workers < 1:
@@ -127,7 +126,7 @@ class Master:
         time.sleep(1)
         self.dispatcher.shutdown()
         self.dispatcher_thread.join()
-        self.bandit_learner.structure_generator.shutdown()
+        self.structure_generator.shutdown()
 
     def optimize(self) -> Tuple[Pipeline, RunHistory]:
         """
@@ -147,8 +146,11 @@ class Master:
             worker.start_time = relative_start
 
         def _optimize() -> bool:
-            for candidate, iteration in self.bandit_learner.next_candidate(self.ds,
-                                                                           {'result_logger': self.result_logger}):
+            for candidate, iteration in self.bandit_learner.next_candidate():
+                if candidate.is_proxy():
+                    candidate = self.structure_generator.fill_candidate(candidate, self.ds)
+                    self.result_logger.new_structure(candidate)
+
                 # Optimize hyperparameters
                 n_configs = int(candidate.budget)
                 cid_offset = len(candidate.results)
@@ -221,6 +223,7 @@ class Master:
                 job.cs.add_result(job.result)
                 self.cfg_cache.register_result(job)
                 self.bandit_learner.register_result(job)
+                self.structure_generator.register_result(job.cs, job.result)
             except KeyboardInterrupt:
                 raise
             except Exception as ex:

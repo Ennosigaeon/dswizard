@@ -31,5 +31,8 @@ class FixedStructure(BaseStructureGenerator):
 
         self.pipeline = FlexiblePipeline(steps)
 
-    def get_candidate(self, ds: Dataset) -> CandidateStructure:
-        return CandidateStructure(self.configspace, self.pipeline, self.cfg_keys)
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset) -> CandidateStructure:
+        cs.configspace = self.configspace
+        cs.pipeline = self.pipeline
+        cs.cfg_keys = self.cfg_keys
+        return cs

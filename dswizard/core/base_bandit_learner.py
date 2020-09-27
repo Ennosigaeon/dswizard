@@ -6,17 +6,13 @@ from typing import List, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from dswizard.core.base_iteration import BaseIteration
-    from dswizard.core.base_structure_generator import BaseStructureGenerator
-    from dswizard.core.model import CandidateStructure, Job, Dataset
+    from dswizard.core.model import CandidateStructure, Job
 
 
 class BanditLearner(abc.ABC):
 
-    def __init__(self,
-                 structure_generator: BaseStructureGenerator = None,
-                 logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger = None):
         self.offset = 0
-        self.structure_generator = structure_generator
         self.meta_data = {}
 
         if logger is None:
@@ -39,10 +35,9 @@ class BanditLearner(abc.ABC):
         """
         pass
 
-    def next_candidate(self, ds: Dataset, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
+    def next_candidate(self, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
         """
         Returns the next CandidateStructure with an according budget.
-        :param ds:
         :param iteration_kwargs:
         :return:
         """
@@ -51,7 +46,7 @@ class BanditLearner(abc.ABC):
             next_candidate = None
             # find a new run to schedule
             for i in filter(lambda idx: not self.iterations[idx].is_finished, range(len(self.iterations))):
-                next_candidate = self.iterations[i].get_next_candidate(ds)
+                next_candidate = self.iterations[i].get_next_candidate()
                 if next_candidate is not None:
                     break
 
@@ -73,6 +68,5 @@ class BanditLearner(abc.ABC):
         self.offset = offset
         self.iterations = []
 
-    def register_result(self, job: Job, update_model: bool = True):
+    def register_result(self, job: Job):
         self.iterations[-1].register_result(job.cs)
-        self.structure_generator.register_result(job.cs, job.result, update_model=update_model)

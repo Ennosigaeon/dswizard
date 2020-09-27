@@ -124,7 +124,8 @@ class Result:
 
     @staticmethod
     def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
-        return Result(StatusType[raw['status']], Configuration(cs, raw['config']), raw['loss'], Runtime.from_dict(raw['runtime']))
+        return Result(StatusType[raw['status']], Configuration(cs, raw['config']), raw['loss'],
+                      Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:
@@ -166,6 +167,9 @@ class CandidateStructure:
             'configspace': config_json.write(self.configspace),
         }
 
+    def is_proxy(self):
+        return self.configspace is None and self.pipeline is None and self.cfg_keys is None
+
     @staticmethod
     def from_dict(raw: dict) -> 'CandidateStructure':
         # local import due to circular imports
@@ -176,6 +180,10 @@ class CandidateStructure:
         cs.cid = CandidateId(*raw['cid'])
         cs.pipeline = FlexiblePipeline.from_list(raw['pipeline'])
         return cs
+
+    @staticmethod
+    def proxy() -> 'CandidateStructure':
+        return CandidateStructure(None, None, None)
 
 
 class Job:

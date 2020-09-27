@@ -2,16 +2,11 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import List, Optional, Dict, TYPE_CHECKING
+from typing import List, Optional, Dict
 
 import numpy as np
 
-from dswizard.core.model import CandidateId
-
-if TYPE_CHECKING:
-    from dswizard.core.base_structure_generator import BaseStructureGenerator
-    from dswizard.core.logger import JsonResultLogger
-    from dswizard.core.model import CandidateStructure, Dataset
+from dswizard.core.model import CandidateId, CandidateStructure
 
 
 class BaseIteration(abc.ABC):
@@ -25,19 +20,13 @@ class BaseIteration(abc.ABC):
                  iteration: int,
                  num_candidates: List[int],
                  budgets: List[float],
-                 structure_generator: BaseStructureGenerator = None,
-                 logger: logging.Logger = None,
-                 result_logger: JsonResultLogger = None):
+                 logger: logging.Logger = None):
         """
 
         :param iteration: The current Hyperband repetition index.
         :param num_candidates: the number of configurations in each stage of SH
         :param budgets: the budget associated with each stage
-        :param structure_generator: a function that returns a valid configuration. Its only argument should be the budget
-            that this config is first scheduled for. This might be used to pick configurations that perform best after
-            this particular budget is exhausted to build a better autoML system.
         :param logger: a logger
-        :param result_logger: a result logger that writes live results to disk
         """
 
         self.data: Dict[CandidateId, CandidateStructure] = {}  # this holds all the candidates of this iteration
@@ -47,13 +36,11 @@ class BaseIteration(abc.ABC):
         self.budgets = budgets
         self.num_candidates = num_candidates
         self.actual_num_candidates = [0] * len(num_candidates)
-        self.structure_generator = structure_generator
         self.num_running = 0
         if logger is None:
             self.logger = logging.getLogger('Bandit')
         else:
             self.logger = logger
-        self.result_logger = result_logger
 
     def register_result(self, cs: CandidateStructure) -> None:
         """
@@ -68,7 +55,7 @@ class BaseIteration(abc.ABC):
         cs.status = 'REVIEW'
         self.num_running -= 1
 
-    def get_next_candidate(self, ds: Dataset) -> Optional[CandidateStructure]:
+    def get_next_candidate(self) -> Optional[CandidateStructure]:
         """
         function to return the next configuration and budget to run.
 
@@ -77,7 +64,6 @@ class BaseIteration(abc.ABC):
 
         If there are empty slots to be filled in the current SH stage (which never happens in the original SH version),
         a new configuration will be sampled and scheduled to run next.
-        :param ds:
         :return: Tuple with ConfigId and Datum
         """
 
@@ -95,7 +81,7 @@ class BaseIteration(abc.ABC):
 
         # check if there are still slots to fill in the current stage and return that
         if self.actual_num_candidates[self.stage] < self.num_candidates[self.stage]:
-            candidate = self._add_candidate(ds)
+            candidate = self._add_candidate()
             candidate.status = 'RUNNING'
             self.num_running += int(candidate.budget)
             return candidate
@@ -103,14 +89,13 @@ class BaseIteration(abc.ABC):
             # at this point a stage is completed
             self.logger.debug('Stage {} completed'.format(self.stage))
             self._finish_stage()
-            return self.get_next_candidate(ds)
+            return self.get_next_candidate()
         else:
             return None
 
-    def _add_candidate(self, ds: Dataset) -> CandidateStructure:
+    def _add_candidate(self) -> CandidateStructure:
         """
         function to add a new configuration to the current iteration
-        :param ds:
         :return: The id of the new configuration
         """
         if self.is_finished:
@@ -119,7 +104,7 @@ class BaseIteration(abc.ABC):
         if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
             raise RuntimeError("Can't add another candidate to stage {}.".format(self.stage))
 
-        candidate = self.structure_generator.get_candidate(ds)
+        candidate = CandidateStructure.proxy()
         candidate.budget = self.budgets[self.stage]
 
         candidate_id = CandidateId(self.iteration, self.actual_num_candidates[self.stage])
@@ -129,9 +114,6 @@ class BaseIteration(abc.ABC):
 
         self.data[candidate_id] = candidate
         self.actual_num_candidates[self.stage] += 1
-
-        if self.result_logger is not None:
-            self.result_logger.new_structure(candidate)
 
         return candidate
 

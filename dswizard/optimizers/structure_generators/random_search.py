@@ -45,12 +45,12 @@ class RandomStructureGenerator(BaseStructureGenerator):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
         return max(min(self.max_depth, r), n_min)
 
-    def get_candidate(self, ds: Dataset) -> CandidateStructure:
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset) -> CandidateStructure:
         attempts = 1
         while True:
             try:
                 depth = self._determine_depth(n_max=self.max_depth)
-                cs, steps = self._generate_pipeline(depth)
+                config_space, steps = self._generate_pipeline(depth)
 
                 pipeline = FlexiblePipeline(steps)
                 print(steps)
@@ -61,7 +61,11 @@ class RandomStructureGenerator(BaseStructureGenerator):
                     cg, key = self.cfg_cache.get_config_generator(configspace=task.get_hyperparameter_search_space(),
                                                                   mf=np.ones((1, 1)) * len(cfg_keys))
                     cfg_keys.append(key)
-                return CandidateStructure(cs, pipeline, cfg_keys)
+
+                cs.configspace = config_space
+                cs.pipeline = pipeline
+                cs.cfg_keys = cfg_keys
+                return cs
             except TypeError:
                 attempts += 1
 

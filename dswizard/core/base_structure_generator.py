@@ -34,7 +34,7 @@ class BaseStructureGenerator(abc.ABC):
             self.logger = logger
 
     @abc.abstractmethod
-    def get_candidate(self, ds: Dataset) -> CandidateStructure:
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset) -> CandidateStructure:
         """
         Sample a ConfigurationSpace and according Structure tuple
 

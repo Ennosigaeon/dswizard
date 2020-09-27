@@ -325,7 +325,7 @@ class MCTS(BaseStructureGenerator):
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
 
-    def get_candidate(self, ds: Dataset, retries=3) -> CandidateStructure:
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset, retries=3) -> CandidateStructure:
         # Initialize tree if not exists
         if self.tree is None:
             self.tree = Tree(ds)
@@ -354,11 +354,11 @@ class MCTS(BaseStructureGenerator):
 
         if len(path) == 1:
             self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
-            return self.get_candidate(ds, retries=retries - 1)
+            return self.fill_candidate(cs, ds, retries=retries - 1)
         if not path[-1].is_terminal():
             self.logger.warning(
                 'Current path does not end in a classifier. Trying tree traversal {} more times...'.format(retries))
-            return self.get_candidate(ds, retries=retries - 1)
+            return self.fill_candidate(cs, ds, retries=retries - 1)
 
         # A simulation is not necessary. Simulated results are already incorporated in the policy
 
@@ -366,8 +366,9 @@ class MCTS(BaseStructureGenerator):
         self.logger.debug('Sampled pipeline structure: {}'.format(node.steps))
         pipeline = FlexiblePipeline(node.steps)
 
-        cs = CandidateStructure(pipeline.configuration_space, pipeline,
-                                [n.partial_config.cfg_key for n in path if n.partial_config is not None])
+        cs.configspace = pipeline.configuration_space
+        cs.pipeline = pipeline
+        cs.cfg_keys = [n.partial_config.cfg_key for n in path if n.partial_config is not None]
 
         # If no simulation was necessary, add the default configuration as first result
         if result is not None and result.loss is not None and result.loss < 1:
