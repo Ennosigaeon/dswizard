@@ -1,5 +1,4 @@
 import abc
-import copy
 import logging
 import os
 import pickle
@@ -329,29 +328,27 @@ class MCTS(BaseStructureGenerator):
         if expand or not path[-1].is_terminal():
             # expand last node in path if possible
             self.logger.debug('MCTS EXPAND')
-            expansion, result = self._expand(path)
-            if expansion is not None:
-                path.append(expansion)
+            max_depths = 3
+            for i in range(1, max_depths + 1):
+                expansion, result = self._expand(path, include_preprocessing=i < max_depths)
+                if expansion is not None:
+                    path.append(expansion)
+                    if expansion.is_terminal():
+                        break
+                else:
+                    break
+        else:
+            self.logger.debug('Skipping MCTS expansion')
 
         if len(path) == 1:
             self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
             return self.get_candidate(ds, retries=retries - 1)
-
-        self.logger.debug('MCTS SIMULATE')
-        for i in range(10):
-            extended_path = self._simulate(path)
-            if extended_path is not None:
-                path = extended_path
-                break
-        else:
-            raise ValueError(
-                'Failed to obtain a valid pipeline structure during simulation for pipeline prefix [{}]'.format(
-                    ', '.join([n.label for n in path])))
-
         if not path[-1].is_terminal():
             self.logger.warning(
                 'Current path does not end in a classifier. Trying tree traversal {} more times...'.format(retries))
             return self.get_candidate(ds, retries=retries - 1)
+
+        # A simulation is not necessary. Simulated results are already incorporated in the policy
 
         node = path[-1]
         self.logger.debug('Sampled pipeline structure: {}'.format(node.steps))
@@ -485,28 +482,6 @@ class MCTS(BaseStructureGenerator):
                 # Successful preprocessors
                 return new_node, result
         return None, None
-
-    # noinspection PyMethodMayBeStatic
-    def _simulate(self, path: List[Node], max_depths: int = 3) -> Optional[List[Node]]:
-        """Returns the reward for a random simulation (to completion) of `node`"""
-        p = copy.copy(path)
-        node = p[-1]
-        for i in range(1, max_depths + 1):
-            if node.is_terminal():
-                break
-
-            action = self.policy.get_next_action(node, [], include_preprocessing=i < max_depths, depth=i)
-            if action is None:
-                break
-
-            node = Node(id=-(i + 1), ds=node.ds, component=action, pipeline_prefix=node.steps)
-            p.append(node)
-
-        if node.is_terminal():
-            return p
-        else:
-            self.logger.warn('Failed to simulate pipeline with maximal depth {}'.format(max_depths))
-            return None
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
