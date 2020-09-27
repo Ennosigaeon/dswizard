@@ -59,7 +59,7 @@ def worst_score(metric: str):
     if metric in ('accuracy', 'precision', 'recall', 'f1', 'rocauc'):
         return 0
     else:
-        # TODO check logloss
+        # TODO replace with -log(1 / n_classes)
         return 100
 
 
