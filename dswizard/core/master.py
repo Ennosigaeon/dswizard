@@ -116,7 +116,7 @@ class Master:
             self.workers.append(worker_class(wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
                                              workdir=self.working_directory))
 
-        self.dispatcher = Dispatcher(self.workers[1:], self.job_callback)
+        self.dispatcher = Dispatcher(self.workers[1:])
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
 
@@ -163,6 +163,7 @@ class Master:
                         job = Job(self.ds, config_id, candidate, self.cutoff, config, [cfg_key])
                     else:
                         job = Job(self.ds, config_id, candidate, self.cutoff, None, candidate.cfg_keys)
+                    job.callback = self._result_callback
 
                     if time.time() > start + self.wallclock_limit:
                         self.logger.info("Timeout reached. Stopping optimization")
@@ -202,7 +203,7 @@ class Master:
         pipeline, _ = rh.get_incumbent()
         return pipeline, rh
 
-    def job_callback(self, job: Job) -> None:
+    def _result_callback(self, job: Job) -> None:
         """
         method to be called when a job has finished
 
@@ -220,6 +221,7 @@ class Master:
                 if self.result_logger is not None:
                     self.result_logger.log_evaluated_config(job.cid, job.result)
 
+                job.callback = None
                 job.cs.add_result(job.result)
                 self.cfg_cache.register_result(job)
                 self.bandit_learner.register_result(job)

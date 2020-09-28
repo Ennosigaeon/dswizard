@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, List, TYPE_CHECKING, Tuple, Union
+from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Callable
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -205,11 +205,12 @@ class Job:
 
         self.kwargs = kwargs
 
-        self.worker_name: str = None
         self.time_submitted: float = None
         self.time_started: float = None
         self.time_finished: float = None
         self.result: Result = None
+
+        self.callback: Callable = None
 
     # Decorator pattern only used for better readability
     @property

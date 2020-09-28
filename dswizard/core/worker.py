@@ -25,7 +25,6 @@ from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
 from dswizard.util import util
 
 if TYPE_CHECKING:
-    from dswizard.core.dispatcher import Dispatcher
     from dswizard.core.model import CandidateId
     from dswizard.core.config_cache import ConfigCache
 
@@ -74,9 +73,7 @@ class Worker(abc.ABC):
         self.busy = False
         self.thread_cond = threading.Condition(threading.Lock())
 
-    def start_computation(self,
-                          callback: Dispatcher,
-                          job: Job) -> Result:
+    def start_computation(self, job: Job) -> Result:
         with self.thread_cond:
             while self.busy:
                 self.thread_cond.wait()
@@ -126,7 +123,6 @@ class Worker(abc.ABC):
             self.process_logger = None
             with self.thread_cond:
                 self.busy = False
-                callback.register_result(job.cid, result)
                 self.thread_cond.notify()
         self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         return result

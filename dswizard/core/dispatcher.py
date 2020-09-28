@@ -4,12 +4,10 @@ import logging
 import queue
 import threading
 import time
-from typing import Callable, Dict, Set, List, TYPE_CHECKING
-
-from dswizard.core.model import Result
+from typing import Dict, Set, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from dswizard.core.model import CandidateId, Job
+    from dswizard.core.model import Job
     from dswizard.core.worker import Worker
 
 
@@ -17,10 +15,8 @@ class Dispatcher:
 
     def __init__(self,
                  workers: List[Worker],
-                 new_result_callback: Callable[[Job], None],
                  logger: logging.Logger = None,
                  ):
-        self.new_result_callback = new_result_callback
         self.shutdown_all_threads = False
 
         if logger is None:
@@ -35,7 +31,6 @@ class Dispatcher:
             self.worker_pool[worker.worker_id] = worker
 
         self.waiting_jobs: queue.Queue[Job] = queue.Queue()
-        self.running_jobs: Dict[CandidateId, Job] = {}
 
         self.runner_cond = threading.Condition()
         self.callback_cond = threading.Condition()
@@ -81,14 +76,7 @@ class Dispatcher:
                     self.callback_cond.notify()
 
             self.logger.debug('starting job {} on {}'.format(str(job.cid), worker.worker_id))
-
-            job.time_started = time.time()
-            worker.runs_job = job.cid
-
-            job.worker_name = worker.worker_id
-            self.running_jobs[job.cid] = job
-
-            t = threading.Thread(target=worker.start_computation, args=(self, job))
+            t = threading.Thread(target=self._compute_result, args=(worker, job))
             t.start()
 
     def shutdown(self) -> None:
@@ -109,23 +97,24 @@ class Dispatcher:
             self.logger.debug('waiting for next worker to be available')
             self.callback_cond.wait()
 
-    def register_result(self, id: CandidateId = None, result: Result = None) -> None:
+    def _compute_result(self, worker: Worker, job: Job) -> None:
+        job.time_started = time.time()
+        worker.runs_job = job.cid
+
+        result = worker.start_computation(job)
+
         with self.runner_cond:
             # fill in missing information
-            job = self.running_jobs[id]
             job.time_finished = time.time()
             job.result = result
             # necessary if config was generated on the fly
             job.config = result.config
 
-            self.logger.debug('job {} on {} finished'.format(job.cid, job.worker_name))
-
-            # delete job
-            del self.running_jobs[id]
+            self.logger.debug('job {} on {} finished'.format(job.cid, worker.worker_id))
 
             # label worker as idle again
             try:
-                self.idle_workers.add(job.worker_name)
+                self.idle_workers.add(worker.worker_id)
                 # notify the job_runner to check for more jobs to run
                 self.runner_cond.notify()
             except KeyError:
@@ -135,7 +124,7 @@ class Dispatcher:
         # call users callback function to register the result
         # needs to be with the condition released, as the master can call
         # submit_job quickly enough to cause a dead-lock
-        self.new_result_callback(job)
+        job.callback(job)
 
         with self.callback_cond:
             self.callback_cond.notify()
