@@ -5,7 +5,6 @@ import copy
 import logging
 import os
 import socket
-import threading
 import timeit
 from typing import Optional, TYPE_CHECKING, Tuple, List
 
@@ -57,7 +56,6 @@ class Worker(abc.ABC):
         self.cfg_cache = cfg_cache
 
         self.workdir = workdir
-        self.process_logger: Optional[ProcessLogger] = None
 
         if wid is not None:
             self.worker_id += '.{}'.format(wid)
@@ -71,21 +69,15 @@ class Worker(abc.ABC):
 
         self.start_time: Optional[float] = None
         self.busy = False
-        self.thread_cond = threading.Condition(threading.Lock())
 
     def start_computation(self, job: Job) -> Result:
-        with self.thread_cond:
-            while self.busy:
-                self.thread_cond.wait()
-            self.busy = True
-
         self.logger.info('start processing job {}'.format(job.cid))
 
         result = None
         try:
-            self.process_logger = ProcessLogger(self.workdir, job.cid)
+            process_logger = ProcessLogger(self.workdir, job.cid)
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5)(self.compute)
-            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.cfg_keys, job.component, **job.kwargs)
+            c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.cfg_keys, job.component, process_logger)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -103,7 +95,7 @@ class Worker(abc.ABC):
             runtime = Runtime(wrapper.wall_clock_time, timestamp=timeit.default_timer() - self.start_time)
 
             if job.config is None:
-                config, partial_configs = self.process_logger.restore_config(job.component)
+                config, partial_configs = process_logger.restore_config(job.component)
             else:
                 config = job.config
                 partial_configs = None
@@ -119,11 +111,6 @@ class Worker(abc.ABC):
             # noinspection PyUnboundLocalVariable
             result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
                             partial_configs if 'partial_configs' in locals() else None)
-        finally:
-            self.process_logger = None
-            with self.thread_cond:
-                self.busy = False
-                self.thread_cond.notify()
         self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         return result
 
@@ -165,7 +152,7 @@ class Worker(abc.ABC):
                 cfg_cache: Optional[ConfigCache],
                 cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
-                budget: float
+                process_logger: ProcessLogger
                 ) -> float:
         """
         The function you have to overload implementing your computation.
@@ -175,7 +162,7 @@ class Worker(abc.ABC):
         :param cfg_cache:
         :param cfg_keys:
         :param pipeline: Additional information about the sampled configuration like pipeline structure.
-        :param budget: the budget for the evaluation
+        :param process_logger:
         """
         pass
 
@@ -215,6 +202,3 @@ class Worker(abc.ABC):
                           config: Configuration,
                           component: EstimatorComponent) -> Tuple[np.ndarray, Optional[float]]:
         pass
-
-    def is_busy(self) -> bool:
-        return self.busy

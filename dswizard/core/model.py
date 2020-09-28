@@ -194,16 +194,13 @@ class Job:
                  cs: Union[CandidateStructure, EstimatorComponent],
                  cutoff: float = None,
                  config: Optional[Configuration] = None,
-                 cfg_keys: Optional[List[Tuple[float, int]]] = None,
-                 **kwargs):
+                 cfg_keys: Optional[List[Tuple[float, int]]] = None):
         self.ds = ds
         self.cid = candidate_id
         self.cs = cs
         self.cutoff = cutoff
         self.config = config
         self.cfg_keys = cfg_keys
-
-        self.kwargs = kwargs
 
         self.time_submitted: float = None
         self.time_started: float = None
