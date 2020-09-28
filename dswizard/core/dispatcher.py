@@ -84,9 +84,6 @@ class Dispatcher:
         with self.shutdown_cond:
             self.shutdown_cond.notify()
 
-    def number_of_workers(self) -> int:
-        return len(self.worker_pool)
-
     def submit_job(self, job: Job) -> None:
         with self.runner_cond:
             job.time_submitted = time.time()
@@ -127,10 +124,15 @@ class Dispatcher:
         job.callback(job)
 
         with self.callback_cond:
-            self.callback_cond.notify()
+            self.callback_cond.notify_all()
 
     def finish_work(self):
-        # TODO remove busy waiting
-        while len(self.idle_workers) < len(self.worker_pool):
-            self.logger.debug('{} worker busy...'.format(len(self.worker_pool) - len(self.idle_workers)))
-            time.sleep(10)
+        total = len(self.worker_pool)
+        while True:
+            with self.callback_cond:
+                idle = len(self.idle_workers)
+                self.logger.debug('Waiting for all workers to finish current work. {} / {} idle...'.format(idle, total))
+                if idle == total:
+                    break
+                else:
+                    self.callback_cond.wait()

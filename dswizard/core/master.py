@@ -108,7 +108,6 @@ class Master:
                                                              cutoff=self.cutoff,
                                                              workdir=self.working_directory,
                                                              **structure_generator_kwargs)
-        self.bandit_learner: BanditLearner = bandit_learner_class(**bandit_learner_kwargs)
 
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
@@ -119,6 +118,8 @@ class Master:
         self.dispatcher = Dispatcher(self.workers[1:])
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
         self.dispatcher_thread.start()
+
+        self.bandit_learner: BanditLearner = bandit_learner_class(self.dispatcher, **bandit_learner_kwargs)
 
     def shutdown(self) -> None:
         self.logger.info('shutdown initiated')

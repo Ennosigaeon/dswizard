@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import List, Tuple, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from dswizard.core.dispatcher import Dispatcher
     from dswizard.core.base_iteration import BaseIteration
-    from dswizard.core.model import CandidateStructure, Job
+    from dswizard.core.model import CandidateStructure
 
 
 class BanditLearner(abc.ABC):
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, dispatcher: Dispatcher, logger: logging.Logger = None):
         self.offset = 0
+        self.dispatcher = dispatcher
         self.meta_data = {}
 
         if logger is None:
@@ -35,7 +37,7 @@ class BanditLearner(abc.ABC):
         """
         pass
 
-    def next_candidate(self, iteration_kwargs: dict = None) -> List[Tuple[CandidateStructure, int]]:
+    def next_candidate(self, iteration_kwargs: dict = None) -> List[CandidateStructure]:
         """
         Returns the next CandidateStructure with an according budget.
         :param iteration_kwargs:
@@ -52,9 +54,10 @@ class BanditLearner(abc.ABC):
 
             if next_candidate is not None:
                 # noinspection PyUnboundLocalVariable
-                yield next_candidate, i
+                yield next_candidate
             else:
-                # TODO if multiple workers, check that really all workers have finished before starting next iteration
+                # Ensure that current stage is completely done
+                self.dispatcher.finish_work()
                 if n_iterations > 0:  # we might be able to start the next iteration
                     iteration = len(self.iterations)
                     self.logger.info('Starting iteration {}'.format(iteration))
@@ -68,5 +71,5 @@ class BanditLearner(abc.ABC):
         self.offset = offset
         self.iterations = []
 
-    def register_result(self, job: Job):
-        self.iterations[-1].register_result(job.cs)
+    def register_result(self, cs: CandidateStructure):
+        self.iterations[-1].register_result(cs)
