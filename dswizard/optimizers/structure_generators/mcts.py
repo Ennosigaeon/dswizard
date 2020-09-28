@@ -403,20 +403,21 @@ class MCTS(BaseStructureGenerator):
                     return path, True
 
                 candidate, candidate_score = self.policy.uct(node, self.tree)  # descend a layer deeper
-                # Current node is terminal and better than children
-                if candidate_score < score and node.is_terminal():
-                    return path, False
+                # Current node is better than children or selected node failed
+                if candidate.failed or candidate_score <= score:
+                    return path, not node.is_terminal()
                 else:
                     node, score = candidate, candidate_score
 
     def _expand(self, nodes: List[Node], max_distance: float = 1, max_mf_missing: int = 3,
                 include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result]]:
         node = nodes[-1]
+
         mf_missing_count = 0
         n_actions = len(node.available_actions())
         while True:
             with self.tree.lock:
-                if self.tree.fully_expanded(node):
+                if node.is_terminal() and self.tree.fully_expanded(node):
                     return None, None
 
                 n_children = len(self.tree.get_children(node.id))
@@ -427,7 +428,7 @@ class MCTS(BaseStructureGenerator):
                 action = self.policy.get_next_action(node, current_children, include_preprocessing=include_preprocessing)
                 if action is None:
                     return None, None
-                if mf_missing_count > max_mf_missing:
+                if mf_missing_count >= max_mf_missing:
                     self.logger.warning('Aborting expansion due to {} failed MF calculations'.format(mf_missing_count))
                     return None, None
 
