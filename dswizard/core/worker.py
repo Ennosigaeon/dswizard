@@ -98,7 +98,7 @@ class Worker(abc.ABC):
                 cost = c
             else:
                 status = StatusType.CRASHED
-                self.logger.debug('Worker failed with {}\n{}'.format(c[0], c[1]))
+                self.logger.debug('Worker failed with {}'.format(c[0]))
                 cost = util.worst_score(job.ds.metric)
             runtime = Runtime(wrapper.wall_clock_time, timestamp=timeit.default_timer() - self.start_time)
 
@@ -197,7 +197,7 @@ class Worker(abc.ABC):
                 X, score = c
             else:
                 status = StatusType.CRASHED
-                self.logger.debug('Worker failed with {}\n{}'.format(c[0], c[1]))
+                self.logger.debug('Worker failed with {}'.format(c[0]))
                 score = util.worst_score(job.ds.metric)
             result = Result(status=status, loss=score, transformed_X=X,
                             runtime=Runtime(wrapper.wall_clock_time, timeit.default_timer() - self.start_time))
