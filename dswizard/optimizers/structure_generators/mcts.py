@@ -110,6 +110,16 @@ class Node:
             components.update(FeaturePreprocessorChoice().get_available_components(mf=mf))
         return components
 
+    def enter(self):
+        self.reward += util.worst_score(self.ds.metric)
+
+    def exit(self):
+        self.reward -= util.worst_score(self.ds.metric)
+
+    def update(self, reward: float):
+        self.visits += 1
+        self.reward += reward
+
     def __hash__(self) -> int:
         return self.id
 
@@ -123,18 +133,20 @@ class Tree:
     def __init__(self, ds: Dataset):
         self.G = nx.DiGraph()
         self.id_count = -1
-        self.add_node(None, ds)
+        self.add_node(ds=ds)
 
         self.coef_progressive_widening = 0.7
         self.lock = threading.Lock()
 
     def add_node(self,
-                 estimator: Optional[Type[EstimatorComponent]],
-                 ds: Optional[Dataset],
+                 estimator: Optional[Type[EstimatorComponent]] = None,
+                 ds: Optional[Dataset] = None,
                  parent_node: Node = None) -> Node:
         self.id_count += 1
         new_id = self.id_count
         node = Node(new_id, ds, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
+        if ds is None:
+            node.failure_message = 'Incomplete'
 
         self.G.add_node(new_id, value=node, label=node.label)
         if parent_node is not None:
@@ -143,11 +155,6 @@ class Tree:
 
     def get_node(self, node: int) -> Node:
         return self.G.nodes[node]['value']
-
-    def update_node(self, node: int, reward: float) -> None:
-        n = self.get_node(node)
-        n.visits += 1
-        n.reward += reward
 
     def get_children(self, node: int) -> List[Node]:
         return [self.G.nodes[n]['value'] for n in self.G.successors(node)]
@@ -165,14 +172,6 @@ class Tree:
         current_children = len(list(self.G.successors(node.id)))
 
         return possible_children == 0 or (current_children != 0 and current_children >= min(global_max, max_children))
-
-    def enter_node(self, node: Node):
-        # TODO add selection penalty to node
-        pass
-
-    def leave_nodes(self, nodes: List[str]):
-        # TODO remove selection penalty from all nodes
-        pass
 
     def plot(self, file: str):
         # TODO plot can only be called once
@@ -353,9 +352,15 @@ class MCTS(BaseStructureGenerator):
             self.logger.debug('Skipping MCTS expansion')
 
         if len(path) == 1:
+            with self.tree.lock:
+                for node in path:
+                    self.tree.get_node(node.id).exit()
             self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
             return self.fill_candidate(cs, ds, retries=retries - 1)
         if not path[-1].is_terminal():
+            with self.tree.lock:
+                for node in path:
+                    self.tree.get_node(node.id).exit()
             self.logger.warning(
                 'Current path does not end in a classifier. Trying tree traversal {} more times...'.format(retries))
             return self.fill_candidate(cs, ds, retries=retries - 1)
@@ -388,7 +393,7 @@ class MCTS(BaseStructureGenerator):
                     'Selected node has no dataset, meta-features or partial configurations. This should not happen')
 
             with self.tree.lock:
-                self.tree.enter_node(node)
+                node.enter()
                 path.append(node)
 
                 # Failsafe mechanism to enforce structure selection
@@ -471,6 +476,8 @@ class MCTS(BaseStructureGenerator):
                     else:
                         self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
                         self.neighbours.fit(self.mfs)
+                        node.enter()
+                        node.failure_message = None
 
                         if self.store_ds:
                             with open(os.path.join(self.workdir, '{}.pkl'.format(new_node.id)), 'wb') as f:
@@ -509,12 +516,10 @@ class MCTS(BaseStructureGenerator):
         if reward is None or not np.isfinite(reward):
             reward = 1
 
-        self._backpropagate(candidate.pipeline.steps_.keys(), reward)
-        with self.tree.lock:
-            self.tree.leave_nodes(candidate.pipeline.steps_.keys())
+        self._backpropagate(candidate.pipeline.steps_.keys(), reward, exit=True)
 
     # noinspection PyMethodMayBeStatic
-    def _backpropagate(self, path: List[str], reward: float) -> None:
+    def _backpropagate(self, path: List[str], reward: float, exit: bool = False) -> None:
         """Send the reward back up to the ancestors of the leaf"""
         # Also update root node
 
@@ -522,8 +527,10 @@ class MCTS(BaseStructureGenerator):
         ls.append('0')
         with self.tree.lock:
             for node_id in ls:
-                node_id = int(node_id)
-                self.tree.update_node(node_id, reward)
+                node = self.tree.get_node(int(node_id))
+                node.update(reward)
+                if exit:
+                    node.exit()
 
     def shutdown(self):
         if self.tree is None:
