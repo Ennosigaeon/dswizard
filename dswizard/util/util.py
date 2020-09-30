@@ -63,17 +63,24 @@ def worst_score(metric: str):
         return 100
 
 
-def openml_mapping(task: int = None, ds: int = None):
+def openml_mapping(task: int = None, ds: int = None, name: str = None):
     tasks = {3: 3, 12: 12, 18: 18, 31: 31, 53: 54, 3549: 458, 3560: 469, 3567: 478, 3896: 1043, 3913: 1063, 7592: 1590,
              9952: 1489, 9961: 1498, 9977: 1486, 9983: 1471, 9986: 1476, 10101: 1464, 14965: 1461, 146195: 40668,
              146212: 40685, 146606: 23512, 146818: 40981, 146821: 40975, 146822: 40984, 167119: 41027,
              167120: 23517, 168329: 41169, 168330: 41168, 168911: 41143, 168912: 41146}
     datasets = dict(map(reversed, tasks.items()))
+    names = {'eeg-eye-state': 9983, 'mfeat-morphological': 18, 'segment': 146822, 'sylvine': 168912, 'vehicle': 53,
+             'ada_agnostic': 3896, 'adult': 7592, 'analcatdata_authorship': 3549, 'analcatdata_dmft': 3560,
+             'Australian': 146818, 'bank-marketing': 14965, 'blood-transfusion': 10101, 'car': 146821, 'collins': 3567,
+             'connect-4': 146195, 'credit-g': 31, 'Helena': 168329, 'higgs': 146606, 'Jannis': 168330,
+             'jasmine': 168911, 'jungle_chess_2pcs_raw_endgame_complete': 167119, 'kc2': 3913, 'kr-vs-kp': 3,
+             'mfeat-factors': 12, 'nomao': 9977, 'numerai28.6': 167120, 'phoneme': 9952, 'sa-heart': 9961,
+             'Shuttle': 146212}
 
-    if (task is None and ds is None) or (task is not None and ds is not None):
-        raise ValueError('Provide either task or ds id')
     if task is not None:
         return tasks[task]
+    if name is not None:
+        return names[name]
     return datasets[ds]
 
 
