@@ -188,6 +188,18 @@ class CandidateStructure:
 
 class Job:
     # noinspection PyTypeChecker
+    def __init__(self, cid: CandidateId):
+        self.cid = cid
+        self.time_submitted: float = None
+        self.time_started: float = None
+        self.time_finished: float = None
+        self.result: Result = None
+
+        self.callback: Callable = None
+
+
+class EvaluationJob(Job):
+
     def __init__(self,
                  ds: Dataset,
                  candidate_id: CandidateId,
@@ -195,19 +207,12 @@ class Job:
                  cutoff: float = None,
                  config: Optional[Configuration] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
+        super().__init__(candidate_id)
         self.ds = ds
-        self.cid = candidate_id
         self.cs = cs
         self.cutoff = cutoff
         self.config = config
         self.cfg_keys = cfg_keys
-
-        self.time_submitted: float = None
-        self.time_started: float = None
-        self.time_finished: float = None
-        self.result: Result = None
-
-        self.callback: Callable = None
 
     # Decorator pattern only used for better readability
     @property
@@ -216,6 +221,14 @@ class Job:
             return self.cs.pipeline
         else:
             return self.cs
+
+
+class StructureJob(Job):
+
+    def __init__(self, ds: Dataset, cs: CandidateStructure):
+        super().__init__(cs.cid.without_config())
+        self.ds = ds
+        self.cs = cs
 
 
 class Dataset:

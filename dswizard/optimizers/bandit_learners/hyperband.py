@@ -1,13 +1,11 @@
 import numpy as np
 
 from dswizard.core.base_bandit_learner import BanditLearner
-from dswizard.core.dispatcher import Dispatcher
 from dswizard.optimizers.iterations import SuccessiveHalving
 
 
 class HyperbandLearner(BanditLearner):
     def __init__(self,
-                 dispatcher: Dispatcher,
                  eta: float = 3,
                  min_budget: float = 1,
                  max_budget: float = 1,
@@ -21,7 +19,7 @@ class HyperbandLearner(BanditLearner):
         :param min_budget: budget for the evaluation
         :param max_budget: budget for the evaluation
         """
-        super().__init__(dispatcher, **kwargs)
+        super().__init__(**kwargs)
 
         self.eta = eta
         self.min_budget = min_budget

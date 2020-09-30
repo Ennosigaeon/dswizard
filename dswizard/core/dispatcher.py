@@ -4,10 +4,13 @@ import logging
 import queue
 import threading
 import time
-from typing import Dict, Set, List, TYPE_CHECKING
+from typing import Dict, Set, List, TYPE_CHECKING, Union
+
+from dswizard.core.model import EvaluationJob
 
 if TYPE_CHECKING:
-    from dswizard.core.model import Job
+    from dswizard.core.base_structure_generator import BaseStructureGenerator
+    from dswizard.core.model import Job, StructureJob
     from dswizard.core.worker import Worker
 
 
@@ -15,8 +18,10 @@ class Dispatcher:
 
     def __init__(self,
                  workers: List[Worker],
+                 structure_generator: BaseStructureGenerator,
                  logger: logging.Logger = None,
                  ):
+        self.structure_generator = structure_generator
         self.shutdown_all_threads = False
 
         if logger is None:
@@ -76,7 +81,7 @@ class Dispatcher:
                     self.callback_cond.notify()
 
             self.logger.debug('starting job {} on {}'.format(str(job.cid), worker.worker_id))
-            t = threading.Thread(target=self._compute_result, args=(worker, job))
+            t = threading.Thread(target=self._handle_job, args=(worker, job), name=worker.worker_id)
             t.start()
 
     def shutdown(self) -> None:
@@ -94,18 +99,25 @@ class Dispatcher:
             self.logger.debug('waiting for next worker to be available')
             self.callback_cond.wait()
 
-    def _compute_result(self, worker: Worker, job: Job) -> None:
+    def _handle_job(self, worker: Worker, job: Union[EvaluationJob, StructureJob]) -> None:
         job.time_started = time.time()
         worker.runs_job = job.cid
 
-        result = worker.start_computation(job)
+        eval_job = isinstance(job, EvaluationJob)
+        if eval_job:
+            result = worker.start_computation(job)
+        else:
+            self.structure_generator.fill_candidate(job.cs, job.ds, worker=worker)
 
         with self.runner_cond:
             # fill in missing information
             job.time_finished = time.time()
-            job.result = result
-            # necessary if config was generated on the fly
-            job.config = result.config
+
+            if eval_job:
+                # noinspection PyUnboundLocalVariable
+                job.result = result
+                # necessary if config was generated on the fly
+                job.config = result.config
 
             self.logger.debug('job {} on {} finished'.format(job.cid, worker.worker_id))
 

@@ -87,7 +87,7 @@ class BaseIteration(abc.ABC):
             return candidate
         elif self.num_running == 0:
             # at this point a stage is completed
-            self.logger.debug('Stage {} completed'.format(self.stage))
+            self.logger.info('Stage {} completed'.format(self.stage))
             self._finish_stage()
             return self.get_next_candidate()
         else:

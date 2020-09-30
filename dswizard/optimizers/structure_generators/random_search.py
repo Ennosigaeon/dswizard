@@ -45,7 +45,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
         r = int(math.ceil(np.random.normal(0.5, 0.5 / 3) * n_max))
         return max(min(self.max_depth, r), n_min)
 
-    def fill_candidate(self, cs: CandidateStructure, ds: Dataset) -> CandidateStructure:
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset, **kwargs) -> CandidateStructure:
         attempts = 1
         while True:
             try:

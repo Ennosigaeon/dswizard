@@ -20,7 +20,7 @@ import pynisher2
 from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
-from dswizard.core.model import Result, StatusType, Runtime, Dataset, Job
+from dswizard.core.model import Result, StatusType, Runtime, Dataset, EvaluationJob
 from dswizard.util import util
 
 if TYPE_CHECKING:
@@ -50,18 +50,13 @@ class Worker(abc.ABC):
             them using the `id` argument.
         :type metric: Allowed values are 'accuracy', 'precision', 'recall', 'f1' (default), 'logloss' and 'rocauc'
         """
-        self.worker_id = 'worker.{}'.format(os.getpid())
         self.metric = metric
-
         self.cfg_cache = cfg_cache
-
         self.workdir = workdir
-
-        if wid is not None:
-            self.worker_id += '.{}'.format(wid)
+        self.worker_id = 'worker.{}'.format(wid)
 
         if logger is None:
-            self.logger = logging.getLogger(self.worker_id)
+            self.logger = logging.getLogger('Worker')
         else:
             self.logger = logger
 
@@ -70,7 +65,7 @@ class Worker(abc.ABC):
         self.start_time: Optional[float] = None
         self.busy = False
 
-    def start_computation(self, job: Job) -> Result:
+    def start_computation(self, job: EvaluationJob) -> Result:
         self.logger.info('start processing job {}'.format(job.cid))
 
         result = None
@@ -166,8 +161,7 @@ class Worker(abc.ABC):
         """
         pass
 
-    def start_transform_dataset(self, job: Job) -> Result:
-        self.logger.info('start processing job {} with estimator {}'.format(job.cid, job.cs))
+    def start_transform_dataset(self, job: EvaluationJob) -> Result:
         X = None
         try:
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5)(self.transform_dataset)

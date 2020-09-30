@@ -24,7 +24,8 @@ from automl.components.feature_preprocessing import FeaturePreprocessorChoice
 from automl.components.meta_features import MetaFeatures
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
-from dswizard.core.model import CandidateId, PartialConfig, StatusType, CandidateStructure, Dataset, Job, Result
+from dswizard.core.model import CandidateId, PartialConfig, StatusType, CandidateStructure, Dataset, Result, \
+    EvaluationJob
 from dswizard.core.worker import Worker
 from dswizard.util import util
 
@@ -303,10 +304,9 @@ class TransferLearning(Policy):
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, worker: Worker, cutoff: int, workdir: str, policy: Type[Policy] = None,
+    def __init__(self, cutoff: int, workdir: str, policy: Type[Policy] = None,
                  policy_kwargs: dict = None, store_ds: bool = False, **kwargs):
         super().__init__(**kwargs)
-        self.worker = worker
         self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
@@ -324,7 +324,8 @@ class MCTS(BaseStructureGenerator):
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
 
-    def fill_candidate(self, cs: CandidateStructure, ds: Dataset, retries=3) -> CandidateStructure:
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset, worker: Worker = None,
+                       retries=3) -> CandidateStructure:
         # Initialize tree if not exists
         if self.tree is None:
             self.tree = Tree(ds)
@@ -341,7 +342,7 @@ class MCTS(BaseStructureGenerator):
             self.logger.debug('MCTS EXPAND')
             max_depths = 3
             for i in range(1, max_depths + 1):
-                expansion, result = self._expand(path, include_preprocessing=i < max_depths)
+                expansion, result = self._expand(path, worker, cs.cid, include_preprocessing=i < max_depths)
                 if expansion is not None:
                     path.append(expansion)
                     if expansion.is_terminal():
@@ -356,14 +357,14 @@ class MCTS(BaseStructureGenerator):
                 for node in path:
                     self.tree.get_node(node.id).exit()
             self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
-            return self.fill_candidate(cs, ds, retries=retries - 1)
+            return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
         if not path[-1].is_terminal():
             with self.tree.lock:
                 for node in path:
                     self.tree.get_node(node.id).exit()
             self.logger.warning(
                 'Current path does not end in a classifier. Trying tree traversal {} more times...'.format(retries))
-            return self.fill_candidate(cs, ds, retries=retries - 1)
+            return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
 
         # A simulation is not necessary. Simulated results are already incorporated in the policy
 
@@ -414,8 +415,8 @@ class MCTS(BaseStructureGenerator):
                 else:
                     node, score = candidate, candidate_score
 
-    def _expand(self, nodes: List[Node], max_distance: float = 1, max_mf_missing: int = 3,
-                include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result]]:
+    def _expand(self, nodes: List[Node], worker: Worker, cid: CandidateId, max_distance: float = 1,
+                max_mf_missing: int = 3, include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result]]:
         node = nodes[-1]
 
         mf_missing_count = 0
@@ -430,7 +431,8 @@ class MCTS(BaseStructureGenerator):
                     break
 
                 current_children = self.tree.get_children(node.id)
-                action = self.policy.get_next_action(node, current_children, include_preprocessing=include_preprocessing)
+                action = self.policy.get_next_action(node, current_children,
+                                                     include_preprocessing=include_preprocessing)
                 if action is None:
                     return None, None
                 if mf_missing_count >= max_mf_missing:
@@ -439,8 +441,9 @@ class MCTS(BaseStructureGenerator):
 
                 component = action()
 
-                self.logger.debug('\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
-                new_node = self.tree.add_node(estimator=action, ds=None, parent_node=node)
+                self.logger.debug(
+                    '\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
+                new_node = self.tree.add_node(estimator=action, parent_node=node)
 
             ds = node.ds
             config, key = self.cfg_cache.sample_configuration(
@@ -448,8 +451,9 @@ class MCTS(BaseStructureGenerator):
                 mf=ds.meta_features,
                 default=True)
 
-            job = Job(ds, CandidateId(-1, -1, -1), cs=component, cutoff=self.cutoff, config=config, cfg_keys=[key])
-            result = self.worker.start_transform_dataset(job)
+            job = EvaluationJob(ds, cid.without_config(), cs=component, cutoff=self.cutoff, config=config,
+                                cfg_keys=[key])
+            result = worker.start_transform_dataset(job)
 
             if result.status.value == StatusType.SUCCESS.value:
                 ds = Dataset(result.transformed_X, ds.y, ds.metric, ds.cutoff)

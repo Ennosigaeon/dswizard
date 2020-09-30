@@ -7,7 +7,7 @@ import threading
 import time
 import timeit
 from multiprocessing.managers import SyncManager
-from typing import Type, TYPE_CHECKING, Tuple
+from typing import Type, TYPE_CHECKING, Tuple, List
 
 import math
 from ConfigSpace.configuration_space import ConfigurationSpace
@@ -17,7 +17,7 @@ from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.logger import JsonResultLogger
-from dswizard.core.model import Job, Dataset
+from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
@@ -93,6 +93,8 @@ class Master:
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
+        self.incomplete_structures: List[Tuple[CandidateStructure, int, int]] = []
+        self.running_structures: int = 0
 
         SyncManager.register('ConfigCache', ConfigCache)
         mgr = multiprocessing.Manager()
@@ -100,10 +102,6 @@ class Master:
         self.cfg_cache: ConfigCache = mgr.ConfigCache(clazz=config_generator_class,
                                                       init_kwargs=config_generator_kwargs)
 
-        self.workers = []
-        if 'worker' not in structure_generator_kwargs:
-            self.workers.append(worker_class(wid='structure', metric=ds.metric, workdir=self.working_directory))
-            structure_generator_kwargs['worker'] = self.workers[-1]
         self.structure_generator = structure_generator_class(cfg_cache=self.cfg_cache,
                                                              cutoff=self.cutoff,
                                                              workdir=self.working_directory,
@@ -111,15 +109,16 @@ class Master:
 
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
+        self.workers = []
         for i in range(n_workers):
             self.workers.append(worker_class(wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
                                              workdir=self.working_directory))
 
-        self.dispatcher = Dispatcher(self.workers[1:])
-        self.dispatcher_thread = threading.Thread(target=self.dispatcher.run)
+        self.dispatcher = Dispatcher(self.workers, self.structure_generator)
+        self.dispatcher_thread = threading.Thread(target=self.dispatcher.run, name='Dispatcher')
         self.dispatcher_thread.start()
 
-        self.bandit_learner: BanditLearner = bandit_learner_class(self.dispatcher, **bandit_learner_kwargs)
+        self.bandit_learner: BanditLearner = bandit_learner_class(**bandit_learner_kwargs)
 
     def shutdown(self) -> None:
         self.logger.info('shutdown initiated')
@@ -147,32 +146,75 @@ class Master:
             worker.start_time = relative_start
 
         def _optimize() -> bool:
-            for candidate, iteration in self.bandit_learner.next_candidate():
-                if candidate.is_proxy():
-                    candidate = self.structure_generator.fill_candidate(candidate, self.ds)
-                    self.result_logger.new_structure(candidate)
+            # Basic optimization logic without parallelism
+            #   for candidate in self.bandit_learner.next_candidate():
+            #       if candidate.is_proxy():
+            #           candidate = self.structure_generator.fill_candidate(candidate, self.ds)
+            #       n_configs = int(candidate.budget)
+            #       for i in range(n_configs):
+            #           if timeout:
+            #               return True
+            #           config = self.cfg_cache.sample_configuration([...])
+            #           job = Job(candidate, config, [...])
+            #           self.dispatcher.submit_job(job)
+            #   return False
 
-                # Optimize hyperparameters
-                n_configs = int(candidate.budget)
-                cid_offset = len(candidate.results)
-                for i in range(cid_offset, cid_offset + n_configs):
-                    config_id = candidate.cid.with_config(i)
-                    if self.pre_sample:
-                        config, cfg_key = self.cfg_cache.sample_configuration(
-                            configspace=candidate.pipeline.configuration_space,
-                            mf=self.ds.meta_features)
-                        job = Job(self.ds, config_id, candidate, self.cutoff, config, [cfg_key])
+            it = self.bandit_learner.next_candidate()
+            while True:
+                job = None
+                with self.thread_cond:
+                    # Create EvaluationJob if possible
+                    if len(self.incomplete_structures) > 0:
+                        candidate, n_configs, running = self.incomplete_structures.pop()
+
+                        config_id = candidate.cid.with_config(len(candidate.results) + running + 1)
+                        if self.pre_sample:
+                            config, cfg_key = self.cfg_cache.sample_configuration(
+                                configspace=candidate.pipeline.configuration_space,
+                                mf=self.ds.meta_features)
+                        else:
+                            config = None
+                            cfg_keys = candidate.cfg_keys
+
+                        job = EvaluationJob(self.ds, config_id, candidate, self.cutoff, config, cfg_keys)
+                        job.callback = self._evaluation_callback
+
+                        n_configs -= 1
+                        if n_configs > 0:
+                            self.incomplete_structures.append((candidate, n_configs, running + 1))
+                    # Select new CandidateStructure if possible
                     else:
-                        job = Job(self.ds, config_id, candidate, self.cutoff, None, candidate.cfg_keys)
-                    job.callback = self._result_callback
+                        try:
+                            candidate = next(it)
+                            if candidate is None:
+                                if self.running_structures > 0:
+                                    self.logger.debug('Waiting for next structure to finish')
+                                    self.thread_cond.wait()
+                                    continue
+                                else:
+                                    candidate = next(it)
+                                    if candidate is None:
+                                        # TODO this case should not happen. "Busy" waiting solves the problem
+                                        continue
 
-                    if time.time() > start + self.wallclock_limit:
-                        self.logger.info("Timeout reached. Stopping optimization")
-                        self.dispatcher.finish_work()
-                        return True
+                            if candidate.is_proxy():
+                                job = StructureJob(self.ds, candidate)
+                                job.callback = self._structure_callback
+                                self.running_structures += 1
+                            else:
+                                n_configs = int(candidate.budget)
+                                self.incomplete_structures.append((candidate, n_configs, 0))
+                        except StopIteration:
+                            # Current optimization is exhausted
+                            return False
 
+                if time.time() > start + self.wallclock_limit:
+                    self.logger.info("Timeout reached. Stopping optimization")
+                    self.dispatcher.finish_work()
+                    return True
+
+                if job is not None:
                     self.dispatcher.submit_job(job)
-            return False
 
         # while time_limit is not exhausted:
         #   structure, budget = structure_generator.get_next_structure()
@@ -187,6 +229,7 @@ class Master:
         offset = 0
         try:
             while not timeout:
+                self.dispatcher.finish_work()
                 self.logger.info('Starting repetition {}'.format(repetition))
                 self.bandit_learner.reset(offset)
                 timeout = _optimize()
@@ -204,11 +247,10 @@ class Master:
         pipeline, _ = rh.get_incumbent()
         return pipeline, rh
 
-    def _result_callback(self, job: Job) -> None:
+    def _evaluation_callback(self, job: EvaluationJob) -> None:
         """
-        method to be called when a job has finished
+        method to be called when an evaluation has finished
 
-        this will do some book keeping and call the user defined new_result_callback if one was specified
         :param job: Finished Job
         :return:
         """
@@ -225,8 +267,27 @@ class Master:
                 job.callback = None
                 job.cs.add_result(job.result)
                 self.cfg_cache.register_result(job)
-                self.bandit_learner.register_result(job)
+                self.bandit_learner.register_result(job.cs)
                 self.structure_generator.register_result(job.cs, job.result)
+            except KeyboardInterrupt:
+                raise
+            except Exception as ex:
+                self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
+                                  exc_info=True)
+
+    def _structure_callback(self, job: StructureJob):
+        with self.thread_cond:
+            try:
+                if job.cs is None:
+                    self.logger.error('Encountered job without a structure')
+                    # TODO add default structure
+
+                if self.result_logger is not None:
+                    self.result_logger.new_structure(job.cs)
+                job.callback = None
+                self.incomplete_structures.append((job.cs, int(job.cs.budget), 0))
+                self.running_structures -= 1
+                self.thread_cond.notify_all()
             except KeyboardInterrupt:
                 raise
             except Exception as ex:

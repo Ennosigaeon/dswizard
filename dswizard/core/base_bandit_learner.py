@@ -5,16 +5,14 @@ import logging
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from dswizard.core.dispatcher import Dispatcher
     from dswizard.core.base_iteration import BaseIteration
     from dswizard.core.model import CandidateStructure
 
 
 class BanditLearner(abc.ABC):
 
-    def __init__(self, dispatcher: Dispatcher, logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger = None):
         self.offset = 0
-        self.dispatcher = dispatcher
         self.meta_data = {}
 
         if logger is None:
@@ -57,8 +55,11 @@ class BanditLearner(abc.ABC):
                 yield next_candidate
             else:
                 # Ensure that current stage is completely done
-                self.dispatcher.finish_work()
-                if n_iterations > 0:  # we might be able to start the next iteration
+                busy = any([not it.is_finished for it in self.iterations])
+                if busy:
+                    yield None
+                    continue
+                elif n_iterations > 0:  # we might be able to start the next iteration
                     iteration = len(self.iterations)
                     self.logger.info('Starting iteration {}'.format(iteration))
                     self.iterations.append(self._get_next_iteration(iteration, iteration_kwargs))

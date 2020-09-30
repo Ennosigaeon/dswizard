@@ -31,7 +31,7 @@ class FixedStructure(BaseStructureGenerator):
 
         self.pipeline = FlexiblePipeline(steps)
 
-    def fill_candidate(self, cs: CandidateStructure, ds: Dataset) -> CandidateStructure:
+    def fill_candidate(self, cs: CandidateStructure, ds: Dataset, **kwargs) -> CandidateStructure:
         cs.configspace = self.configspace
         cs.pipeline = self.pipeline
         cs.cfg_keys = self.cfg_keys
