@@ -320,7 +320,7 @@ class MCTS(BaseStructureGenerator):
             policy_kwargs = {}
         try:
             self.policy = policy(self.logger, **policy_kwargs)
-        except KeyError as ex:
+        except (KeyError, FileNotFoundError) as ex:
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
 
@@ -356,7 +356,8 @@ class MCTS(BaseStructureGenerator):
             with self.tree.lock:
                 for node in path:
                     self.tree.get_node(node.id).exit()
-            self.logger.warning('Current path contains only ROOT node. Trying tree traversal again...')
+            self.logger.warning(
+                'Current path contains only ROOT node. Trying tree traversal {} more times...'.format(retries))
             return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
         if not path[-1].is_terminal():
             with self.tree.lock:
@@ -457,6 +458,9 @@ class MCTS(BaseStructureGenerator):
 
             if result.status.value == StatusType.SUCCESS.value:
                 ds = Dataset(result.transformed_X, ds.y, ds.metric, ds.cutoff)
+                new_node.partial_config = PartialConfig(key, config, str(new_node.id), ds.meta_features)
+                new_node.ds = ds
+                new_node.failure_message = None
 
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED
@@ -481,14 +485,10 @@ class MCTS(BaseStructureGenerator):
                         self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
                         self.neighbours.fit(self.mfs)
                         node.enter()
-                        node.failure_message = None
 
                         if self.store_ds:
                             with open(os.path.join(self.workdir, '{}.pkl'.format(new_node.id)), 'wb') as f:
                                 pickle.dump(ds, f)
-
-                new_node.partial_config = PartialConfig(key, config, str(new_node.id), ds.meta_features)
-                new_node.ds = ds
             else:
                 self.logger.debug(
                     '\t{} failed with as default hyperparamter: {}'.format(component.name(), result.status))
