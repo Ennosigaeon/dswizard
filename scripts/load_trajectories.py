@@ -17,14 +17,11 @@ def load_autosklearn():
     rh.load_json('autosklearn/runhistory_0.json', cs)
 
     scores = []
-    max = None
     for value in rh.data.values():
-        if max is None or value.cost > max:
-            max = value.cost
         scores.append((value.additional_info + value.time - start, value.cost))
-    scores.insert(0, (0, max))
+    scores.insert(0, (0, 0))
     scores = np.array(scores)
-    scores[:, 1] = np.minimum.accumulate(scores[:, 1])
+    scores[:, 1] = np.maximum.accumulate(scores[:, 1])
     return scores
 
 
@@ -33,14 +30,11 @@ def load_tpot():
         rh = pickle.load(f)
 
     scores = []
-    max = None
     for time, score, pipeline in rh:
-        if max is None or score > max:
-            max = score
         scores.append((time, score))
-    scores.insert(0, (0, max))
+    scores.insert(0, (0, 0))
     scores = np.array(scores)
-    scores[:, 1] = np.minimum.accumulate(scores[:, 1])
+    scores[:, 1] = np.maximum.accumulate(scores[:, 1])
     return scores
 
 
