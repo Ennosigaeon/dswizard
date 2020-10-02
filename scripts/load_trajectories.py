@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+from scipy.stats import rankdata
 
 from smac.runhistory.runhistory import RunHistory
 
@@ -38,12 +39,29 @@ def load_tpot():
     return scores
 
 
+def compute_rank(data):
+    x_ticks = np.arange(0, 3660, 1)
+
+    rasterized = np.zeros((len(x_ticks), len(data)))
+    idx = np.zeros(len(data), dtype=int)
+    for i, x in enumerate(x_ticks):
+        for j, d in enumerate(data):
+            if idx[j] + 1 < len(data[j]) and data[j][idx[j] + 1][0] < x:
+                idx[j] += 1
+            rasterized[i][j] = data[j][idx[j]][1]
+
+    rank = rankdata(rasterized, axis=1)
+    return rank
+
+
 auto_sklearn = load_autosklearn()
 tpot = load_tpot()
 
 x_max = max(auto_sklearn[:, 0].max(), tpot[:, 0].max())
 auto_sklearn = np.vstack((auto_sklearn, np.array([[x_max, auto_sklearn[-1, 1]]])))
 tpot = np.vstack((tpot, np.array([[x_max, tpot[-1, 1]]])))
+
+rank = compute_rank([auto_sklearn, tpot])
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
