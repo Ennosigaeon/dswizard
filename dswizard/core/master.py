@@ -278,14 +278,14 @@ class Master:
     def _structure_callback(self, job: StructureJob):
         with self.thread_cond:
             try:
-                if job.cs is None:
+                if job.cs is None or job.cs.is_proxy():
                     self.logger.error('Encountered job without a structure')
                     # TODO add default structure
-
-                if self.result_logger is not None:
-                    self.result_logger.new_structure(job.cs)
-                job.callback = None
-                self.incomplete_structures.append((job.cs, int(job.cs.budget), 0))
+                else:
+                    if self.result_logger is not None:
+                        self.result_logger.new_structure(job.cs)
+                    job.callback = None
+                    self.incomplete_structures.append((job.cs, int(job.cs.budget), 0))
                 self.running_structures -= 1
                 self.thread_cond.notify_all()
             except KeyboardInterrupt:

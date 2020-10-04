@@ -107,7 +107,11 @@ class Dispatcher:
         if eval_job:
             result = worker.start_computation(job)
         else:
-            self.structure_generator.fill_candidate(job.cs, job.ds, worker=worker)
+            try:
+                self.structure_generator.fill_candidate(job.cs, job.ds, worker=worker)
+            except Exception as ex:
+                # Catch all. Should never happen
+                self.logger.exception(ex)
 
         with self.runner_cond:
             # fill in missing information
