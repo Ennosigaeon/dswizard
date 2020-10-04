@@ -12,7 +12,6 @@ import joblib
 import math
 import networkx as nx
 import numpy as np
-from scipy.stats import gamma
 from sklearn.base import is_classifier
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
@@ -163,7 +162,7 @@ class Tree:
     def get_all_children(self, node: int) -> List[Node]:
         return [self.G.nodes[n]['value'] for n in nx.dfs_tree(self.G, node).nodes.keys()]
 
-    def fully_expanded(self, node: Node, global_max: int = 40):
+    def fully_expanded(self, node: Node, global_max: int = 10):
         # global_max is used as failsafe to prevent massive expansion of single node
 
         possible_children = len(node.available_actions())
@@ -211,33 +210,35 @@ class Policy(ABC):
                         depth: int = 1) -> Optional[Type[EstimatorComponent]]:
         pass
 
-    def uct(self, node: Node, tree: Tree, alpha=2., scale=2., force: bool = False) -> Tuple[Node, float]:
-        """Select a child of node, balancing exploration & exploitation"""
-        if node.visits == 0:
+    def uct(self, n: Node, parent: Node, scale=2., force: bool = False) -> float:
+        """Upper confidence bound for trees"""
+        if n.visits == 0:
+            return math.inf
+
+        if n.failed:
+            # Always ignore nodes without meta-features
+            return -math.inf
+
+        # Always pick terminal node if forced
+        if force and n.is_terminal():
+            return math.inf
+
+        if parent is None or parent.visits == 0:
             log_N_vertex = 0
         else:
-            log_N_vertex = math.log(node.visits)
+            log_N_vertex = math.log(parent.visits)
 
-        def uct(n: Node):
-            """Upper confidence bound for trees"""
-            if n.visits == 0:
-                return math.inf
+        exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
+        exploration = math.sqrt(log_N_vertex / n.visits)
+        overfitting = (scale ** len(n.steps)) / (scale ** 10)
+        return (exploitation + self.exploration_weight * exploration) * (1 - overfitting)
 
-            if n.failed:
-                # Always ignore nodes without meta-features
-                return -math.inf
-
-            # Always pick terminal node if forced
-            if force and n.is_terminal():
-                return math.inf
-
-            exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
-            exploration = math.sqrt(log_N_vertex / node.visits)
-            overfitting = gamma.pdf(len(n.steps), a=alpha, scale=scale)
-            return (exploitation + self.exploration_weight * exploration) * overfitting
-
-        node = max(tree.get_children(node.id), key=uct)
-        return node, uct(node)
+    def select(self, node: Node, tree: Tree) -> Tuple[Node, float]:
+        """Select a child of node, balancing exploration & exploitation"""
+        options = tree.get_children(node.id)
+        scores = [self.uct(n, node) for n in options]
+        idx = int(np.argmax(scores))
+        return options[idx], scores[idx]
 
 
 class RandomSelection(Policy):
@@ -409,7 +410,7 @@ class MCTS(BaseStructureGenerator):
                 if len(self.tree.get_children(node.id)) == 0:
                     return path, True
 
-                candidate, candidate_score = self.policy.uct(node, self.tree)  # descend a layer deeper
+                candidate, candidate_score = self.policy.select(node, self.tree)  # descend a layer deeper
                 # Current node is better than children or selected node failed
                 if candidate.failed or candidate_score <= score:
                     return path, not node.is_terminal()
