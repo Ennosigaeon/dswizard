@@ -342,8 +342,11 @@ class MCTS(BaseStructureGenerator):
             # expand last node in path if possible
             self.logger.debug('MCTS EXPAND')
             max_depths = 3
+            max_mf_failures = 3
             for i in range(1, max_depths + 1):
-                expansion, result = self._expand(path, worker, cs.cid, include_preprocessing=i < max_depths)
+                expansion, result, mf_failures = self._expand(path, worker, cs.cid, max_mf_missing=max_mf_failures,
+                                                              include_preprocessing=i < max_depths)
+                max_mf_failures -= mf_failures
                 if expansion is not None:
                     path.append(expansion)
                     if expansion.is_terminal():
@@ -417,8 +420,11 @@ class MCTS(BaseStructureGenerator):
                 else:
                     node, score = candidate, candidate_score
 
-    def _expand(self, nodes: List[Node], worker: Worker, cid: CandidateId, max_distance: float = 1,
-                max_mf_missing: int = 3, include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result]]:
+    def _expand(self, nodes: List[Node],
+                worker: Worker, cid: CandidateId,
+                max_distance: float = 1,
+                max_mf_missing: int = 3,
+                include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result], int]:
         node = nodes[-1]
 
         mf_missing_count = 0
@@ -426,7 +432,7 @@ class MCTS(BaseStructureGenerator):
         while True:
             with self.tree.lock:
                 if node.is_terminal() and self.tree.fully_expanded(node):
-                    return None, None
+                    return None, None, mf_missing_count
 
                 n_children = len(self.tree.get_children(node.id))
                 if n_children >= n_actions:
@@ -436,10 +442,10 @@ class MCTS(BaseStructureGenerator):
                 action = self.policy.get_next_action(node, current_children,
                                                      include_preprocessing=include_preprocessing)
                 if action is None:
-                    return None, None
+                    return None, None, mf_missing_count
                 if mf_missing_count >= max_mf_missing:
                     self.logger.warning('Aborting expansion due to {} failed MF calculations'.format(mf_missing_count))
-                    return None, None
+                    return None, None, mf_missing_count
 
                 component = action()
 
@@ -507,12 +513,12 @@ class MCTS(BaseStructureGenerator):
                     job.result = result
                     self.cfg_cache.register_result(job)
                     # Successful classifiers
-                    return new_node, result
+                    return new_node, result, mf_missing_count
 
             else:
                 # Successful preprocessors
-                return new_node, result
-        return None, None
+                return new_node, result, mf_missing_count
+        return None, None, mf_missing_count
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
