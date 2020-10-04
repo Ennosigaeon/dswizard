@@ -116,15 +116,20 @@ class Node:
     def exit(self):
         self.reward -= util.worst_score(self.ds.metric)
 
-    def update(self, reward: float):
+    def update(self, reward: float) -> 'Node':
         self.visits += 1
         self.reward += reward
+        return self
 
     def __hash__(self) -> int:
         return self.id
 
     def __eq__(self, node2: int) -> bool:
         return self.id == node2
+
+    @staticmethod
+    def dummy(component, perf: float) -> 'Node':
+        return Node(-1, None, component).update(perf)
 
 
 class Tree:
@@ -210,12 +215,12 @@ class Policy(ABC):
                         depth: int = 1) -> Optional[Type[EstimatorComponent]]:
         pass
 
+    def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
+        return util.worst_score(ds.metric) * np.ones(len(actions))
+
     def uct(self, n: Node, parent: Node, scale=2., force: bool = False) -> float:
         """Upper confidence bound for trees"""
-        if n.visits == 0:
-            return math.inf
-
-        if n.failed:
+        if n.failed or n.visits == 0:
             # Always ignore nodes without meta-features
             return -math.inf
 
@@ -235,10 +240,24 @@ class Policy(ABC):
 
     def select(self, node: Node, tree: Tree) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
-        options = tree.get_children(node.id)
-        scores = [self.uct(n, node) for n in options]
+        current_children = tree.get_children(node.id)
+
+        available_actions = node.available_actions()
+        exhausted_actions = [type(n.component) for n in current_children]
+        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+        perf = self.estimate_performance(actions, node.ds)
+
+        possible_children = [Node.dummy(available_actions[c], p) for c, p in zip(actions, perf)]
+        children = current_children + possible_children
+
+        scores = [self.uct(n, node) for n in children]
         idx = int(np.argmax(scores))
-        return options[idx], scores[idx]
+
+        # Selected non-existing child. Mark as "failed" to force abortion of select
+        if idx >= len(current_children):
+            children[idx].failure_message = 'Non Existing'
+
+        return children[idx], scores[idx]
 
 
 class RandomSelection(Policy):
@@ -276,6 +295,20 @@ class TransferLearning(Policy):
         self.mean: Pipeline = mean
         self.var: Pipeline = var
 
+    def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
+        actions = np.atleast_2d(actions)
+
+        step = np.atleast_2d(np.repeat(np.ones(1) * depth, actions.shape[1]))
+        X = np.repeat(ds.meta_features, actions.shape[1], axis=0)
+        X = np.hstack((X, actions.T, step.T))
+        # remove land-marking mf
+        X = np.delete(X, slice(42, 50), axis=1)
+
+        mean = self.mean.predict(X)
+        var = self.var.predict(X)
+        perf = np.random.multivariate_normal(mean, np.diag(var))
+        return perf
+
     def get_next_action(self,
                         n: Node,
                         current_children: List[Node],
@@ -287,19 +320,8 @@ class TransferLearning(Policy):
                                                 ignore_mf=depth > 1)
         exhausted_actions = [type(n.component) for n in current_children]
         actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
-        actions = np.atleast_2d(actions)
-
-        step = np.atleast_2d(np.repeat(np.ones(1) * depth, actions.shape[1]))
-        X = np.repeat(n.ds.meta_features, actions.shape[1], axis=0)
-        X = np.hstack((X, actions.T, step.T))
-        # remove land-marking mf
-        X = np.delete(X, slice(42, 50), axis=1)
-
-        mean = self.mean.predict(X)
-        var = self.var.predict(X)
-        perf = np.random.multivariate_normal(mean, np.diag(var))
-
-        return available_actions[actions[0, np.argmax(perf)]]
+        perf = self.estimate_performance(actions, n.ds, depth)
+        return available_actions[actions[int(np.argmax(perf))]]
 
 
 class MCTS(BaseStructureGenerator):
@@ -467,7 +489,6 @@ class MCTS(BaseStructureGenerator):
                 ds = Dataset(result.transformed_X, ds.y, ds.metric, ds.cutoff)
                 new_node.partial_config = PartialConfig(key, config, str(new_node.id), ds.meta_features)
                 new_node.ds = ds
-                new_node.failure_message = None
 
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED
@@ -493,12 +514,16 @@ class MCTS(BaseStructureGenerator):
                         self.neighbours.fit(self.mfs)
                         node.enter()
 
+                        # Hacky solution. If result loss is set, 'Incomplete' message is removed later
+                        if result.loss is None:
+                            new_node.failure_message = None
+
                         if self.store_ds:
                             with open(os.path.join(self.workdir, '{}.pkl'.format(new_node.id)), 'wb') as f:
                                 pickle.dump(ds, f)
             else:
                 self.logger.debug(
-                    '\t{} failed with as default hyperparamter: {}'.format(component.name(), result.status))
+                    '\t{} failed with default hyperparamter: {}'.format(component.name(), result.status))
                 result.loss = util.worst_score(ds.metric)
                 new_node.failure_message = 'Crashed'
 
@@ -506,6 +531,7 @@ class MCTS(BaseStructureGenerator):
                 n_children += 1
                 self._backpropagate([key for key, values in new_node.steps], result.loss)
                 if result.loss < util.worst_score(ds.metric):
+                    new_node.failure_message = None
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
                     result.config = FlexiblePipeline(new_node.steps).configuration_space.get_default_configuration()
