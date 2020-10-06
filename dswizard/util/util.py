@@ -46,7 +46,7 @@ def score(y, y_pred, metric: str):
             y_pred = y_pred[:, 1]
         score = roc_auc_score(y, y_pred, average='weighted', multi_class='ovr')
     else:
-        raise ValueError
+        raise ValueError('Unknown metric {}'.format(metric))
 
     return sign * score
 
