@@ -562,7 +562,10 @@ class MCTS(BaseStructureGenerator):
         if reward is None or not np.isfinite(reward):
             reward = 1
 
-        self._backpropagate(candidate.pipeline.steps_.keys(), reward, exit=True)
+        try:
+            self._backpropagate(candidate.pipeline.steps_.keys(), reward, exit=True)
+        except (IndexError, ValueError, AttributeError) as ex:
+            self.logger.warning('Unable to backpropagate results: {}'.format(ex))
 
     # noinspection PyMethodMayBeStatic
     def _backpropagate(self, path: List[str], reward: float, exit: bool = False) -> None:

@@ -295,14 +295,22 @@ class Master:
     def _structure_callback(self, job: StructureJob):
         with self.thread_cond:
             try:
-                if job.cs is None or job.cs.is_proxy():
-                    self.logger.error('Encountered job without a structure')
-                    # TODO add default structure
-                else:
-                    if self.result_logger is not None:
-                        self.result_logger.new_structure(job.cs)
-                    job.callback = None
-                    self.incomplete_structures[job.cs.cid] = job.cs, int(job.cs.budget), 0
+                if job.cs.is_proxy():
+                    from automl.components.data_preprocessing.imputation import ImputationComponent
+                    from automl.components.feature_preprocessing.one_hot_encoding import OneHotEncoderComponent
+                    from automl.components.classification.decision_tree import DecisionTree
+                    from optimizers.structure_generators.fixed import FixedStructure
+
+                    self.logger.warning('Encountered job without a structure. Using simple best-practice pipeline.')
+                    FixedStructure(steps=[
+                        ('ohe', OneHotEncoderComponent()),
+                        ('imputation', ImputationComponent()),
+                        ('dt', DecisionTree())], cfg_cache=self.cfg_cache).fill_candidate(job.cs, job.ds)
+
+                if self.result_logger is not None:
+                    self.result_logger.new_structure(job.cs)
+                job.callback = None
+                self.incomplete_structures[job.cs.cid] = job.cs, int(job.cs.budget), 0
                 self.running_structures -= 1
                 self.thread_cond.notify_all()
             except KeyboardInterrupt:
