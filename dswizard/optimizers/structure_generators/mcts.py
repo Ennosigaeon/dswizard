@@ -141,7 +141,6 @@ class Tree:
         self.add_node(ds=ds)
 
         self.coef_progressive_widening = 0.7
-        self.lock = threading.Lock()
 
     def add_node(self,
                  estimator: Optional[Type[EstimatorComponent]] = None,
@@ -336,6 +335,7 @@ class MCTS(BaseStructureGenerator):
         self.neighbours = NearestNeighbors()
         self.mfs: Optional[MetaFeatures] = None
         self.store_ds = store_ds
+        self.lock = threading.Lock()
 
         if policy is None:
             policy = RandomSelection
@@ -350,10 +350,19 @@ class MCTS(BaseStructureGenerator):
     def fill_candidate(self, cs: CandidateStructure, ds: Dataset, worker: Worker = None,
                        retries=3) -> CandidateStructure:
         # Initialize tree if not exists
-        if self.tree is None:
-            self.tree = Tree(ds)
-            self.mfs = ds.meta_features
-            self.neighbours.fit(self.mfs)
+        with self.lock:
+            if self.tree is None:
+                self.tree = Tree(ds)
+                try:
+                    self.mfs = ds.meta_features
+                    self.neighbours.fit(self.mfs)
+                except ValueError as ex:
+                    # TODO remove again when problem is solved
+                    # Expected 2D array, got scalar array instead
+                    self.logger.exception(ex)
+                    self.logger.warning(self.mfs)
+                    self.mfs = ds.meta_features.reshape(1, -1)
+                    self.neighbours.fit(self.mfs)
 
         # traverse from root to a leaf node
         self.logger.debug('MCTS SELECT')
@@ -379,14 +388,14 @@ class MCTS(BaseStructureGenerator):
             self.logger.debug('Skipping MCTS expansion')
 
         if len(path) == 1:
-            with self.tree.lock:
+            with self.lock:
                 for node in path:
                     self.tree.get_node(node.id).exit()
             self.logger.warning(
                 'Current path contains only ROOT node. Trying tree traversal {} more times...'.format(retries))
             return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
         if not path[-1].is_terminal():
-            with self.tree.lock:
+            with self.lock:
                 for node in path:
                     self.tree.get_node(node.id).exit()
             self.logger.warning(
@@ -420,7 +429,7 @@ class MCTS(BaseStructureGenerator):
                 self.logger.warning(
                     'Selected node has no dataset, meta-features or partial configurations. This should not happen')
 
-            with self.tree.lock:
+            with self.lock:
                 node.enter()
                 path.append(node)
 
@@ -452,7 +461,7 @@ class MCTS(BaseStructureGenerator):
         mf_missing_count = 0
         n_actions = len(node.available_actions())
         while True:
-            with self.tree.lock:
+            with self.lock:
                 if node.is_terminal() and self.tree.fully_expanded(node):
                     return None, None, mf_missing_count
 
@@ -562,7 +571,7 @@ class MCTS(BaseStructureGenerator):
 
         ls = list(path)
         ls.append('0')
-        with self.tree.lock:
+        with self.lock:
             for node_id in ls:
                 node = self.tree.get_node(int(node_id))
                 node.update(reward)
