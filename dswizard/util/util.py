@@ -77,11 +77,14 @@ def openml_mapping(task: int = None, ds: int = None, name: str = None):
              'mfeat-factors': 12, 'nomao': 9977, 'numerai28.6': 167120, 'phoneme': 9952, 'sa-heart': 9961,
              'Shuttle': 146212}
 
-    if task is not None:
-        return tasks[task]
-    if name is not None:
-        return names[name]
-    return datasets[ds]
+    try:
+        if task is not None:
+            return tasks[task]
+        if name is not None:
+            return names[name]
+        return datasets[ds]
+    except KeyError:
+        return -1
 
 
 def prefixed_name(prefix: Optional[str], name: str) -> str:
