@@ -160,6 +160,7 @@ class Master:
             #           self.dispatcher.submit_job(job)
             #   return False
 
+            fail_safe = 0
             it = self.bandit_learner.next_candidate()
             while True:
                 job = None
@@ -199,7 +200,14 @@ class Master:
                                     candidate = next(it)
                                     if candidate is None:
                                         # TODO this case should not happen. "Busy" waiting solves the problem
+                                        fail_safe += 1
+                                        time.sleep(5)
+                                        if fail_safe > 10:
+                                            self.logger.fatal('Stuck in endless loop. Aborting optimization. '
+                                                              'This should not have happened...')
+                                            return True
                                         continue
+                            fail_safe = 0
 
                             if candidate.is_proxy():
                                 job = StructureJob(self.ds, candidate)
