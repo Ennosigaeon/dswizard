@@ -3,11 +3,12 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
+import random
 import threading
 import time
 import timeit
 from multiprocessing.managers import SyncManager
-from typing import Type, TYPE_CHECKING, Tuple, List
+from typing import Type, TYPE_CHECKING, Tuple, Dict
 
 import math
 from ConfigSpace.configuration_space import ConfigurationSpace
@@ -17,7 +18,7 @@ from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.logger import JsonResultLogger
-from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure
+from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
@@ -93,7 +94,7 @@ class Master:
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
-        self.incomplete_structures: List[Tuple[CandidateStructure, int, int]] = []
+        self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = {}
         self.running_structures: int = 0
 
         SyncManager.register('ConfigCache', ConfigCache)
@@ -165,9 +166,11 @@ class Master:
                 with self.thread_cond:
                     # Create EvaluationJob if possible
                     if len(self.incomplete_structures) > 0:
-                        candidate, n_configs, running = self.incomplete_structures.pop()
+                        # TODO random selection mostly does not work as len(self.incomplete_structures) == 1
+                        cid = random.choice(list(self.incomplete_structures.keys()))
+                        candidate, n_configs, running = self.incomplete_structures[cid]
 
-                        config_id = candidate.cid.with_config(len(candidate.results) + running + 1)
+                        config_id = candidate.cid.with_config(len(candidate.results) + running)
                         if self.pre_sample:
                             config, cfg_key = self.cfg_cache.sample_configuration(
                                 configspace=candidate.pipeline.configuration_space,
@@ -179,9 +182,10 @@ class Master:
                         job = EvaluationJob(self.ds, config_id, candidate, self.cutoff, config, cfg_keys)
                         job.callback = self._evaluation_callback
 
-                        n_configs -= 1
-                        if n_configs > 0:
-                            self.incomplete_structures.append((candidate, n_configs, running + 1))
+                        if n_configs > 1:
+                            self.incomplete_structures[cid] = candidate, n_configs - 1, running + 1
+                        else:
+                            del self.incomplete_structures[cid]
                     # Select new CandidateStructure if possible
                     else:
                         try:
@@ -203,7 +207,7 @@ class Master:
                                 self.running_structures += 1
                             else:
                                 n_configs = int(candidate.budget)
-                                self.incomplete_structures.append((candidate, n_configs, 0))
+                                self.incomplete_structures[candidate.cid] = candidate, n_configs, 0
                         except StopIteration:
                             # Current optimization is exhausted
                             return False
@@ -269,6 +273,11 @@ class Master:
                 self.cfg_cache.register_result(job)
                 self.bandit_learner.register_result(job.cs)
                 self.structure_generator.register_result(job.cs, job.result)
+
+                # Decrease number of running jobs
+                if job.cs.cid in self.incomplete_structures:
+                    candidate, n_configs, running = self.incomplete_structures[job.cs.cid]
+                    self.incomplete_structures[job.cs.cid] = candidate, n_configs, running - 1
             except KeyboardInterrupt:
                 raise
             except Exception as ex:
@@ -285,7 +294,7 @@ class Master:
                     if self.result_logger is not None:
                         self.result_logger.new_structure(job.cs)
                     job.callback = None
-                    self.incomplete_structures.append((job.cs, int(job.cs.budget), 0))
+                    self.incomplete_structures[job.cs.cid] = job.cs, int(job.cs.budget), 0
                 self.running_structures -= 1
                 self.thread_cond.notify_all()
             except KeyboardInterrupt:
