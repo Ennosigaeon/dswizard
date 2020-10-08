@@ -111,10 +111,10 @@ class Node:
         return components
 
     def enter(self):
-        self.reward += util.worst_score(self.ds.metric)
+        self.reward += util.worst_score(self.ds.metric)[-1]
 
     def exit(self):
-        self.reward -= util.worst_score(self.ds.metric)
+        self.reward -= util.worst_score(self.ds.metric)[-1]
 
     def update(self, reward: float) -> 'Node':
         self.visits += 1
@@ -215,7 +215,7 @@ class Policy(ABC):
         pass
 
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
-        return util.worst_score(ds.metric) * np.ones(len(actions))
+        return util.worst_score(ds.metric)[-1] * np.ones(len(actions))
 
     def uct(self, n: Node, parent: Node, scale=2., force: bool = False) -> float:
         """Upper confidence bound for trees"""
@@ -413,7 +413,7 @@ class MCTS(BaseStructureGenerator):
         cs.cfg_keys = [n.partial_config.cfg_key for n in path if n.partial_config is not None]
 
         # If no simulation was necessary, add the default configuration as first result
-        if result is not None and result.loss is not None and result.loss < 1:
+        if result is not None and result.structure_loss is not None and result.structure_loss < util.worst_score(ds.metric)[-1]:
             cs.add_result(result)
         return cs
 
@@ -501,7 +501,7 @@ class MCTS(BaseStructureGenerator):
 
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED
-                    result.loss = util.worst_score(ds.metric)
+                    result.structure_loss = util.worst_score(ds.metric)[-1]
                     new_node.failure_message = 'Missing MF'
                     mf_missing_count += 1
                 else:
@@ -510,13 +510,13 @@ class MCTS(BaseStructureGenerator):
                     if np.allclose(node.ds.meta_features, ds.meta_features):
                         self.logger.debug('\t{} did not modify dataset'.format(component.name()))
                         result.status = StatusType.INEFFECTIVE
-                        result.loss = util.worst_score(ds.metric)
+                        result.structure_loss = util.worst_score(ds.metric)[-1]
                         new_node.failure_message = 'Ineffective'
                     elif distance[0][0] <= max_distance:
                         # TODO: currently always the existing node is selected. This node could represent simpler model
                         self.logger.debug('\t{} produced a dataset similar to {}'.format(component.name(), idx[0][0]))
                         result.status = StatusType.DUPLICATE
-                        result.loss = util.worst_score(ds.metric)
+                        result.structure_loss = util.worst_score(ds.metric)[-1]
                         new_node.failure_message = 'Duplicate {}'.format(idx[0][0])
                     else:
                         self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
@@ -524,7 +524,7 @@ class MCTS(BaseStructureGenerator):
                         node.enter()
 
                         # Hacky solution. If result loss is set, 'Incomplete' message is removed later
-                        if result.loss is None:
+                        if result.structure_loss is None:
                             new_node.failure_message = None
 
                         if self.store_ds:
@@ -533,13 +533,16 @@ class MCTS(BaseStructureGenerator):
             else:
                 self.logger.debug(
                     '\t{} failed with default hyperparamter: {}'.format(component.name(), result.status))
-                result.loss = util.worst_score(ds.metric)
-                new_node.failure_message = 'Crashed'
+                result.structure_loss = util.worst_score(ds.metric)[-1]
+                if result.status == StatusType.TIMEOUT:
+                    new_node.failure_message = 'Timeout'
+                else:
+                    new_node.failure_message = 'Crashed'
 
-            if result.loss is not None:
+            if result.structure_loss is not None:
                 n_children += 1
-                self._backpropagate([key for key, values in new_node.steps], result.loss)
-                if result.loss < util.worst_score(ds.metric):
+                self._backpropagate([key for key, values in new_node.steps], result.structure_loss)
+                if result.structure_loss < util.worst_score(ds.metric)[-1]:
                     new_node.failure_message = None
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
@@ -557,7 +560,7 @@ class MCTS(BaseStructureGenerator):
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
-        reward = result.loss
+        reward = result.structure_loss
 
         if reward is None or not np.isfinite(reward):
             reward = 1

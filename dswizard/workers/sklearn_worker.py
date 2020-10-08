@@ -27,7 +27,7 @@ class SklearnWorker(Worker):
                 cfg_cache: Optional[ConfigCache],
                 cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
-                process_logger: ProcessLogger) -> float:
+                process_logger: ProcessLogger) -> List[float]:
         cloned_pipeline = clone(pipeline)
 
         if config is not None:
@@ -47,7 +47,14 @@ class SklearnWorker(Worker):
         y = ds.y
         y_pred, y_prob = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
 
-        score = util.score(y, y_prob if util.requires_proba(ds.metric) else y_pred, ds.metric)
+        score = [util.score(y, y_prob, y_pred, ds.metric)]
+        # Unfortunately meta-learning base was calculated using binarized_logloss instead of logloss.
+        # As it is not possible to recalculate everything, we also add rocauc as a result
+        if ds.metric == 'logloss':
+            score.append(util.score(y, y_prob, y_pred, 'rocauc'))
+        else:
+            score.append(score[0])
+
         return score, y_pred, y_prob
 
     def create_estimator(self, conf: dict):

@@ -100,13 +100,19 @@ class Result:
     def __init__(self,
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
-                 loss: Optional[float] = None,
+                 loss: Optional[List[float]] = None,
                  runtime: Runtime = None,
                  partial_configs: Optional[List[PartialConfig]] = None,
                  transformed_X: np.ndarray = None):
         self.status = status
         self.config = config
-        self.loss = loss
+
+        # structure_loss can be used if a dedicated loss for structure search is necessary
+        if loss is None:
+            loss = [None]
+        self.loss = loss[0]
+        self.structure_loss = loss[-1]
+
         self.runtime = runtime
         self.transformed_X = transformed_X
 
@@ -117,7 +123,7 @@ class Result:
     def as_dict(self):
         return {
             'status': self.status.name,
-            'loss': self.loss,
+            'loss': [self.loss, self.structure_loss],
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
         }

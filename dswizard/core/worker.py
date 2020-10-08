@@ -149,7 +149,7 @@ class Worker(abc.ABC):
                 cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
                 process_logger: ProcessLogger
-                ) -> float:
+                ) -> List[float]:
         """
         The function you have to overload implementing your computation.
         :param ds:
@@ -188,7 +188,7 @@ class Worker(abc.ABC):
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
-            result = Result(status=StatusType.CRASHED, loss=1)
+            result = Result(status=StatusType.CRASHED, loss=util.worst_score(job.ds.metric))
         return result
 
     @abc.abstractmethod

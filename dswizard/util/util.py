@@ -25,7 +25,7 @@ def setup_logging(log_file: str):
     logger.addHandler(ch)
 
 
-def score(y, y_pred, metric: str):
+def score(y, y_prob, y_pred, metric: str):
     # Always compute minimization problem
     sign = -1
 
@@ -39,28 +39,25 @@ def score(y, y_pred, metric: str):
         score = f1_score(y, y_pred, average='weighted')
     elif metric == 'logloss':
         sign = 1
-        score = log_loss(y, y_pred)
+        score = log_loss(y, y_prob)
     elif metric == 'rocauc':
         y_type = type_of_target(y)
-        if y_type == "binary" and y_pred.ndim > 1:
-            y_pred = y_pred[:, 1]
-        score = roc_auc_score(y, y_pred, average='weighted', multi_class='ovr')
+        if y_type == "binary" and y_prob.ndim > 1:
+            y_prob = y_prob[:, 1]
+        score = roc_auc_score(y, y_prob, average='weighted', multi_class='ovr')
     else:
         raise ValueError('Unknown metric {}'.format(metric))
 
     return sign * score
 
 
-def requires_proba(metric: str):
-    return metric in {'logloss', 'rocauc'}
-
-
 def worst_score(metric: str):
     if metric in ('accuracy', 'precision', 'recall', 'f1', 'rocauc'):
-        return 0
+        return [0, 0]
     else:
         # TODO replace with -log(1 / n_classes)
-        return 100
+        # logloss is only used in combination with rocauc
+        return [100, 0]
 
 
 def openml_mapping(task: int = None, ds: int = None, name: str = None):
