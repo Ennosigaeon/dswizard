@@ -78,6 +78,10 @@ class SklearnWorker(Worker):
         component.set_hyperparameters(config.get_dictionary())
         if is_classifier(component):
             score, y_pred, y_prob = self._score(ds, component)
+            try:
+                y_pred = y_pred.astype(float)
+            except ValueError:
+                pass
             X = np.hstack((ds.X, y_prob, np.reshape(y_pred, (-1, 1))))
         else:
             X = component.fit(ds.X, ds.y).transform(ds.X)
