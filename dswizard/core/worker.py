@@ -110,21 +110,21 @@ class Worker(abc.ABC):
         return result
 
     @staticmethod
-    def _cross_val_predict(pipeline, X, y=None, cv=None, proba: bool = False):
+    def _cross_val_predict(pipeline, X, y=None, cv=None):
         X, y, groups = indexable(X, y, None)
-
         cv = check_cv(cv, y, classifier=is_classifier(pipeline))
-        method = 'predict_proba' if proba else 'predict'
 
         prediction_blocks = []
+        probability_blocks = []
         for train, test in cv.split(X, y, groups):
             cloned_pipeline = copy.copy(pipeline)
-            prediction_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, method))
+            probability_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, 'predict_proba'))
+            prediction_blocks.append(cloned_pipeline.predict(X))
 
         # Concatenate the predictions
-        predictions = [pred_block_i for pred_block_i, _ in prediction_blocks]
-        test_indices = np.concatenate([indices_i
-                                       for _, indices_i in prediction_blocks])
+        probabilities = [prob_block_i for prob_block_i, _ in probability_blocks]
+        predictions = [pred_block_i for pred_block_i in prediction_blocks]
+        test_indices = np.concatenate([indices_i for _, indices_i in probability_blocks])
 
         if not _check_is_permutation(test_indices, _num_samples(X)):
             raise ValueError('cross_val_predict only works for partitions')
@@ -132,12 +132,13 @@ class Worker(abc.ABC):
         inv_test_indices = np.empty(len(test_indices), dtype=int)
         inv_test_indices[test_indices] = np.arange(len(test_indices))
 
+        probabilities = np.concatenate(probabilities)
         predictions = np.concatenate(predictions)
 
         if isinstance(predictions, list):
-            return [p[inv_test_indices] for p in predictions]
+            return [p[inv_test_indices] for p in predictions], [p[inv_test_indices] for p in probabilities]
         else:
-            return predictions[inv_test_indices]
+            return predictions[inv_test_indices], probabilities[inv_test_indices]
 
     @abc.abstractmethod
     def compute(self,
