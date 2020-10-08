@@ -199,6 +199,13 @@ class Master:
                                 else:
                                     candidate = next(it)
                                     if candidate is None:
+                                        self.logger.warning('No candidate structure available. Trying again in 5sec...')
+                                        state = '{}\n'.format(self.incomplete_structures)
+                                        for tmp in self.bandit_learner.iterations:
+                                            state += '\t{} / {} -> {}\n'.format(tmp.actual_num_candidates,
+                                                                                tmp.actual_num_candidates,
+                                                                                tmp.is_finished)
+                                        self.logger.warning(state)
                                         # TODO this case should not happen. "Busy" waiting solves the problem
                                         fail_safe += 1
                                         time.sleep(5)
