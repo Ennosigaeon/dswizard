@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import List, TYPE_CHECKING
+from typing import List
 
 import numpy as np
 
 from dswizard.core.base_iteration import BaseIteration
-
-if TYPE_CHECKING:
-    from dswizard.core.logger import JsonResultLogger
-    from dswizard.core.base_structure_generator import BaseStructureGenerator
 
 
 class SuccessiveResampling(BaseIteration):
@@ -18,9 +14,7 @@ class SuccessiveResampling(BaseIteration):
                  iteration: int,
                  num_candidates: List[int],
                  budgets: List[float],
-                 structure_generator: BaseStructureGenerator = None,
                  logger: logging.Logger = None,
-                 result_logger: JsonResultLogger = None,
                  resampling_rate=0.5,
                  min_samples_advance=1):
         """
@@ -28,13 +22,12 @@ class SuccessiveResampling(BaseIteration):
         :param iteration:
         :param num_candidates:
         :param budgets:
-        :param structure_generator:
         :param resampling_rate: fraction of configurations that are resampled at each stage
         :param min_samples_advance: number of samples that are guaranteed to proceed to the next stage regardless of
             the fraction.
         """
 
-        super().__init__(iteration, num_candidates, budgets, structure_generator, logger, result_logger)
+        super().__init__(iteration, num_candidates, budgets, logger)
         self.resampling_rate = resampling_rate
         self.min_samples_advance = min_samples_advance
 

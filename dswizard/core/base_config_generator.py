@@ -17,8 +17,8 @@ class BaseConfigGenerator(abc.ABC):
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 working_directory: str = None,
-                 logger: logging.Logger = None):
+                 logger: logging.Logger = None,
+                 **kwargs):
         """
         :param configspace:
         :param working_directory:

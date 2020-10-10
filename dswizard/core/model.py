@@ -89,7 +89,7 @@ class Runtime:
         }
 
     @staticmethod
-    def from_dict(raw: dict) -> 'Runtime':
+    def from_dict(raw: dict) -> 'Optional[Runtime]':
         if raw is None:
             return None
         return Runtime(**raw)
@@ -189,6 +189,7 @@ class CandidateStructure:
 
     @staticmethod
     def proxy() -> 'CandidateStructure':
+        # noinspection PyTypeChecker
         return CandidateStructure(None, None, None)
 
 

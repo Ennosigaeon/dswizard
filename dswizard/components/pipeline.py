@@ -333,8 +333,8 @@ class SubPipeline(EstimatorComponent):
 
         return X_transformed
 
-    def set_hyperparameters(self, configuration: dict, init_params=None):
-        if len(configuration.keys()) == 0:
+    def set_hyperparameters(self, configuration: dict = None, init_params=None):
+        if configuration is None or len(configuration.keys()) == 0:
             return
 
         for node_name, pipeline in self.pipelines.items():

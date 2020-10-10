@@ -45,6 +45,7 @@ class Hyperopt(BaseConfigGenerator):
                  random_fraction: float = 1 / 3,
                  bandwidth_factor: float = 3,
                  min_bandwidth: float = 1e-3,
+                 worst_score: float = np.inf,
                  **kwargs):
         """
         Fits a kernel density estimator on the best N percent of the evaluated configurations.
@@ -67,6 +68,7 @@ class Hyperopt(BaseConfigGenerator):
         self.top_n_percent = top_n_percent
         self.bw_factor = bandwidth_factor
         self.min_bandwidth = min_bandwidth
+        self.worst_score = worst_score
 
         self.min_points_in_model = min_points_in_model
         self.num_samples = num_samples
@@ -169,29 +171,27 @@ class Hyperopt(BaseConfigGenerator):
                           ConfigSpace.hyperparameters.CategoricalHyperparameter):
                 best_vector[i] = int(np.rint(best_vector[i]))
         # noinspection PyTypeChecker
+        config = ConfigSpace.Configuration(self.configspace, vector=best_vector)
         try:
-            config = ConfigSpace.Configuration(self.configspace, vector=best_vector)
             config.is_valid_configuration()
             return config
         except ValueError:
             self.logger.warn("Sampled invalid config: {}. Fallback to random config.".format(config.get_dictionary()))
-            self.register_result(config, None, StatusType.CRASHED)
+            self.register_result(config, self.worst_score, StatusType.CRASHED)
             return self.configspace.sample_configuration()
 
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:
         super().register_result(config, loss, status)
-        if config.get_array().size != self.expected_size:
-            self.logger.warning(
-                'Expected {} with {} values, got {} with {} values. Ignoring result'.format(self.configspace,
-                                                                                            self.expected_size,
-                                                                                            config.get_array().size,
-                                                                                            config))
+        # noinspection PyUnresolvedReferences
+        actual_size = config.get_array().size
+        if actual_size != self.expected_size:
+            self.logger.warning('Expected {} with {} values, got {} with {} values. Ignoring result'
+                                .format(self.configspace, self.expected_size, actual_size, config))
+            return
 
         if loss is None or not np.isfinite(loss):
-            # One could skip crashed results, but we decided to assign a +inf loss and count them as bad configurations
-            # Same for non numeric losses. Note that this means losses of minus infinity will count as bad!
-            loss = np.inf
+            loss = self.worst_score
 
         self.kde.losses.append(loss)
         self.kde.configs.append(config.get_array())
