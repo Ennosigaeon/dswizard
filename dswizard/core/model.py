@@ -292,22 +292,6 @@ class PartialConfig:
         # noinspection PyTypeChecker
         return PartialConfig(raw['cfg_key'], config, raw['name'], np.array(raw['mf']))
 
-    @staticmethod
-    def merge(partial_configs: List[PartialConfig]):
-        if len(partial_configs) == 1:
-            return partial_configs[0].config
-
-        complete = {}
-        cs = ConfigurationSpace()
-
-        for partial_config in partial_configs:
-            for param, value in partial_config.config.get_dictionary().items():
-                param = util.prefixed_name(partial_config.name, param)
-                complete[param] = value
-            cs.add_configuration_space(partial_config.name, partial_config.config.configuration_space)
-
-        return Configuration(cs, complete)
-
     def __eq__(self, other):
         if isinstance(other, PartialConfig):
             return self.name == other.name
