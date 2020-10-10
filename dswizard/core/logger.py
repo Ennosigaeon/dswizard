@@ -139,21 +139,18 @@ class ProcessLogger:
 
                 partial_configs.append(partial_config)
 
+        partial_configs = self._add_missing_configs(partial_configs, pipeline)
         config = self._merge_configs(partial_configs, pipeline)
         os.remove(self.file)
         return config, partial_configs
 
-    def _merge_configs(self, partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
+    def _add_missing_configs(self, partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> \
+            List[PartialConfig]:
         if len(partial_configs) == 0:
             self.logger.warning('Encountered job without any partial configurations. Simulating complete config')
 
-        complete = {}
         missing_steps = set(pipeline.all_names())
-
         for partial_config in partial_configs:
-            for param, value in partial_config.config.get_dictionary().items():
-                param = prefixed_name(partial_config.name, param)
-                complete[param] = value
             missing_steps.remove(partial_config.name)
 
         # Create random configuration for missing steps
@@ -161,12 +158,20 @@ class ProcessLogger:
         for name in missing_steps:
             config = pipeline.get_step(name).get_hyperparameter_search_space(mf=latest_mf) \
                 .sample_configuration()
-            for param, value in config.get_dictionary().items():
-                param = prefixed_name(name, param)
+            # noinspection PyTypeChecker
+            partial_configs.append(PartialConfig(None, config, name, latest_mf))
+        return partial_configs
+
+    def _merge_configs(self, partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
+        complete = {}
+        for partial_config in partial_configs:
+            for param, value in partial_config.config.get_dictionary().items():
+                param = prefixed_name(partial_config.name, param)
                 complete[param] = value
 
         try:
-            return Configuration(pipeline.configuration_space, complete)
+            config = Configuration(pipeline.configuration_space, complete)
+            return config
         except ValueError as ex:
             self.logger.error('Failed to reconstruct global config. '
                               'Config: {}\nConfigSpace: {}'.format(complete, pipeline.configuration_space))
