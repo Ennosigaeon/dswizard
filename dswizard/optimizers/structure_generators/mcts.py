@@ -295,6 +295,8 @@ class TransferLearning(Policy):
         self.var: Pipeline = var
 
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
+        if len(actions) == 0:
+            return np.array([])
         actions = np.atleast_2d(actions)
 
         step = np.atleast_2d(np.repeat(np.ones(1) * depth, actions.shape[1]))
