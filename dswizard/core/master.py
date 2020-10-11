@@ -95,7 +95,6 @@ class Master:
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
         self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = {}
-        self.running_structures: int = 0
 
         SyncManager.register('ConfigCache', ConfigCache)
         mgr = multiprocessing.Manager()
@@ -160,7 +159,6 @@ class Master:
             #           self.dispatcher.submit_job(job)
             #   return False
 
-            fail_safe = 0
             it = self.bandit_learner.next_candidate()
             while True:
                 job = None
@@ -193,34 +191,14 @@ class Master:
                         try:
                             candidate = next(it)
                             if candidate is None:
-                                if self.running_structures > 0:
-                                    self.logger.debug('Waiting for next structure to finish')
-                                    self.thread_cond.wait()
-                                    continue
-                                else:
-                                    candidate = next(it)
-                                    if candidate is None:
-                                        self.logger.warning('No candidate structure available. Trying again in 5sec...')
-                                        state = '{}\n'.format(self.incomplete_structures)
-                                        for tmp in self.bandit_learner.iterations:
-                                            state += '\t{} / {} -> {}\n'.format(tmp.actual_num_candidates,
-                                                                                tmp.actual_num_candidates,
-                                                                                tmp.is_finished)
-                                        self.logger.warning(state)
-                                        # TODO this case should not happen. "Busy" waiting solves the problem
-                                        fail_safe += 1
-                                        time.sleep(5)
-                                        if fail_safe > 10:
-                                            self.logger.fatal('Stuck in endless loop. Aborting optimization. '
-                                                              'This should not have happened...')
-                                            return True
-                                        continue
-                            fail_safe = 0
+                                self.logger.debug('Waiting for next job to finish. Currently {} running'.format(
+                                    self.bandit_learner.iterations[-1].num_running))
+                                self.thread_cond.wait()
+                                continue
 
                             if candidate.is_proxy():
                                 job = StructureJob(self.ds, candidate)
                                 job.callback = self._structure_callback
-                                self.running_structures += 1
                             else:
                                 n_configs = int(candidate.budget)
                                 self.incomplete_structures[candidate.cid] = candidate, n_configs, 0
@@ -299,6 +277,8 @@ class Master:
             except Exception as ex:
                 self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
                                   exc_info=True)
+            finally:
+                self.thread_cond.notify_all()
 
     def _structure_callback(self, job: StructureJob):
         with self.thread_cond:
@@ -319,10 +299,10 @@ class Master:
                     self.result_logger.new_structure(job.cs)
                 job.callback = None
                 self.incomplete_structures[job.cs.cid] = job.cs, int(job.cs.budget), 0
-                self.running_structures -= 1
-                self.thread_cond.notify_all()
             except KeyboardInterrupt:
                 raise
             except Exception as ex:
                 self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
                                   exc_info=True)
+            finally:
+                self.thread_cond.notify_all()
