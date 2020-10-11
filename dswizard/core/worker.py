@@ -107,7 +107,6 @@ class Worker(abc.ABC):
             result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config,
                             util.worst_score(job.ds.metric), None,
                             partial_configs if 'partial_configs' in locals() else None)
-        self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         return result
 
     @staticmethod

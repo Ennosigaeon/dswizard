@@ -367,13 +367,11 @@ class MCTS(BaseStructureGenerator):
                     self.neighbours.fit(self.mfs)
 
         # traverse from root to a leaf node
-        self.logger.debug('MCTS SELECT')
         path, expand = self._select(force=retries == 0)
 
         result = None
         if expand or not path[-1].is_terminal():
             # expand last node in path if possible
-            self.logger.debug('MCTS EXPAND')
             max_depths = 3
             max_mf_failures = 3
             for i in range(1, max_depths + 1):

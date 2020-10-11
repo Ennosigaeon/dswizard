@@ -123,7 +123,7 @@ class Dispatcher:
                 # necessary if config was generated on the fly
                 job.config = result.config
 
-            self.logger.debug('job {} on {} finished'.format(job.cid, worker.worker_id))
+            self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
 
             # label worker as idle again
             try:
