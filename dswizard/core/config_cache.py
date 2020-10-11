@@ -6,7 +6,7 @@ from typing import Type, Tuple
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
-from sklearn.neighbors import NearestNeighbors
+from dswizard.core.similaritystore import SimilarityStore
 
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
@@ -18,23 +18,17 @@ class ConfigCache:
     class Entry:
 
         def __init__(self):
-            self.mfs = None
+            self.store = SimilarityStore()
             self.generators = []
-            self.neighbours = NearestNeighbors()
 
         def add(self, mf, cg):
-            if self.mfs is None:
-                self.mfs = mf
-            else:
-                self.mfs = np.append(self.mfs, mf, axis=0)
-            self.neighbours.fit(self.mfs)
+            self.store.add(mf)
             self.generators.append(cg)
             return cg, len(self.generators) - 1
 
     def __init__(self,
                  clazz: Type[BaseConfigGenerator],
                  init_kwargs: dict):
-
         self.clazz = clazz
         self.init_kwargs = init_kwargs
         self.cache: Dict[float, ConfigCache.Entry] = {}
@@ -58,7 +52,7 @@ class ConfigCache:
             return cg, (hash_key, idx)
 
         entry = self.cache[hash_key]
-        distance, idx = entry.neighbours.kneighbors(mf, n_neighbors=1)
+        distance, idx = entry.store.get_similar(mf)
         if distance[0][0] <= max_distance:
             return entry.generators[idx[0][0]], (hash_key, int(idx[0][0]))
         else:

@@ -13,18 +13,17 @@ import math
 import networkx as nx
 import numpy as np
 from sklearn.base import is_classifier
-from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 
 from automl.components.base import EstimatorComponent
 from automl.components.classification import ClassifierChoice
 from automl.components.data_preprocessing import DataPreprocessorChoice
 from automl.components.feature_preprocessing import FeaturePreprocessorChoice
-from automl.components.meta_features import MetaFeatures
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateId, PartialConfig, StatusType, CandidateStructure, Dataset, Result, \
     EvaluationJob
+from dswizard.core.similaritystore import SimilarityStore
 from dswizard.core.worker import Worker
 from dswizard.util import util
 
@@ -334,8 +333,7 @@ class MCTS(BaseStructureGenerator):
         self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
-        self.neighbours = NearestNeighbors()
-        self.mfs: Optional[MetaFeatures] = None
+        self.store = SimilarityStore()
         self.store_ds = store_ds
         self.lock = threading.Lock()
 
@@ -355,16 +353,7 @@ class MCTS(BaseStructureGenerator):
         with self.lock:
             if self.tree is None:
                 self.tree = Tree(ds)
-                try:
-                    self.mfs = ds.meta_features
-                    self.neighbours.fit(self.mfs)
-                except ValueError as ex:
-                    # TODO remove again when problem is solved
-                    # Expected 2D array, got scalar array instead
-                    self.logger.exception(ex)
-                    self.logger.warning(self.mfs)
-                    self.mfs = ds.meta_features.reshape(1, -1)
-                    self.neighbours.fit(self.mfs)
+                self.store.add(ds.meta_features)
 
         # traverse from root to a leaf node
         path, expand = self._select(force=retries == 0)
@@ -413,7 +402,8 @@ class MCTS(BaseStructureGenerator):
         cs.cfg_keys = [n.partial_config.cfg_key for n in path if n.partial_config is not None]
 
         # If no simulation was necessary, add the default configuration as first result
-        if result is not None and result.structure_loss is not None and result.structure_loss < util.worst_score(ds.metric)[-1]:
+        if result is not None and result.structure_loss is not None and \
+                result.structure_loss < util.worst_score(ds.metric)[-1]:
             cs.add_result(result)
         return cs
 
@@ -506,7 +496,7 @@ class MCTS(BaseStructureGenerator):
                     mf_missing_count += 1
                 else:
                     # Check if any node in the tree is similar to the new dataset
-                    distance, idx = self.neighbours.kneighbors(ds.meta_features, n_neighbors=1)
+                    distance, idx = self.store.get_similar(ds.meta_features)
                     if np.allclose(node.ds.meta_features, ds.meta_features):
                         self.logger.debug('\t{} did not modify dataset'.format(component.name()))
                         result.status = StatusType.INEFFECTIVE
@@ -519,8 +509,7 @@ class MCTS(BaseStructureGenerator):
                         result.structure_loss = util.worst_score(ds.metric)[-1]
                         new_node.failure_message = 'Duplicate {}'.format(idx[0][0])
                     else:
-                        self.mfs = np.append(self.mfs, ds.meta_features, axis=0)
-                        self.neighbours.fit(self.mfs)
+                        self.store.add(ds.meta_features)
                         node.enter()
 
                         # Hacky solution. If result loss is set, 'Incomplete' message is removed later
