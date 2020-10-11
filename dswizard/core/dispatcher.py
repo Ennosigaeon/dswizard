@@ -106,25 +106,23 @@ class Dispatcher:
         eval_job = isinstance(job, EvaluationJob)
         if eval_job:
             result = worker.start_computation(job)
+            job.result = result
+            # necessary if config was generated on the fly
+            job.config = result.config
+            self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         else:
             try:
                 self.structure_generator.fill_candidate(job.cs, job.ds, worker=worker)
             except Exception as ex:
                 # Catch all. Should never happen
-                self.logger.exception(ex)
+                self.logger.exception('Unhandled exception during structure creation: {}'.format(ex))
+            finally:
+                self.logger.debug('job {} finished'.format(job.cid))
+
+        # fill in missing information
+        job.time_finished = time.time()
 
         with self.runner_cond:
-            # fill in missing information
-            job.time_finished = time.time()
-
-            if eval_job:
-                # noinspection PyUnboundLocalVariable
-                job.result = result
-                # necessary if config was generated on the fly
-                job.config = result.config
-
-            self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
-
             # label worker as idle again
             try:
                 self.idle_workers.add(worker.worker_id)
