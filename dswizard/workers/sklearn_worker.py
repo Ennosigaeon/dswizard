@@ -1,4 +1,3 @@
-import importlib
 import warnings
 from typing import Optional, Tuple, Union, List
 
@@ -28,18 +27,15 @@ class SklearnWorker(Worker):
                 cfg_keys: Optional[List[Tuple[float, int]]],
                 pipeline: FlexiblePipeline,
                 process_logger: ProcessLogger) -> List[float]:
-        cloned_pipeline = clone(pipeline)
-
-        if config is not None:
-            cloned_pipeline.set_hyperparameters(config.get_dictionary())
-        else:
+        if config is None:
             # Derive configuration on complete data set. Test performance via CV
+            cloned_pipeline = clone(pipeline)
             cloned_pipeline.cfg_cache = cfg_cache
             cloned_pipeline.cfg_keys = cfg_keys
             cloned_pipeline.fit(ds.X, ds.y, logger=process_logger)
             config = process_logger.get_config(cloned_pipeline)
-            pipeline.set_hyperparameters(config.get_dictionary())
 
+        pipeline.set_hyperparameters(config.get_dictionary())
         score, _, _ = self._score(ds, pipeline)
         return score
 
@@ -56,22 +52,6 @@ class SklearnWorker(Worker):
             score.append(score[0])
 
         return score, y_pred, y_prob
-
-    def create_estimator(self, conf: dict):
-        try:
-            name = conf['algorithm']
-            kwargs = conf.copy()
-            del kwargs['algorithm']
-
-            module_name = name.rpartition(".")[0]
-            class_name = name.split(".")[-1]
-
-            module = importlib.import_module(module_name)
-            class_ = getattr(module, class_name)
-            return class_(**kwargs)
-        except Exception as ex:
-            self.logger.error('Invalid name with config {}'.format(conf))
-            raise ex
 
     def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent) \
             -> Tuple[np.ndarray, Optional[float]]:

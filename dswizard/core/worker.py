@@ -104,7 +104,8 @@ class Worker(abc.ABC):
             # Should never occur, just a safety net
             self.logger.exception('Unexpected error during computation: \'{}\''.format(ex))
             # noinspection PyUnboundLocalVariable
-            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config, 1, None,
+            result = Result(StatusType.CRASHED, config if 'config' in locals() else job.config,
+                            util.worst_score(job.ds.metric), None,
                             partial_configs if 'partial_configs' in locals() else None)
         self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
         return result
@@ -163,6 +164,8 @@ class Worker(abc.ABC):
         pass
 
     def start_transform_dataset(self, job: EvaluationJob) -> Result:
+        self.logger.info('start transforming job {}'.format(job.cid))
+
         X = None
         try:
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5)(self.transform_dataset)

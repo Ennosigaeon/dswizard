@@ -176,6 +176,7 @@ class Master:
                             config, cfg_key = self.cfg_cache.sample_configuration(
                                 configspace=candidate.pipeline.configuration_space,
                                 mf=self.ds.meta_features)
+                            cfg_keys = [cfg_key]
                         else:
                             config = None
                             cfg_keys = candidate.cfg_keys
@@ -285,9 +286,9 @@ class Master:
 
                 job.callback = None
                 job.cs.add_result(job.result)
-                self.cfg_cache.register_result(job)
                 self.bandit_learner.register_result(job.cs)
                 self.structure_generator.register_result(job.cs, job.result)
+                self.cfg_cache.register_result(job)
 
                 # Decrease number of running jobs
                 if job.cs.cid in self.incomplete_structures:
@@ -306,7 +307,7 @@ class Master:
                     from automl.components.data_preprocessing.imputation import ImputationComponent
                     from automl.components.feature_preprocessing.one_hot_encoding import OneHotEncoderComponent
                     from automl.components.classification.decision_tree import DecisionTree
-                    from optimizers.structure_generators.fixed import FixedStructure
+                    from dswizard.optimizers.structure_generators.fixed import FixedStructure
 
                     self.logger.warning('Encountered job without a structure. Using simple best-practice pipeline.')
                     FixedStructure(steps=[

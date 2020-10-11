@@ -94,9 +94,10 @@ class ConfigCache:
 
             if len(job.result.partial_configs) > 0:
                 for config in job.result.partial_configs:
-                    if not config.is_empty():
-                        self.cache[config.cfg_key[0]].generators[config.cfg_key[1]] \
-                            .register_result(config.config, loss, status)
+                    if config.cfg_key is None or config.is_empty():
+                        continue
+                    self.cache[config.cfg_key[0]].generators[config.cfg_key[1]] \
+                        .register_result(config.config, loss, status)
             else:
                 cfg_key = job.cfg_keys[0]
                 self.cache[cfg_key[0]].generators[cfg_key[1]].register_result(job.config, loss, status)

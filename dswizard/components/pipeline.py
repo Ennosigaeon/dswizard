@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import timeit
 from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
@@ -28,18 +27,13 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                  steps: List[Tuple[str, EstimatorComponent]],
                  configuration: Optional[Configuration] = None,
                  cfg_cache: Optional[ConfigCache] = None,
-                 cfg_keys: Optional[List[Tuple[float, int]]] = None,
-                 logger: logging.Logger = None):
+                 cfg_keys: Optional[List[Tuple[float, int]]] = None):
         self.configuration = configuration
         self.cfg_keys = cfg_keys
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
-        if logger is None:
-            self.logger = logging.getLogger('Pipeline')
-        else:
-            self.logger = logger
 
         # super.__init__ has to be called after initializing all properties provided in constructor
-        super().__init__(steps)
+        super().__init__(steps, verbose=False)
         self.steps_ = dict(steps)
         self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space(mf=None)
 
@@ -210,10 +204,6 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         start = timeit.default_timer()
 
         estimator = self.get_step(name)
-        if idx >= len(self.cfg_keys):
-            # TODO for all simulated steps config is generated randomly
-            return estimator.get_hyperparameter_search_space().sample_configuration()
-
         cfg_key = self.cfg_keys[idx]
         if isinstance(estimator, SubPipeline):
             config, cfg_key = ConfigurationSpace().get_default_configuration(), (0, 0)
@@ -300,8 +290,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         return s1 < s2
 
     def __copy__(self):
-        return FlexiblePipeline(clone(self.steps, safe=False), self.configuration, self.cfg_cache, self.cfg_keys,
-                                self.logger)
+        return FlexiblePipeline(clone(self.steps, safe=False), self.configuration, self.cfg_cache, self.cfg_keys)
 
 
 class SubPipeline(EstimatorComponent):
@@ -321,7 +310,8 @@ class SubPipeline(EstimatorComponent):
                 pipeline.cfg_cache = cfg_cache
 
             p_prefix = prefixed_name(prefix, p_name)
-            pipeline.fit(X, y, logger=logger, prefix=p_prefix, **fit_params)
+            # noinspection PyTypeChecker
+            pipeline.fit(X, y, prefix=p_prefix, **fit_params)
         return self
 
     # noinspection PyPep8Naming
