@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import threading
-import traceback
 import warnings
 from typing import Dict, List, Optional
 
@@ -76,33 +74,19 @@ class Hyperopt(BaseConfigGenerator):
         self.random_fraction = random_fraction
 
         self.kde: KdeWrapper = self._build_kde_wrapper(self.configspace)
-        self.lock = threading.Lock()
 
     def sample_config(self, default: bool = False) -> Configuration:
         try:
             sample = None
-            with self.lock:
-                if len(self.kde.losses) == 0 or default:
-                    sample = self.configspace.get_default_configuration()
-                elif self.kde.is_trained():
-                    sample = self._draw_sample()
+            if len(self.kde.losses) == 0 or default:
+                sample = self.configspace.get_default_configuration()
+            elif self.kde.is_trained():
+                sample = self._draw_sample()
 
             if sample is None:
                 sample = self.configspace.sample_configuration()
         except:
-            self.logger.warning(
-                'Sampling based optimization with {} samples failed\n {} \nUsing random configuration'.format(
-                    self.num_samples, traceback.format_exc()))
             sample = self.configspace.sample_configuration()
-        # try:
-        #     sample = ConfigSpace.util.deactivate_inactive_hyperparameters(
-        #         configuration_space=self.configspace,
-        #         configuration=sample.get_dictionary()
-        #     )
-        # except Exception as e:
-        #     self.logger.warning(
-        #         'Error ({}) converting configuration: {} -> using random configuration!'.format(e, sample))
-        #     sample = self.configspace.sample_configuration()
 
         return sample
 
@@ -128,10 +112,7 @@ class Hyperopt(BaseConfigGenerator):
                     try:
                         vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
                     except:
-                        self.logger.warning(
-                            'Truncated Normal failed for:\ndatum={}\nbandwidth={}\nfor entry with value {}'.format(
-                                datum, kde_good.bw, m))
-                        self.logger.warning('data in the KDE:\n{}'.format(kde_good.data))
+                        pass
                 else:
                     if np.random.rand() < (1 - bw):
                         vector.append(int(m))
@@ -145,10 +126,6 @@ class Hyperopt(BaseConfigGenerator):
                 ei = max(1e-32, g(vector)) / max(l(vector), 1e-32)
 
                 if not np.isfinite(ei):
-                    self.logger.warning('sampled vector: {} has EI value {}'.format(vector, ei))
-                    self.logger.warning('l(x) = {}'.format(l(vector)))
-                    self.logger.warning('g(x) = {}'.format(g(vector)))
-
                     # right now, this happens because a KDE does not contain all values for a categorical
                     # parameter this cannot be fixed with the statsmodels KDE, so for now, we are just going to
                     # evaluate this one if the good_kde has a finite value, i.e. there is no config with that
@@ -164,11 +141,6 @@ class Hyperopt(BaseConfigGenerator):
         if best_vector is None:
             return None
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            self.logger.debug('Sampled x={} with EI(x)={}, l(x)={}, g(x)={}'.format(best_vector, best_ei,
-                                                                                    l(best_vector),
-                                                                                    g(best_vector)))
         for i, hp_value in enumerate(best_vector):
             if isinstance(self.configspace.get_hyperparameter(self.configspace.get_hyperparameter_by_idx(i)),
                           ConfigSpace.hyperparameters.CategoricalHyperparameter):
@@ -179,7 +151,6 @@ class Hyperopt(BaseConfigGenerator):
             config.is_valid_configuration()
             return config
         except ValueError:
-            self.logger.warn("Sampled invalid config: {}. Fallback to random config.".format(config.get_dictionary()))
             self.register_result(config, self.worst_score, StatusType.CRASHED)
             return self.configspace.sample_configuration()
 
@@ -189,65 +160,57 @@ class Hyperopt(BaseConfigGenerator):
         # noinspection PyUnresolvedReferences
         actual_size = config.get_array().size
         if actual_size != self.expected_size:
-            self.logger.warning('Expected {} with {} values, got {} with {} values. Ignoring result'
-                                .format(self.configspace, self.expected_size, actual_size, config))
             return
 
         if loss is None or not np.isfinite(loss):
             loss = self.worst_score
 
-        with self.lock:
-            self.kde.losses.append(loss)
-            self.kde.configs.append(config.get_array())
+        self.kde.losses.append(loss)
+        self.kde.configs.append(config.get_array())
 
-            min_points_in_model = max(len(self.configspace.get_hyperparameters()) + 1, self.min_points_in_model)
-            # skip model building if not enough points are available
-            if len(self.kde.losses) < min_points_in_model:
-                self.logger.debug('{}/{} samples. Skipping training.'.format(len(self.kde.losses), min_points_in_model))
-                return
+        min_points_in_model = max(len(self.configspace.get_hyperparameters()) + 1, self.min_points_in_model)
+        # skip model building if not enough points are available
+        if len(self.kde.losses) < min_points_in_model:
+            return
 
-            train_losses = np.array(self.kde.losses)
+        train_losses = np.array(self.kde.losses)
 
-            n_good = max(min_points_in_model, (self.top_n_percent * train_losses.shape[0]) // 100)
-            # TODO use this??? Is bad trainings data complete set without n_good?
-            # n_bad = max(self.min_points_in_model, train_configs.shape[0] - n_good)
-            n_bad = max(min_points_in_model, ((100 - self.top_n_percent) * train_losses.shape[0]) // 100)
+        n_good = max(min_points_in_model, (self.top_n_percent * train_losses.shape[0]) // 100)
+        # TODO use this??? Is bad trainings data complete set without n_good?
+        # n_bad = max(self.min_points_in_model, train_configs.shape[0] - n_good)
+        n_bad = max(min_points_in_model, ((100 - self.top_n_percent) * train_losses.shape[0]) // 100)
 
-            idx = np.argsort(train_losses)
-            train_configs = np.array(self.kde.configs)
-            train_data_good = np.array(train_configs[idx[:n_good]])
-            train_data_bad = np.array(train_configs[idx[-n_bad:]])
+        idx = np.argsort(train_losses)
+        train_configs = np.array(self.kde.configs)
+        train_data_good = np.array(train_configs[idx[:n_good]])
+        train_data_bad = np.array(train_configs[idx[-n_bad:]])
 
-            train_data_good = self._impute_conditional_data(train_data_good, self.kde.vartypes)
-            train_data_bad = self._impute_conditional_data(train_data_bad, self.kde.vartypes)
+        train_data_good = self._impute_conditional_data(train_data_good, self.kde.vartypes)
+        train_data_bad = self._impute_conditional_data(train_data_bad, self.kde.vartypes)
 
-            if train_data_good.shape[0] <= train_data_good.shape[1]:
-                return
-            if train_data_bad.shape[0] <= train_data_bad.shape[1]:
-                return
+        if train_data_good.shape[0] <= train_data_good.shape[1]:
+            return
+        if train_data_bad.shape[0] <= train_data_bad.shape[1]:
+            return
 
-            # more expensive cross-validation method
-            # bw_estimation = 'cv_ls'
+        # more expensive cross-validation method
+        # bw_estimation = 'cv_ls'
 
-            # quick rule of thumb
-            bw_estimation = 'normal_reference'
+        # quick rule of thumb
+        bw_estimation = 'normal_reference'
 
-            bad_kde = sm.nonparametric.KDEMultivariate(data=train_data_bad, var_type=self.kde.kde_vartypes,
-                                                       bw=bw_estimation)
-            good_kde = sm.nonparametric.KDEMultivariate(data=train_data_good, var_type=self.kde.kde_vartypes,
-                                                        bw=bw_estimation)
+        bad_kde = sm.nonparametric.KDEMultivariate(data=train_data_bad, var_type=self.kde.kde_vartypes,
+                                                   bw=bw_estimation)
+        good_kde = sm.nonparametric.KDEMultivariate(data=train_data_good, var_type=self.kde.kde_vartypes,
+                                                    bw=bw_estimation)
 
-            bad_kde.bw = np.clip(bad_kde.bw, self.min_bandwidth, None)
-            good_kde.bw = np.clip(good_kde.bw, self.min_bandwidth, None)
+        bad_kde.bw = np.clip(bad_kde.bw, self.min_bandwidth, None)
+        good_kde.bw = np.clip(good_kde.bw, self.min_bandwidth, None)
 
-            self.kde.kde_models = {
-                'good': good_kde,
-                'bad': bad_kde
-            }
-
-            # update probabilities for the categorical parameters for later sampling
-            self.logger.debug('done building a new model based on {}/{} split. Best loss: {}'.format(
-                n_good, n_bad, np.min(train_losses)))
+        self.kde.kde_models = {
+            'good': good_kde,
+            'bad': bad_kde
+        }
 
     # noinspection PyMethodMayBeStatic
     def _build_kde_wrapper(self, configspace: ConfigurationSpace) -> KdeWrapper:

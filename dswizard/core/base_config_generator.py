@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import abc
-import logging
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
@@ -17,7 +16,6 @@ class BaseConfigGenerator(abc.ABC):
 
     def __init__(self,
                  configspace: ConfigurationSpace,
-                 logger: logging.Logger = None,
                  **kwargs):
         """
         :param configspace:
@@ -27,10 +25,6 @@ class BaseConfigGenerator(abc.ABC):
         if configspace is None:
             raise ValueError('You have to provide a valid ConfigSpace object')
 
-        if logger is None:
-            self.logger = logging.getLogger('ConfigGenerator')
-        else:
-            self.logger = logger
         self.configspace: ConfigurationSpace = configspace
         self.expected_size = self.configspace.get_default_configuration().get_array().size
 

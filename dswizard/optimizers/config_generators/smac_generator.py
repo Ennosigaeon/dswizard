@@ -82,7 +82,6 @@ class SmacGenerator(BaseConfigGenerator):
 
         self.thread = threading.Thread(target=self.smbo.optimize)
         self.thread.start()
-        self.logger.debug('Started SMAC thread')
 
     def sample_config(self, default: bool = False) -> Configuration:
         if default:

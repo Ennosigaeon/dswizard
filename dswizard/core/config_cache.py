@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Dict
 from typing import Type, Tuple
 
@@ -34,17 +33,10 @@ class ConfigCache:
 
     def __init__(self,
                  clazz: Type[BaseConfigGenerator],
-                 init_kwargs: dict,
-                 logger: logging.Logger = None):
+                 init_kwargs: dict):
 
         self.clazz = clazz
         self.init_kwargs = init_kwargs
-
-        if logger is None:
-            self.logger = logging.getLogger('ConfigCache')
-        else:
-            self.logger = logger
-
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
     def get_config_generator(self,
@@ -102,5 +94,4 @@ class ConfigCache:
                 cfg_key = job.cfg_keys[0]
                 self.cache[cfg_key[0]].generators[cfg_key[1]].register_result(job.config, loss, status)
         except Exception as ex:
-            self.logger.exception(ex)
-            raise ex
+            print(ex)
