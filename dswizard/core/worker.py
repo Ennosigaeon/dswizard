@@ -64,8 +64,6 @@ class Worker(abc.ABC):
         self.busy = False
 
     def start_computation(self, job: EvaluationJob) -> Result:
-        self.logger.info('start processing job {}'.format(job.cid))
-
         result = None
         try:
             process_logger = ProcessLogger(self.workdir, job.cid)

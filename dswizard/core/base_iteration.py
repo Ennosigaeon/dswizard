@@ -6,7 +6,7 @@ from typing import List, Optional, Dict
 
 import numpy as np
 
-from dswizard.core.model import CandidateId, CandidateStructure
+from dswizard.core.model import CandidateId, CandidateStructure, Result
 
 
 class BaseIteration(abc.ABC):
@@ -42,18 +42,26 @@ class BaseIteration(abc.ABC):
         else:
             self.logger = logger
 
-    def register_result(self, cs: CandidateStructure) -> None:
+    def register_result(self, cs: CandidateStructure, result: Result) -> CandidateStructure:
         """
         function to register the result of a job
 
         :param cs: Finished CandidateStructure
+        :param result:
         :return:
         """
 
         if self.is_finished:
             raise RuntimeError("This SuccessiveHalving iteration is finished, you can't register more results!")
+        cs = self.data[cs.cid]
+        cs.results.append(result)
         cs.status = 'REVIEW'
         self.num_running -= 1
+        return cs
+
+    def replace_proxy(self, cs: CandidateStructure):
+        assert self.data[cs.cid].is_proxy()
+        self.data[cs.cid] = cs
 
     def get_next_candidate(self) -> Optional[CandidateStructure]:
         """

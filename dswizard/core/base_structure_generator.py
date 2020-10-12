@@ -29,7 +29,7 @@ class BaseStructureGenerator(abc.ABC):
         self.cfg_cache = cfg_cache
 
         if logger is None:
-            self.logger = logging.getLogger('StructureGenerator')
+            self.logger = logging.getLogger('Structure')
         else:
             self.logger = logger
 

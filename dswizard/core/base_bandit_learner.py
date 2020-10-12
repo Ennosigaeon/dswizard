@@ -6,7 +6,7 @@ from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from dswizard.core.base_iteration import BaseIteration
-    from dswizard.core.model import CandidateStructure
+    from dswizard.core.model import CandidateStructure, Result
 
 
 class BanditLearner(abc.ABC):
@@ -61,7 +61,6 @@ class BanditLearner(abc.ABC):
                     continue
                 elif n_iterations > 0:  # we might be able to start the next iteration
                     iteration = len(self.iterations)
-                    self.logger.info('Starting iteration {}'.format(iteration))
                     self.iterations.append(self._get_next_iteration(iteration, iteration_kwargs))
                     n_iterations -= 1
                 else:
@@ -72,5 +71,5 @@ class BanditLearner(abc.ABC):
         self.offset = offset
         self.iterations = []
 
-    def register_result(self, cs: CandidateStructure):
-        self.iterations[-1].register_result(cs)
+    def register_result(self, cs: CandidateStructure, result: Result) -> CandidateStructure:
+        return self.iterations[-1].register_result(cs, result)

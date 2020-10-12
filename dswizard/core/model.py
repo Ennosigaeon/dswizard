@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Callable
+from typing import Optional, List, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -202,8 +202,6 @@ class Job:
         self.time_finished: float = None
         self.result: Result = None
 
-        self.callback: Callable = None
-
 
 class EvaluationJob(Job):
 
@@ -215,15 +213,15 @@ class EvaluationJob(Job):
                  config: Optional[Configuration] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
         super().__init__(candidate_id)
-        self.ds = ds
-        self.cs = cs
+        self.ds: Dataset = ds
+        self.cs: CandidateStructure = cs
         self.cutoff = cutoff
         self.config = config
         self.cfg_keys = cfg_keys
 
     # Decorator pattern only used for better readability
     @property
-    def component(self) -> Union[FlexiblePipeline, BaseEstimator]:
+    def component(self) -> Union[CandidateStructure, BaseEstimator]:
         if isinstance(self.cs, CandidateStructure):
             return self.cs.pipeline
         else:

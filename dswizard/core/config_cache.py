@@ -7,11 +7,14 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from dswizard.core.similaritystore import SimilarityStore
+from dswizard.util import autoproxy
 
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
     from automl.components.meta_features import MetaFeatures
+
+autoproxy.apply()
 
 
 class ConfigCache:
