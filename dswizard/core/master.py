@@ -111,8 +111,9 @@ class Master:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         self.workers = []
         for i in range(n_workers):
-            self.workers.append(worker_class(wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
-                                             workdir=self.working_directory))
+            worker = worker_class(wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
+                                  workdir=self.working_directory)
+            self.workers.append(worker)
 
         self.dispatcher = Dispatcher(self.workers, self.structure_generator)
         self.dispatcher_thread = threading.Thread(target=self.dispatcher.run, name='Dispatcher')
@@ -163,6 +164,7 @@ class Master:
             while True:
                 job = None
                 with self.thread_cond:
+                    self.logger.debug('Acquired lock')
                     # Create EvaluationJob if possible
                     if len(self.incomplete_structures) > 0:
                         # TODO random selection mostly does not work as len(self.incomplete_structures) == 1
@@ -191,8 +193,10 @@ class Master:
                         try:
                             candidate = next(it)
                             if candidate is None:
-                                self.logger.debug('Waiting for next job to finish. Currently {} running'.format(
-                                    self.bandit_learner.iterations[-1].num_running))
+                                self.logger.debug(
+                                    'Waiting for next job to finish. Currently {} running, {} outstanding'.format(
+                                        len(self.workers) - len(self.dispatcher.idle_workers),
+                                        self.bandit_learner.iterations[-1].num_running))
                                 self.thread_cond.wait()
                                 continue
 
@@ -205,6 +209,7 @@ class Master:
                         except StopIteration:
                             # Current optimization is exhausted
                             return False
+                self.logger.debug('Released lock')
 
                 if time.time() > start + self.wallclock_limit:
                     self.logger.info("Timeout reached. Stopping optimization")
@@ -252,7 +257,9 @@ class Master:
         :param job: Finished Job
         :return:
         """
+        self.logger.debug('Evaluation callback {}'.format(job.cid))
         with self.thread_cond:
+            self.logger.debug('Acquired lock')
             try:
                 if job.config is None:
                     self.logger.error(
@@ -279,9 +286,12 @@ class Master:
                                   exc_info=True)
             finally:
                 self.thread_cond.notify_all()
+        self.logger.debug('Released lock')
 
     def _structure_callback(self, job: StructureJob):
+        self.logger.debug('Structure callback {}'.format(job.cid))
         with self.thread_cond:
+            self.logger.debug('Acquired lock')
             try:
                 if job.cs.is_proxy():
                     from automl.components.data_preprocessing.imputation import ImputationComponent
@@ -306,3 +316,4 @@ class Master:
                                   exc_info=True)
             finally:
                 self.thread_cond.notify_all()
+        self.logger.debug('Released lock')
