@@ -111,8 +111,7 @@ class Master:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         self.workers = []
         for i in range(n_workers):
-            worker = worker_class(wid=str(i), cfg_cache=self.cfg_cache, metric=ds.metric,
-                                  workdir=self.working_directory)
+            worker = worker_class(wid=str(i), cfg_cache=self.cfg_cache, workdir=self.working_directory)
             self.workers.append(worker)
 
         self.dispatcher = Dispatcher(self.workers, self.structure_generator)

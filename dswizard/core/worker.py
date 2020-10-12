@@ -41,7 +41,6 @@ class Worker(abc.ABC):
     def __init__(self,
                  logger: logging.Logger = None,
                  wid: str = None,
-                 metric: str = 'f1',
                  cfg_cache: Optional[ConfigCache] = None,
                  workdir: str = '/tmp/dswizzard/'):
         """
@@ -50,7 +49,6 @@ class Worker(abc.ABC):
             them using the `id` argument.
         :type metric: Allowed values are 'accuracy', 'precision', 'recall', 'f1' (default), 'logloss' and 'rocauc'
         """
-        self.metric = metric
         self.cfg_cache = cfg_cache
         self.workdir = workdir
         self.worker_id = 'worker.{}'.format(wid)
