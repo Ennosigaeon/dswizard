@@ -40,6 +40,7 @@ class Master:
 
                  wallclock_limit: int = 60,
                  cutoff: int = None,
+                 structure_cutoff_factor: float = 2.,
                  pre_sample: bool = True,
 
                  n_workers: int = 1,
@@ -90,6 +91,7 @@ class Master:
         self.ds.cutoff = cutoff
         self.wallclock_limit = wallclock_limit
         self.cutoff = cutoff
+        self.structure_cutoff_factor = structure_cutoff_factor
         self.pre_sample = pre_sample
 
         # condition to synchronize the job_callback and the queue
@@ -196,7 +198,7 @@ class Master:
                                 continue
 
                             if candidate.is_proxy():
-                                job = StructureJob(self.ds, candidate)
+                                job = StructureJob(self.ds, candidate, self.structure_cutoff_factor * self.cutoff)
                                 callback = self._structure_callback
                             else:
                                 n_configs = int(candidate.budget)

@@ -82,7 +82,7 @@ class Dispatcher:
                 job.time_finished = timeit.default_timer()
                 return job
             else:
-                result = self.structure_generator.fill_candidate(job.cs, job.ds, worker=worker)
+                result = self.structure_generator.fill_candidate(job.cs, job.ds, cutoff=job.cutoff, worker=worker)
                 job.time_finished = timeit.default_timer()
                 self.logger.debug('job {} finished'.format(job.cid))
                 return result

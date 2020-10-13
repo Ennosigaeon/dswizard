@@ -195,12 +195,13 @@ class CandidateStructure:
 
 class Job:
     # noinspection PyTypeChecker
-    def __init__(self, cid: CandidateId):
+    def __init__(self, cid: CandidateId, cutoff: float = None):
         self.cid = cid
         self.time_submitted: float = None
         self.time_started: float = None
         self.time_finished: float = None
         self.result: Result = None
+        self.cutoff = cutoff
 
 
 class EvaluationJob(Job):
@@ -212,10 +213,9 @@ class EvaluationJob(Job):
                  cutoff: float = None,
                  config: Optional[Configuration] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
-        super().__init__(candidate_id)
+        super().__init__(candidate_id, cutoff)
         self.ds: Dataset = ds
         self.cs: CandidateStructure = cs
-        self.cutoff = cutoff
         self.config = config
         self.cfg_keys = cfg_keys
 
@@ -230,8 +230,8 @@ class EvaluationJob(Job):
 
 class StructureJob(Job):
 
-    def __init__(self, ds: Dataset, cs: CandidateStructure):
-        super().__init__(cs.cid.without_config())
+    def __init__(self, ds: Dataset, cs: CandidateStructure, cutoff: float = None,):
+        super().__init__(cs.cid.without_config(), cutoff)
         self.ds = ds
         self.cs = cs
 
