@@ -288,13 +288,8 @@ class RandomSelection(Policy):
 
 class TransferLearning(Policy):
 
-    def __init__(self, logger: logging.Logger, dir: str, model: str = None, task: int = None, **kwargs):
+    def __init__(self, logger: logging.Logger, model: str, **kwargs):
         super().__init__(logger, **kwargs)
-
-        if model is None:
-            model = os.path.join(dir, 'rf_d{}.pkl'.format(util.openml_mapping(task=task)))
-        else:
-            model = os.path.join(dir, model)
 
         logger.info('Loading transfer model from {}'.format(model))
         with open(model, 'rb') as f:
