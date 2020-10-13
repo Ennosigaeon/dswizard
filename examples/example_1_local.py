@@ -13,7 +13,7 @@ from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import Hyperopt
-from dswizard.optimizers.structure_generators.mcts import MCTS
+from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
 from dswizard.util import util
 
 parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
@@ -49,6 +49,7 @@ master = Master(
     ds=ds,
     working_directory=os.path.join(args.log_dir, str(args.task)),
     n_workers=4,
+    model='../dswizard/assets/rf_complete.pkl',
 
     wallclock_limit=args.wallclock_limit,
     cutoff=args.cutoff,
@@ -57,8 +58,7 @@ master = Master(
     config_generator_class=Hyperopt,
 
     structure_generator_class=MCTS,
-    # structure_generator_kwargs={'policy': TransferLearning,
-    #                             'policy_kwargs': {'task': args.task, 'dir': '../dswizard/assets'}},
+    structure_generator_kwargs={'policy': TransferLearning},
 
     bandit_learner_class=HyperbandLearner,
     bandit_learner_kwargs={'min_budget': args.min_budget,
