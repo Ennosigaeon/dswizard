@@ -235,7 +235,7 @@ class Master:
                 self.bandit_learner.reset(offset)
                 timeout = _optimize()
                 repetition += 1
-                offset += sum([len(it.data) for it in self.bandit_learner.iterations])
+                offset += len(self.bandit_learner.iterations)
         except KeyboardInterrupt:
             self.logger.info('Aborting optimization due to user interrupt')
 
