@@ -133,16 +133,16 @@ class Master:
         :return:
         """
 
-        start = time.time()
+        start = timeit.default_timer()
         self.meta_data['start'] = start
         self.logger.info('starting run at {}. Configuration:\n'
                          '\twallclock_limit: {}\n'
                          '\tcutoff: {}\n'
-                         '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(start)),
+                         '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(time.time())),
                                                    self.wallclock_limit, self.cutoff, self.pre_sample))
-        relative_start = timeit.default_timer()
         for worker in self.workers:
-            worker.start_time = relative_start
+            worker.start_time = start
+        deadline = start + self.wallclock_limit
 
         def _optimize() -> bool:
             # Basic optimization logic without parallelism
@@ -160,6 +160,11 @@ class Master:
 
             it = self.bandit_learner.next_candidate()
             while True:
+                if timeit.default_timer() > deadline:
+                    self.logger.info("Timeout reached. Stopping optimization")
+                    self.dispatcher.finish_work()
+                    return True
+
                 job = None
                 with self.thread_cond:
                     # Create EvaluationJob if possible
@@ -194,7 +199,9 @@ class Master:
                                     'Waiting for next job to finish. Currently {} running, {} outstanding'.format(
                                         len(self.dispatcher.running_jobs),
                                         self.bandit_learner.iterations[-1].num_running))
-                                self.thread_cond.wait()
+                                # Safety-net to prevent infinite waiting
+                                # noinspection PyTypeChecker
+                                self.thread_cond.wait(max(self.cutoff, deadline - timeit.default_timer()))
                                 continue
 
                             if candidate.is_proxy():
@@ -206,11 +213,6 @@ class Master:
                         except StopIteration:
                             # Current optimization is exhausted
                             return False
-
-                if time.time() > start + self.wallclock_limit:
-                    self.logger.info("Timeout reached. Stopping optimization")
-                    self.dispatcher.finish_work()
-                    return True
 
                 if job is not None:
                     self.dispatcher.submit_job(job, callback)
