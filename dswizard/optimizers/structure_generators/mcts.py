@@ -325,13 +325,13 @@ class TransferLearning(Policy):
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, cutoff: int, workdir: str, policy: Type[Policy] = None,
+    def __init__(self, cutoff: int, workdir: str, model: str = None, policy: Type[Policy] = None,
                  policy_kwargs: dict = None, store_ds: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
-        self.store = SimilarityStore()
+        self.store = SimilarityStore(model)
         self.store_ds = store_ds
         self.lock = threading.Lock()
 
@@ -340,7 +340,7 @@ class MCTS(BaseStructureGenerator):
         if policy_kwargs is None:
             policy_kwargs = {}
         try:
-            self.policy = policy(self.logger, **policy_kwargs)
+            self.policy = policy(self.logger, **policy_kwargs, model=model)
         except (KeyError, FileNotFoundError) as ex:
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
@@ -452,7 +452,7 @@ class MCTS(BaseStructureGenerator):
 
     def _expand(self, nodes: List[Node],
                 worker: Worker, cid: CandidateId,
-                max_distance: float = 1,
+                max_distance: float = 0.05,
                 max_failures: int = 3,
                 timeout: float = None,
                 include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result], int]:

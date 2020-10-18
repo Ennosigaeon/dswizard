@@ -35,6 +35,7 @@ class Master:
     def __init__(self,
                  ds: Dataset,
                  working_directory: str = '.',
+                 model: str = None,
                  logger: logging.Logger = None,
                  result_logger: JsonResultLogger = None,
 
@@ -104,11 +105,13 @@ class Master:
         mgr = multiprocessing.Manager()
         # noinspection PyUnresolvedReferences
         self.cfg_cache: ConfigCache = mgr.ConfigCache(clazz=config_generator_class,
-                                                      init_kwargs=config_generator_kwargs)
+                                                      init_kwargs=config_generator_kwargs,
+                                                      model=model)
         # noinspection PyUnresolvedReferences
         self.structure_generator: BaseStructureGenerator = mgr.StructureGenerator(cfg_cache=self.cfg_cache,
                                                                                   cutoff=self.cutoff,
                                                                                   workdir=self.working_directory,
+                                                                                  model=model,
                                                                                   **structure_generator_kwargs)
 
         if n_workers < 1:
