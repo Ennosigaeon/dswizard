@@ -215,13 +215,13 @@ class EvaluationJob(Job):
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
         super().__init__(candidate_id, cutoff)
         self.ds: Dataset = ds
-        self.cs: CandidateStructure = cs
+        self.cs: Union[CandidateStructure, EstimatorComponent] = cs
         self.config = config
         self.cfg_keys = cfg_keys
 
     # Decorator pattern only used for better readability
     @property
-    def component(self) -> Union[CandidateStructure, BaseEstimator]:
+    def component(self) -> Union[BaseEstimator, FlexiblePipeline]:
         if isinstance(self.cs, CandidateStructure):
             return self.cs.pipeline
         else:
