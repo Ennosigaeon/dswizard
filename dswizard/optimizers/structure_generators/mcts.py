@@ -99,10 +99,9 @@ class Node:
     # noinspection PyMethodMayBeStatic
     def available_actions(self,
                           include_preprocessing: bool = True,
-                          include_classifier: bool = True,
-                          ignore_mf: bool = True) -> Dict[str, Type[EstimatorComponent]]:
+                          include_classifier: bool = True) -> Dict[str, Type[EstimatorComponent]]:
         components = {}
-        mf = self.ds.mf_dict if self.ds and not ignore_mf is not None else None
+        mf = self.ds.mf_dict if self.ds is not None else None
         if include_classifier:
             components.update(ClassifierChoice().get_available_components(mf=mf))
         if include_preprocessing:
@@ -210,8 +209,7 @@ class Policy(ABC):
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True,
-                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         pass
 
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
@@ -273,11 +271,9 @@ class RandomSelection(Policy):
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True,
-                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                      include_classifier=include_classifier,
-                                      ignore_mf=depth > 1).values()
+                                      include_classifier=include_classifier).values()
         exhausted_actions = [type(n.component) for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
 
@@ -317,14 +313,12 @@ class TransferLearning(Policy):
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True,
-                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         available_actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                                include_classifier=include_classifier,
-                                                ignore_mf=depth > 1)
+                                                include_classifier=include_classifier)
         exhausted_actions = [type(n.component) for n in current_children]
         actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
-        perf = self.estimate_performance(actions, n.ds, depth)
+        perf = self.estimate_performance(actions, n.ds)
         return available_actions[actions[int(np.argmax(perf))]]
 
 
@@ -358,6 +352,10 @@ class MCTS(BaseStructureGenerator):
             if self.tree is None:
                 self.tree = Tree(ds)
                 self.store.add(ds.meta_features)
+
+        if retries < 0:
+            self.logger.warning('Retries exhausted. Aborting candidate sampling')
+            return cs
 
         # traverse from root to a leaf node
         path, expand = self._select(force=retries == 0)
