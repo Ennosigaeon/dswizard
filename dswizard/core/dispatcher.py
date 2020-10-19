@@ -72,8 +72,8 @@ class Dispatcher:
         worker.runs_job = job.cid
 
         eval_job = isinstance(job, EvaluationJob)
-        try:
-            if eval_job:
+        if eval_job:
+            try:
                 result = worker.start_computation(job)
                 job.result = result
                 # necessary if config was generated on the fly
@@ -81,14 +81,20 @@ class Dispatcher:
                 self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
                 job.time_finished = timeit.default_timer()
                 return job
-            else:
-                result = self.structure_generator.fill_candidate(job.cs, job.ds, cutoff=job.cutoff, worker=worker)
+            except Exception as ex:
+                # Catch all. Should never happen
+                self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
+                return job
+        else:
+            try:
+                cs = self.structure_generator.fill_candidate(job.cs, job.ds, cutoff=job.cutoff, worker=worker)
                 job.time_finished = timeit.default_timer()
                 self.logger.debug('job {} finished'.format(job.cid))
-                return result
-        except Exception as ex:
-            # Catch all. Should never happen
-            self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
+                return cs
+            except Exception as ex:
+                # Catch all. Should never happen
+                self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
+                return job.cs
 
     def _job_callback(self, result: Union[EvaluationJob, CandidateStructure]):
         try:
