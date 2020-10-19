@@ -306,6 +306,8 @@ class TransferLearning(Policy):
 
         mean = self.mean.predict(X)
         var = self.var.predict(X)
+        var = np.maximum(var, 0.01 * np.ones(var.shape))
+
         perf = np.random.multivariate_normal(mean, np.diag(var))
         return perf
 
@@ -318,6 +320,9 @@ class TransferLearning(Policy):
                                                 include_classifier=include_classifier)
         exhausted_actions = [type(n.component) for n in current_children]
         actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+        if len(actions) == 0:
+            return None
+
         perf = self.estimate_performance(actions, n.ds)
         return available_actions[actions[int(np.argmax(perf))]]
 
@@ -511,7 +516,7 @@ class MCTS(BaseStructureGenerator):
                 else:
                     # Check if any node in the tree is similar to the new dataset
                     distance, idx = self.store.get_similar(ds.meta_features)
-                    if np.allclose(node.ds.meta_features, ds.meta_features):
+                    if np.allclose(node.ds.meta_features, ds.meta_features, equal_nan=True):
                         self.logger.debug('\t{} did not modify dataset'.format(component.name()))
                         result.status = StatusType.INEFFECTIVE
                         result.structure_loss = util.worst_score(ds.metric)[-1]
