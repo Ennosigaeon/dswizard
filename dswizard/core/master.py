@@ -165,7 +165,7 @@ class Master:
             while True:
                 if timeit.default_timer() > deadline:
                     self.logger.info("Timeout reached. Stopping optimization")
-                    self.dispatcher.finish_work()
+                    self.dispatcher.finish_work(self.cutoff)
                     return True
 
                 job = None
@@ -233,7 +233,8 @@ class Master:
         offset = 0
         try:
             while not timeout:
-                self.dispatcher.finish_work()
+                # noinspection PyTypeChecker
+                self.dispatcher.finish_work(max(self.cutoff, deadline - timeit.default_timer()))
                 self.logger.info('Starting repetition {}'.format(repetition))
                 self.bandit_learner.reset(offset)
                 timeout = _optimize()

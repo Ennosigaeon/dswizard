@@ -63,6 +63,7 @@ class Dispatcher:
 
             if len(self.running_jobs) == len(self.worker_pool):
                 self.logger.debug('waiting for next worker to be available')
+                # TODO infinite waiting is possible
                 self.condition.wait()
 
     def _process_job(self, worker: Worker, job: Union[EvaluationJob, StructureJob]) -> \
@@ -105,16 +106,22 @@ class Dispatcher:
         except Exception as ex:
             self.logger.exception('Unhandled exception in callback: {}'.format(ex))
 
-    def finish_work(self):
+    def finish_work(self, timeout: float):
         total = len(self.worker_pool)
+        deadline = timeit.default_timer() + timeout
         while True:
+            now = timeit.default_timer()
+            if now > deadline:
+                self.logger.warning('Workers did not finish within deadline. {} / {} busy...'.format(busy, total))
+                break
+
             with self.condition:
                 busy = len(self.running_jobs)
                 self.logger.debug('Waiting for all workers to finish current work. {} / {} busy...'.format(busy, total))
                 if busy == 0:
                     break
                 else:
-                    self.condition.wait()
+                    self.condition.wait(deadline - now)
 
     def __getstate__(self):
         # Copy the object's state from self.__dict__ which contains
