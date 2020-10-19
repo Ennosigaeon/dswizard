@@ -297,10 +297,10 @@ class Master:
                     from dswizard.optimizers.structure_generators.fixed import FixedStructure
 
                     self.logger.warning('Encountered job without a structure. Using simple best-practice pipeline.')
-                    FixedStructure(steps=[
-                        ('ohe', OneHotEncoderComponent()),
-                        ('imputation', ImputationComponent()),
-                        ('dt', DecisionTree())], cfg_cache=self.cfg_cache).fill_candidate(cs, self.ds)
+                    cs = FixedStructure(steps=[('ohe', OneHotEncoderComponent()),
+                                               ('imputation', ImputationComponent()),
+                                               ('dt', DecisionTree())], cfg_cache=self.cfg_cache) \
+                        .fill_candidate(cs, self.ds)
 
                 if self.result_logger is not None:
                     self.result_logger.new_structure(cs)
