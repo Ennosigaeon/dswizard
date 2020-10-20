@@ -1,5 +1,6 @@
 import abc
 import logging
+import math
 import os
 import pickle
 import random
@@ -10,7 +11,6 @@ from copy import deepcopy
 from typing import List, Optional, Tuple, Type, Dict
 
 import joblib
-import math
 import networkx as nx
 import numpy as np
 from sklearn.base import is_classifier
@@ -336,7 +336,6 @@ class MCTS(BaseStructureGenerator):
         self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
-        self.store = SimilarityStore(model)
         self.store_ds = store_ds
         self.lock = threading.Lock()
 
@@ -346,9 +345,16 @@ class MCTS(BaseStructureGenerator):
             policy_kwargs = {}
         try:
             self.policy = policy(self.logger, **policy_kwargs, model=model)
+            # noinspection PyUnresolvedReferences
+            similarity_model = self.policy.mean
         except (KeyError, FileNotFoundError) as ex:
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
+            similarity_model = None
+        except AttributeError:
+            # Raise if RandomPolicy is used
+            similarity_model = None
+        self.store = SimilarityStore(similarity_model)
 
     def fill_candidate(self, cs: CandidateStructure, ds: Dataset, worker: Worker = None,
                        cutoff: float = None, retries: int = 3) -> CandidateStructure:

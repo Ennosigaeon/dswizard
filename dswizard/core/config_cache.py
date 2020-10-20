@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Dict
 from typing import Type, Tuple
 
+import joblib
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
+from sklearn.pipeline import Pipeline
+
 from dswizard.core.similaritystore import SimilarityStore
 from dswizard.util import autoproxy
 
@@ -20,7 +23,7 @@ autoproxy.apply()
 class ConfigCache:
     class Entry:
 
-        def __init__(self, model: str):
+        def __init__(self, model: Pipeline):
             self.store = SimilarityStore(model)
             self.generators = []
 
@@ -34,7 +37,13 @@ class ConfigCache:
                  model: str = None,
                  init_kwargs: dict = None):
         self.clazz = clazz
-        self.model = model
+
+        try:
+            with open(model, 'rb') as f:
+                self.model, _ = joblib.load(f)
+        except FileNotFoundError:
+            self.model = None
+
         self.init_kwargs = init_kwargs
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
