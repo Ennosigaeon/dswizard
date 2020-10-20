@@ -43,14 +43,8 @@ class SklearnWorker(Worker):
         y = ds.y
         y_pred, y_prob = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
 
-        score = [util.score(y, y_prob, y_pred, ds.metric)]
-        # Unfortunately meta-learning base was calculated using binarized_logloss instead of logloss.
-        # As it is not possible to recalculate everything, we also add rocauc as a result
-        if ds.metric == 'logloss':
-            score.append(util.score(y, y_prob, y_pred, 'rocauc'))
-        else:
-            score.append(score[0])
-
+        # Meta-learning only considers f1. Calculcate f1 score for structure search
+        score = [util.score(y, y_prob, y_pred, ds.metric), util.score(y, y_prob, y_pred, 'f1')]
         return score, y_pred, y_prob
 
     def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent) \

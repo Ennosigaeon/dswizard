@@ -4,6 +4,7 @@ import os
 import pickle
 import random
 import threading
+import timeit
 from abc import ABC
 from copy import deepcopy
 from typing import List, Optional, Tuple, Type, Dict
@@ -98,10 +99,9 @@ class Node:
     # noinspection PyMethodMayBeStatic
     def available_actions(self,
                           include_preprocessing: bool = True,
-                          include_classifier: bool = True,
-                          ignore_mf: bool = True) -> Dict[str, Type[EstimatorComponent]]:
+                          include_classifier: bool = True) -> Dict[str, Type[EstimatorComponent]]:
         components = {}
-        mf = self.ds.mf_dict if self.ds and not ignore_mf is not None else None
+        mf = self.ds.mf_dict if self.ds is not None else None
         if include_classifier:
             components.update(ClassifierChoice().get_available_components(mf=mf))
         if include_preprocessing:
@@ -170,11 +170,11 @@ class Tree:
 
         possible_children = len(node.available_actions())
         max_children = math.floor(math.pow(node.visits, self.coef_progressive_widening))
-        max_children = min(max_children, possible_children)
+        max_children = min(max_children, possible_children, global_max)
 
         current_children = len(list(self.G.successors(node.id)))
 
-        return possible_children == 0 or (current_children != 0 and current_children >= min(global_max, max_children))
+        return possible_children == 0 or (current_children != 0 and current_children >= max_children)
 
     def plot(self, file: str):
         # TODO plot can only be called once
@@ -209,8 +209,7 @@ class Policy(ABC):
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True,
-                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         pass
 
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
@@ -236,17 +235,25 @@ class Policy(ABC):
         overfitting = (scale ** len(n.steps)) / (scale ** 10)
         return (exploitation + self.exploration_weight * exploration) * (1 - overfitting)
 
-    def select(self, node: Node, tree: Tree) -> Tuple[Node, float]:
+    def select(self, node: Node, tree: Tree, force: bool = False) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
         current_children = tree.get_children(node.id)
+        if force:
+            terminal_children = [child for child in current_children if child.is_terminal()]
+            if len(terminal_children) > 0:
+                children = terminal_children
+            else:
+                children = current_children
+        elif not tree.fully_expanded(node):
+            available_actions = node.available_actions()
+            exhausted_actions = [type(n.component) for n in current_children]
+            actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+            perf = self.estimate_performance(actions, node.ds)
 
-        available_actions = node.available_actions()
-        exhausted_actions = [type(n.component) for n in current_children]
-        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
-        perf = self.estimate_performance(actions, node.ds)
-
-        possible_children = [Node.dummy(available_actions[c], p) for c, p in zip(actions, perf)]
-        children = current_children + possible_children
+            possible_children = [Node.dummy(available_actions[c], p) for c, p in zip(actions, perf)]
+            children = current_children + possible_children
+        else:
+            children = current_children
 
         scores = [self.uct(n, node) for n in children]
         idx = int(np.argmax(scores))
@@ -264,11 +271,9 @@ class RandomSelection(Policy):
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True,
-                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                      include_classifier=include_classifier,
-                                      ignore_mf=depth > 1).values()
+                                      include_classifier=include_classifier).values()
         exhausted_actions = [type(n.component) for n in current_children]
         actions = [a for a in actions if a not in exhausted_actions]
 
@@ -279,13 +284,8 @@ class RandomSelection(Policy):
 
 class TransferLearning(Policy):
 
-    def __init__(self, logger: logging.Logger, dir: str, model: str = None, task: int = None, **kwargs):
+    def __init__(self, logger: logging.Logger, model: str, **kwargs):
         super().__init__(logger, **kwargs)
-
-        if model is None:
-            model = os.path.join(dir, 'rf_d{}.pkl'.format(util.openml_mapping(task=task)))
-        else:
-            model = os.path.join(dir, model)
 
         logger.info('Loading transfer model from {}'.format(model))
         with open(model, 'rb') as f:
@@ -306,6 +306,8 @@ class TransferLearning(Policy):
 
         mean = self.mean.predict(X)
         var = self.var.predict(X)
+        var = np.maximum(var, 0.01 * np.ones(var.shape))
+
         perf = np.random.multivariate_normal(mean, np.diag(var))
         return perf
 
@@ -313,27 +315,28 @@ class TransferLearning(Policy):
                         n: Node,
                         current_children: List[Node],
                         include_preprocessing: bool = True,
-                        include_classifier: bool = True,
-                        depth: int = 1) -> Optional[Type[EstimatorComponent]]:
+                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         available_actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                                include_classifier=include_classifier,
-                                                ignore_mf=depth > 1)
+                                                include_classifier=include_classifier)
         exhausted_actions = [type(n.component) for n in current_children]
         actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
-        perf = self.estimate_performance(actions, n.ds, depth)
+        if len(actions) == 0:
+            return None
+
+        perf = self.estimate_performance(actions, n.ds)
         return available_actions[actions[int(np.argmax(perf))]]
 
 
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, cutoff: int, workdir: str, policy: Type[Policy] = None,
+    def __init__(self, cutoff: int, workdir: str, model: str = None, policy: Type[Policy] = None,
                  policy_kwargs: dict = None, store_ds: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.workdir = workdir
         self.cutoff = cutoff
         self.tree: Optional[Tree] = None
-        self.store = SimilarityStore()
+        self.store = SimilarityStore(model)
         self.store_ds = store_ds
         self.lock = threading.Lock()
 
@@ -342,18 +345,22 @@ class MCTS(BaseStructureGenerator):
         if policy_kwargs is None:
             policy_kwargs = {}
         try:
-            self.policy = policy(self.logger, **policy_kwargs)
+            self.policy = policy(self.logger, **policy_kwargs, model=model)
         except (KeyError, FileNotFoundError) as ex:
             self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
             self.policy = RandomSelection(self.logger)
 
     def fill_candidate(self, cs: CandidateStructure, ds: Dataset, worker: Worker = None,
-                       retries=3) -> CandidateStructure:
+                       cutoff: float = None, retries: int = 3) -> CandidateStructure:
         # Initialize tree if not exists
         with self.lock:
             if self.tree is None:
                 self.tree = Tree(ds)
                 self.store.add(ds.meta_features)
+
+        if retries < 0:
+            self.logger.warning('Retries exhausted. Aborting candidate sampling')
+            return cs
 
         # traverse from root to a leaf node
         path, expand = self._select(force=retries == 0)
@@ -362,11 +369,13 @@ class MCTS(BaseStructureGenerator):
         if expand or not path[-1].is_terminal():
             # expand last node in path if possible
             max_depths = 3
-            max_mf_failures = 3
+            max_failures = 3
+            timeout = None if cutoff is None else timeit.default_timer() + cutoff
             for i in range(1, max_depths + 1):
-                expansion, result, mf_failures = self._expand(path, worker, cs.cid, max_mf_missing=max_mf_failures,
-                                                              include_preprocessing=i < max_depths)
-                max_mf_failures -= mf_failures
+                expansion, result, failures = self._expand(path, worker, cs.cid, timeout=timeout,
+                                                           max_failures=max_failures,
+                                                           include_preprocessing=i < max_depths)
+                max_failures -= failures
                 if expansion is not None:
                     path.append(expansion)
                     if expansion.is_terminal():
@@ -427,33 +436,42 @@ class MCTS(BaseStructureGenerator):
                 if force and node.is_terminal():
                     return path, False
 
-                if not self.tree.fully_expanded(node):
+                fully_expanded = self.tree.fully_expanded(node)
+                if not fully_expanded:
                     return path, True
 
                 # node is leaf
                 if len(self.tree.get_children(node.id)) == 0:
                     return path, True
 
-                candidate, candidate_score = self.policy.select(node, self.tree)  # descend a layer deeper
+                candidate, candidate_score = self.policy.select(node, self.tree, force=force)  # descend a layer deeper
                 # Current node is better than children or selected node failed
-                if candidate.failed or candidate_score <= score:
+                if candidate.failed:
                     return path, not node.is_terminal()
+                elif candidate_score <= score and node.is_terminal():
+                    return path, False
+                elif candidate_score <= score and not fully_expanded:
+                    return path, True
                 else:
                     node, score = candidate, candidate_score
 
     def _expand(self, nodes: List[Node],
                 worker: Worker, cid: CandidateId,
-                max_distance: float = 1,
-                max_mf_missing: int = 3,
+                max_distance: float = 0.05,
+                max_failures: int = 3,
+                timeout: float = None,
                 include_preprocessing: bool = True) -> Tuple[Optional[Node], Optional[Result], int]:
         node = nodes[-1]
 
-        mf_missing_count = 0
+        failure_count = 0
         n_actions = len(node.available_actions())
         while True:
             with self.lock:
                 if node.is_terminal() and self.tree.fully_expanded(node):
-                    return None, None, mf_missing_count
+                    return None, None, failure_count
+                if timeout is not None and timeit.default_timer() > timeout:
+                    self.logger.warning('Aborting expansion due to timeout')
+                    return None, None, max_failures
 
                 n_children = len(self.tree.get_children(node.id))
                 if n_children >= n_actions:
@@ -463,10 +481,10 @@ class MCTS(BaseStructureGenerator):
                 action = self.policy.get_next_action(node, current_children,
                                                      include_preprocessing=include_preprocessing)
                 if action is None:
-                    return None, None, mf_missing_count
-                if mf_missing_count >= max_mf_missing:
-                    self.logger.warning('Aborting expansion due to {} failed MF calculations'.format(mf_missing_count))
-                    return None, None, mf_missing_count
+                    return None, None, failure_count
+                if failure_count >= max_failures:
+                    self.logger.warning('Aborting expansion due to {} failed expansions'.format(failure_count))
+                    return None, None, failure_count
 
                 component = action()
 
@@ -493,11 +511,12 @@ class MCTS(BaseStructureGenerator):
                     result.status = StatusType.CRASHED
                     result.structure_loss = util.worst_score(ds.metric)[-1]
                     new_node.failure_message = 'Missing MF'
-                    mf_missing_count += 1
+                    # Currently only missing MF is counted as a failure
+                    failure_count += 1
                 else:
                     # Check if any node in the tree is similar to the new dataset
                     distance, idx = self.store.get_similar(ds.meta_features)
-                    if np.allclose(node.ds.meta_features, ds.meta_features):
+                    if np.allclose(node.ds.meta_features, ds.meta_features, equal_nan=True):
                         self.logger.debug('\t{} did not modify dataset'.format(component.name()))
                         result.status = StatusType.INEFFECTIVE
                         result.structure_loss = util.worst_score(ds.metric)[-1]
@@ -540,12 +559,12 @@ class MCTS(BaseStructureGenerator):
                     job.result = result
                     self.cfg_cache.register_result(job)
                     # Successful classifiers
-                    return new_node, result, mf_missing_count
+                    return new_node, result, failure_count
 
             else:
                 # Successful preprocessors
-                return new_node, result, mf_missing_count
-        return None, None, mf_missing_count
+                return new_node, result, failure_count
+        return None, None, failure_count
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:

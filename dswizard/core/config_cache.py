@@ -7,18 +7,21 @@ import numpy as np
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from dswizard.core.similaritystore import SimilarityStore
+from dswizard.util import autoproxy
 
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
     from automl.components.meta_features import MetaFeatures
 
+autoproxy.apply()
+
 
 class ConfigCache:
     class Entry:
 
-        def __init__(self):
-            self.store = SimilarityStore()
+        def __init__(self, model: str):
+            self.store = SimilarityStore(model)
             self.generators = []
 
         def add(self, mf, cg):
@@ -28,8 +31,10 @@ class ConfigCache:
 
     def __init__(self,
                  clazz: Type[BaseConfigGenerator],
-                 init_kwargs: dict):
+                 model: str = None,
+                 init_kwargs: dict = None):
         self.clazz = clazz
+        self.model = model
         self.init_kwargs = init_kwargs
         self.cache: Dict[float, ConfigCache.Entry] = {}
 
@@ -37,7 +42,7 @@ class ConfigCache:
                              cfg_key: Tuple[float, int] = None,
                              configspace: ConfigurationSpace = None,
                              mf: MetaFeatures = None,
-                             max_distance: float = 1, **kwargs) -> Tuple[BaseConfigGenerator, Tuple[float, int]]:
+                             max_distance: float = 0.05, **kwargs) -> Tuple[BaseConfigGenerator, Tuple[float, int]]:
         if cfg_key is not None:
             return self.cache[cfg_key[0]].generators[cfg_key[1]], cfg_key
 
@@ -46,7 +51,7 @@ class ConfigCache:
 
         hash_key = hash(configspace)
         if hash_key not in self.cache:
-            self.cache[hash_key] = ConfigCache.Entry()
+            self.cache[hash_key] = ConfigCache.Entry(self.model)
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
             cg, idx = self.cache[hash_key].add(mf, cg)
             return cg, (hash_key, idx)

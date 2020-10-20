@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Callable
+from typing import Optional, List, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
 from ConfigSpace import ConfigurationSpace
@@ -195,14 +195,13 @@ class CandidateStructure:
 
 class Job:
     # noinspection PyTypeChecker
-    def __init__(self, cid: CandidateId):
+    def __init__(self, cid: CandidateId, cutoff: float = None):
         self.cid = cid
         self.time_submitted: float = None
         self.time_started: float = None
         self.time_finished: float = None
         self.result: Result = None
-
-        self.callback: Callable = None
+        self.cutoff = cutoff
 
 
 class EvaluationJob(Job):
@@ -214,16 +213,15 @@ class EvaluationJob(Job):
                  cutoff: float = None,
                  config: Optional[Configuration] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
-        super().__init__(candidate_id)
-        self.ds = ds
-        self.cs = cs
-        self.cutoff = cutoff
+        super().__init__(candidate_id, cutoff)
+        self.ds: Dataset = ds
+        self.cs: Union[CandidateStructure, EstimatorComponent] = cs
         self.config = config
         self.cfg_keys = cfg_keys
 
     # Decorator pattern only used for better readability
     @property
-    def component(self) -> Union[FlexiblePipeline, BaseEstimator]:
+    def component(self) -> Union[BaseEstimator, FlexiblePipeline]:
         if isinstance(self.cs, CandidateStructure):
             return self.cs.pipeline
         else:
@@ -232,8 +230,8 @@ class EvaluationJob(Job):
 
 class StructureJob(Job):
 
-    def __init__(self, ds: Dataset, cs: CandidateStructure):
-        super().__init__(cs.cid.without_config())
+    def __init__(self, ds: Dataset, cs: CandidateStructure, cutoff: float = None,):
+        super().__init__(cs.cid.without_config(), cutoff)
         self.ds = ds
         self.cs = cs
 

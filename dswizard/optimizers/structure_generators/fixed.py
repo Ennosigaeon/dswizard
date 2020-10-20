@@ -19,7 +19,6 @@ class FixedStructure(BaseStructureGenerator):
             if isinstance(task, ComponentChoice) or isinstance(task, EstimatorComponent):
                 cg, key = self.cfg_cache.get_config_generator(configspace=task.get_hyperparameter_search_space(),
                                                               mf=ds.meta_features)
-                cs = task.get_hyperparameter_search_space()
             else:
                 raise ValueError('Unable to handle type {}'.format(type(task)))
             cfg_keys.append(key)
