@@ -4,6 +4,7 @@ import logging
 import multiprocessing
 import os
 import random
+import tempfile
 import threading
 import time
 import timeit
@@ -117,8 +118,9 @@ class Master:
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
         self.workers = []
+        self.temp_dir = tempfile.TemporaryDirectory()
         for i in range(n_workers):
-            worker = worker_class(wid=str(i), cfg_cache=self.cfg_cache, workdir=self.working_directory)
+            worker = worker_class(wid=str(i), cfg_cache=self.cfg_cache, workdir=self.temp_dir.name)
             self.workers.append(worker)
 
         self.dispatcher = Dispatcher(self.workers, self.structure_generator)
@@ -129,6 +131,7 @@ class Master:
         # Sleep one second to guarantee dispatcher start, if startup procedure fails
         time.sleep(1)
         self.structure_generator.shutdown()
+        self.temp_dir.cleanup()
 
     def optimize(self) -> Tuple[Pipeline, RunHistory]:
         """
