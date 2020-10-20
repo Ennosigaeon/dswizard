@@ -25,10 +25,9 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
     def __init__(self,
                  steps: List[Tuple[str, EstimatorComponent]],
-                 configuration: Optional[Configuration] = None,
+                 configuration: Optional[dict] = None,
                  cfg_cache: Optional[ConfigCache] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
-        self.configuration = configuration
         self.cfg_keys = cfg_keys
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
 
@@ -39,6 +38,9 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         self.fit_time = 0
         self.config_time = 0
+
+        if configuration is not None:
+            self.set_hyperparameters(configuration)
 
     def to_networkx(self, prefix: str = None):
         G = nx.DiGraph()
