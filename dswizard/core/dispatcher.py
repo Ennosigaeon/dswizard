@@ -27,7 +27,9 @@ class NoDaemonProcess(multiprocessing.Process):
 
 
 class MyPool(multiprocessing.pool.Pool):
-    Process = NoDaemonProcess
+    @staticmethod
+    def Process(ctx, *args, **kwds):
+        return NoDaemonProcess(*args, **kwds)
 
 
 class Dispatcher:

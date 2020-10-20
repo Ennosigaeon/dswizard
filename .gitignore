@@ -3,3 +3,4 @@ __pycache__
 .idea/
 examples/run
 scripts/fig
+venv/
