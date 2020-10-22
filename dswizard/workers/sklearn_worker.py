@@ -1,6 +1,8 @@
+import os
 import warnings
 from typing import Optional, Tuple, Union, List
 
+import joblib
 import numpy as np
 from ConfigSpace import Configuration
 from sklearn import clone
@@ -40,31 +42,34 @@ class SklearnWorker(Worker):
             config = process_logger.get_config(cloned_pipeline)
 
         pipeline.set_hyperparameters(config.get_dictionary())
-        score, _, _ = self._score(ds, pipeline)
+        score, _, _, models = self._score(ds, pipeline)
+        self._store_models(cid, models)
         return score
 
     def transform_dataset(self, ds: Dataset, cid: CandidateId, component: EstimatorComponent,
                           config: Configuration) -> Tuple[np.ndarray, Optional[float]]:
         component.set_hyperparameters(config.get_dictionary())
         if is_classifier(component):
-            score, y_pred, y_prob = self._score(ds, component)
+            score, y_pred, y_prob, models = self._score(ds, component)
             try:
                 y_pred = y_pred.astype(float)
             except ValueError:
                 pass
             X = np.hstack((ds.X, y_prob, np.reshape(y_pred, (-1, 1))))
         else:
-            X = component.fit(ds.X, ds.y).transform(ds.X)
+            models = [component.fit(ds.X, ds.y)]
+            X = models[0].transform(ds.X)
             score = None
+        self._store_models(cid, models)
         return X, score
 
     def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], n_folds: int = 4):
         y = ds.y
-        y_pred, y_prob = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
+        y_pred, y_prob, models = self._cross_val_predict(estimator, ds.X, y, cv=n_folds)
 
         # Meta-learning only considers f1. Calculate f1 score for structure search
         score = [util.score(y, y_prob, y_pred, ds.metric), util.score(y, y_prob, y_pred, 'f1')]
-        return score, y_pred, y_prob
+        return score, y_pred, y_prob, models
 
     @staticmethod
     def _cross_val_predict(pipeline, X, y=None, cv=None):
@@ -73,10 +78,12 @@ class SklearnWorker(Worker):
 
         prediction_blocks = []
         probability_blocks = []
+        fitted_pipelines = []
         for train, test in cv.split(X, y, groups):
             cloned_pipeline = clone(pipeline)
             probability_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, 'predict_proba'))
             prediction_blocks.append(cloned_pipeline.predict(X))
+            fitted_pipelines.append(cloned_pipeline)
 
         # Concatenate the predictions
         probabilities = [prob_block_i for prob_block_i, _ in probability_blocks]
@@ -93,6 +100,17 @@ class SklearnWorker(Worker):
         predictions = np.concatenate(predictions)
 
         if isinstance(predictions, list):
-            return [p[inv_test_indices] for p in predictions], [p[inv_test_indices] for p in probabilities]
+            return [p[inv_test_indices] for p in predictions], [p[inv_test_indices] for p in
+                                                                probabilities], fitted_pipelines
         else:
-            return predictions[inv_test_indices], probabilities[inv_test_indices]
+            return predictions[inv_test_indices], probabilities[inv_test_indices], fitted_pipelines
+
+    def _store_models(self, cid: CandidateId, models: List[EstimatorComponent]):
+        if cid.config < 0:
+            name = 'step_{}.pkl'.format(cid.config)
+        else:
+            name = 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())
+
+        file = os.path.join(self.workdir, name)
+        with open(file, 'wb') as f:
+            joblib.dump(models, f)

@@ -15,9 +15,11 @@ import math
 from ConfigSpace.configuration_space import ConfigurationSpace
 from sklearn.pipeline import Pipeline
 
+from dswizard.components.voting_ensemble import PrefitVotingClassifier
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import Dispatcher
+from dswizard.core.ensemble import EnsembleBuilder
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId
 from dswizard.core.runhistory import RunHistory
@@ -253,6 +255,10 @@ class Master:
         rh = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
         pipeline, _ = rh.get_incumbent()
         return pipeline, rh
+
+    def build_ensemble(self, ds: Dataset) -> PrefitVotingClassifier:
+        ensemble = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
+        return ensemble.fit(ds).get_ensemble()
 
     def _evaluation_callback(self, job: EvaluationJob) -> None:
         """

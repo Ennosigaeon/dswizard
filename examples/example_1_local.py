@@ -44,11 +44,12 @@ X_test = X.loc[test_indices]
 y_test = y[test_indices]
 
 ds = Dataset(X_train.to_numpy(), y_train.to_numpy(), metric='rocauc')
+ds_test = Dataset(X_test.to_numpy(), y_test.to_numpy(), metric=ds.metric)
 
 master = Master(
     ds=ds,
     working_directory=os.path.join(args.log_dir, str(args.task)),
-    n_workers=4,
+    n_workers=2,
     model='../dswizard/assets/rf_complete.pkl',
 
     wallclock_limit=args.wallclock_limit,
@@ -78,11 +79,15 @@ try:
     logging.info('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
 
     logging.info('Final pipeline:\n{}'.format(pipeline))
-    pipeline.fit(X, y)
+    pipeline.fit(X_train, y_train)
 
     y_pred = pipeline.predict(X_test)
     y_prob = pipeline.predict_proba(X_test)
     logging.info('Final test performance {}'.format(util.score(y_test, y_prob, y_pred, ds.metric)))
 
+    ensemble = master.build_ensemble(ds)
+    logging.info('Final ensemble performance {} based on {} pipelines'.format(
+        util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric),
+        len(ensemble.estimators_)))
 finally:
     master.shutdown()
