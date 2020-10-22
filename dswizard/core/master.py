@@ -246,9 +246,8 @@ class Master:
         except KeyboardInterrupt:
             self.logger.info('Aborting optimization due to user interrupt')
 
-        end = time.time()
-        self.meta_data['end'] = end
-        self.logger.info('Finished run after {} seconds'.format(math.ceil(end - start)))
+        self.meta_data['end'] = time.time()
+        self.logger.info('Finished run after {} seconds'.format(math.ceil(timeit.default_timer() - start)))
 
         iterations = self.result_logger.load()
         rh = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
