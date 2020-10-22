@@ -36,7 +36,7 @@ class CandidateId:
     running index)
     """
 
-    def __init__(self, iteration: int, structure: int, config: int = -1):
+    def __init__(self, iteration: int, structure: int, config: int = None):
         """
         :param iteration:the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
             Successive Halving

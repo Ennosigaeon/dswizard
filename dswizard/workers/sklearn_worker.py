@@ -25,7 +25,7 @@ class SklearnWorker(Worker):
 
     def compute(self,
                 ds: Dataset,
-                config_id: CandidateId,
+                cid: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
                 cfg_keys: Optional[List[Tuple[float, int]]],
@@ -43,8 +43,8 @@ class SklearnWorker(Worker):
         score, _, _ = self._score(ds, pipeline)
         return score
 
-    def transform_dataset(self, ds: Dataset, config: Configuration, component: EstimatorComponent) \
-            -> Tuple[np.ndarray, Optional[float]]:
+    def transform_dataset(self, ds: Dataset, cid: CandidateId, component: EstimatorComponent,
+                          config: Configuration) -> Tuple[np.ndarray, Optional[float]]:
         component.set_hyperparameters(config.get_dictionary())
         if is_classifier(component):
             score, y_pred, y_prob = self._score(ds, component)

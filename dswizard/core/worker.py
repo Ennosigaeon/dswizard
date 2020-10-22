@@ -101,7 +101,7 @@ class Worker(abc.ABC):
     @abc.abstractmethod
     def compute(self,
                 ds: Dataset,
-                config_id: CandidateId,
+                cid: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
                 cfg_keys: Optional[List[Tuple[float, int]]],
@@ -111,7 +111,7 @@ class Worker(abc.ABC):
         """
         The function you have to overload implementing your computation.
         :param ds:
-        :param config_id: the id of the configuration to be evaluated
+        :param cid: the id of the configuration to be evaluated
         :param config: the actual configuration to be evaluated.
         :param cfg_cache:
         :param cfg_keys:
@@ -126,7 +126,7 @@ class Worker(abc.ABC):
         X = None
         try:
             wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5)(self.transform_dataset)
-            c = wrapper(job.ds, job.config, job.component)
+            c = wrapper(job.ds, job.cid, job.component, job.config)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
                 status = StatusType.TIMEOUT
@@ -154,6 +154,7 @@ class Worker(abc.ABC):
     @abc.abstractmethod
     def transform_dataset(self,
                           ds: Dataset,
-                          config: Configuration,
-                          component: EstimatorComponent) -> Tuple[np.ndarray, Optional[float]]:
+                          cid: CandidateId,
+                          component: EstimatorComponent,
+                          config: Configuration) -> Tuple[np.ndarray, Optional[float]]:
         pass

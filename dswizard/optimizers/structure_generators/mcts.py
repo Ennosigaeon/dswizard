@@ -462,7 +462,8 @@ class MCTS(BaseStructureGenerator):
                     node, score = candidate, candidate_score
 
     def _expand(self, nodes: List[Node],
-                worker: Worker, cid: CandidateId,
+                worker: Worker,
+                cid: CandidateId,
                 max_distance: float = 0.05,
                 max_failures: int = 3,
                 timeout: float = None,
@@ -504,7 +505,7 @@ class MCTS(BaseStructureGenerator):
                 mf=ds.meta_features,
                 default=True)
 
-            job = EvaluationJob(ds, cid.without_config(), cs=component, cutoff=self.cutoff, config=config,
+            job = EvaluationJob(ds, cid.with_config(-new_node.id), cs=component, cutoff=self.cutoff, config=config,
                                 cfg_keys=[key])
             result = worker.start_transform_dataset(job)
 
