@@ -28,6 +28,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                  configuration: Optional[dict] = None,
                  cfg_cache: Optional[ConfigCache] = None,
                  cfg_keys: Optional[List[Tuple[float, int]]] = None):
+        self.configuration = None
         self.cfg_keys = cfg_keys
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
 
