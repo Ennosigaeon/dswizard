@@ -75,7 +75,9 @@ class EnsembleBuilder:
             except FileNotFoundError:
                 partial = [steps[name] for name, _ in rh[cid.without_config()].steps]
                 for t in itertools.product(*partial):
-                    models.append(FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)]))
+                    pipeline = FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)])
+                    pipeline.configuration = pipeline.get_hyperparameter_search_space(None).get_default_configuration()
+                    models.append(pipeline)
 
         n_failed = 0
         for model in models:

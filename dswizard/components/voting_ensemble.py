@@ -7,11 +7,6 @@ from sklearn.utils.multiclass import check_classification_targets
 
 class PrefitVotingClassifier(VotingClassifier):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Change class to obtain a normal VotingClassifier after cloning
-        self.__class__ = VotingClassifier
-
     def fit(self, X, y, sample_weight=None) -> 'PrefitVotingClassifier':
         """Fit the estimators.
 
