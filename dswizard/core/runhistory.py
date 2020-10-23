@@ -19,7 +19,7 @@ class RunHistory:
         self.meta_config = meta_config
         self.data: Dict[CandidateId, CandidateStructure] = data
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]
 
     def get_incumbent(self) -> Tuple[Optional[FlexiblePipeline], Optional[CandidateStructure]]:
@@ -49,14 +49,14 @@ class RunHistory:
             return pipeline, structure
         return None, None
 
-    def get_all_runs(self, ) -> List[Result]:
+    def get_all_runs(self, ) -> List[Tuple[CandidateId, Result]]:
         """
         returns all runs performed
         :return:
         """
         all_runs = []
         for structure in self.data.values():
-            all_runs.extend(structure.results)
+            all_runs.extend([(structure.cid.with_config(idx), res) for idx, res in enumerate(structure.results)])
         return all_runs
 
     def get_all_pipelines(self) -> List[Tuple[FlexiblePipeline, Result]]:

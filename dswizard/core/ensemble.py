@@ -1,6 +1,5 @@
 import glob
 import itertools
-import json
 import logging
 import os
 from typing import List, Tuple
@@ -12,7 +11,8 @@ from sklearn.utils import check_random_state
 
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.components.voting_ensemble import PrefitVotingClassifier
-from dswizard.core.model import Dataset, CandidateStructure
+from dswizard.core.model import Dataset
+from dswizard.core.runhistory import RunHistory
 from dswizard.util import util
 
 
@@ -21,10 +21,11 @@ class EnsembleBuilder:
     def __init__(self,
                  workdir: str,
                  structure_fn: str,
-                 n_bags=20,
-                 bag_fraction=0.25,
-                 prune_fraction=0.8,
-                 max_models=50,
+                 n_bags: int = 20,
+                 bag_fraction: float = 0.25,
+                 prune_fraction: float = 0.8,
+                 min_models: int = 5,
+                 max_models: int = 50,
                  random_state=None,
                  logger: logging.Logger = None):
         self.workdir = workdir
@@ -33,6 +34,7 @@ class EnsembleBuilder:
         self.n_bags = n_bags
         self.bag_fraction = bag_fraction
         self.prune_fraction = prune_fraction
+        self.min_models = min_models
         self.max_models = max_models
         self.random_state = random_state
 
@@ -44,20 +46,16 @@ class EnsembleBuilder:
         self._data: List[Tuple[float, FlexiblePipeline, np.ndarray]] = []
         self._n_classes = 0
 
-    def fit(self, ds: Dataset):
+    def fit(self, ds: Dataset, rh: RunHistory):
         """Perform model fitting and ensemble building"""
-        self._load(ds)
+        self._load(ds, rh)
         self._build_ensemble(ds)
         return self
 
-    def _load(self, ds: Dataset):
+    def _load(self, ds: Dataset, rh: RunHistory):
         self.logger.debug('Loading models')
         steps = {}
         models = []
-        # Load models with tuned hyperparameters
-        for file in glob.glob(os.path.join(self.workdir, 'models_*.pkl')):
-            with open(file, 'rb') as f:
-                models += joblib.load(f)
 
         # Load partial models with default hyperparameters
         for file in glob.glob(os.path.join(self.workdir, 'step_*.pkl')):
@@ -65,28 +63,37 @@ class EnsembleBuilder:
                 ls = joblib.load(f)
             steps[file.split('-')[1][:-4]] = ls
 
-        # Merge with actual structures to obtain fitted pipelines with default hyperparameters
-        with open(self.structure_fn, 'r') as structure_file:
-            for line in structure_file:
-                raw = json.loads(line)
-                cs = CandidateStructure.from_dict(raw)
-                partial = [steps[name] for name, _ in cs.steps]
+        runs = sorted(rh.get_all_runs(), key=lambda x: x[1].loss)
+        n_models = min(self.max_models, max(int(len(runs) * (1.0 - self.prune_fraction)), self.min_models))
+        runs = runs[:n_models]
+
+        # Load models with tuned hyperparameters
+        for cid, result in runs:
+            try:
+                with open(os.path.join(self.workdir, 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())), 'rb') as f:
+                    models += joblib.load(f)
+            except FileNotFoundError:
+                partial = [steps[name] for name, _ in rh[cid.without_config()].steps]
                 for t in itertools.product(*partial):
                     models.append(FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)]))
 
+        n_failed = 0
         for model in models:
-            y_prob = model.predict_proba(ds.X)
-            y_pred = model.predict(ds.X)
-            score = util.score(ds.y, y_prob, y_pred, ds.metric)
-            self._data.append((score, model, y_prob))
+            try:
+                y_prob = model.predict_proba(ds.X)
+                y_pred = model.predict(ds.X)
+                score = util.score(ds.y, y_prob, y_pred, ds.metric)
+                self._data.append((score, model, y_prob))
+            except Exception:
+                n_failed += 1
         self._data.sort(key=lambda x: x[0])
-        self.logger.info('Loaded {} models'.format(len(self._data)))
+        self.logger.info('Loaded {} models. Failed to load {} models'.format(len(self._data), n_failed))
 
     def _build_ensemble(self, ds: Dataset):
         self.logger.debug('Building ensemble')
         self._n_classes = len(np.unique(ds.y))
 
-        n_models = min(self.max_models, int(len(self._data) * (1.0 - self.prune_fraction)))
+        n_models = len(self._data)
         bag_size = int(self.bag_fraction * n_models)
 
         self.ensembles_: List[Tuple[float, PrefitVotingClassifier]] = []

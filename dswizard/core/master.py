@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import multiprocessing
 import os
 import random
@@ -11,7 +12,6 @@ import timeit
 from multiprocessing.managers import SyncManager
 from typing import Type, TYPE_CHECKING, Tuple, Dict
 
-import math
 from ConfigSpace.configuration_space import ConfigurationSpace
 from sklearn.pipeline import Pipeline
 
@@ -252,13 +252,15 @@ class Master:
         self.logger.info('Finished run after {} seconds'.format(math.ceil(timeit.default_timer() - start)))
 
         iterations = self.result_logger.load()
-        rh = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
-        pipeline, _ = rh.get_incumbent()
-        return pipeline, rh
+        # noinspection PyAttributeOutsideInit
+        self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
 
-    def build_ensemble(self, ds: Dataset) -> PrefitVotingClassifier:
+        pipeline, _ = self.rh_.get_incumbent()
+        return pipeline, self.rh_
+
+    def build_ensemble(self) -> PrefitVotingClassifier:
         ensemble = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
-        return ensemble.fit(ds).get_ensemble()
+        return ensemble.fit(self.ds, self.rh_).get_ensemble()
 
     def _evaluation_callback(self, job: EvaluationJob) -> None:
         """
