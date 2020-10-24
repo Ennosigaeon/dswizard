@@ -2,6 +2,7 @@ import glob
 import itertools
 import logging
 import os
+import timeit
 from typing import List, Tuple
 
 import joblib
@@ -21,6 +22,7 @@ class EnsembleBuilder:
     def __init__(self,
                  workdir: str,
                  structure_fn: str,
+                 cutoff: int = 900,
                  n_bags: int = 4,
                  bag_fraction: float = 0.25,
                  prune_fraction: float = 0.8,
@@ -30,6 +32,7 @@ class EnsembleBuilder:
                  logger: logging.Logger = None):
         self.workdir = workdir
         self.structure_fn = structure_fn
+        self.cutoff = cutoff
 
         self.n_bags = n_bags
         self.bag_fraction = bag_fraction
@@ -116,6 +119,7 @@ class EnsembleBuilder:
     def _ensemble_from_candidates(self, X, y, metric, candidates) -> Tuple[float, PrefitVotingClassifier]:
         weights = np.zeros(len(candidates))
         ens_score, ens_probs = self._get_ensemble_score(y, metric, candidates, weights)
+        start = timeit.default_timer()
 
         cand_ensembles = []
         for ens_count in range(self.max_models):
@@ -124,11 +128,17 @@ class EnsembleBuilder:
                 score, _ = self._score_with_model(y, metric, ens_probs, ens_count, entry)
                 new_scores[idx] = score
 
-            idx = np.random.choice(np.where(new_scores == np.min(new_scores))[0])
-            weights[idx] += 1
-            ens_score, ens_probs = self._score_with_model(y, metric, ens_probs, ens_count, candidates[idx, :])
+                if timeit.default_timer() - start > self.cutoff:
+                    self.logger.info('Aborting ensemble construction after timeout')
+                    break
+            else:
+                idx = np.random.choice(np.where(new_scores == np.min(new_scores))[0])
+                weights[idx] += 1
+                ens_score, ens_probs = self._score_with_model(y, metric, ens_probs, ens_count, candidates[idx, :])
 
-            cand_ensembles.append((ens_score, np.copy(weights)))
+                cand_ensembles.append((ens_score, np.copy(weights)))
+                continue
+            break
 
         scores = np.array([score for score, _ in cand_ensembles])
         idx = np.random.choice(np.where(scores == np.min(scores))[0])
