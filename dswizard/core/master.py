@@ -105,17 +105,17 @@ class Master:
         SyncManager.register('StructureGenerator', structure_generator_class)
         SyncManager.register('ConfigCache', ConfigCache)
 
-        mgr = multiprocessing.Manager()
+        self.mgr = multiprocessing.Manager()
         # noinspection PyUnresolvedReferences
-        self.cfg_cache: ConfigCache = mgr.ConfigCache(clazz=config_generator_class,
-                                                      init_kwargs=config_generator_kwargs,
-                                                      model=model)
+        self.cfg_cache: ConfigCache = self.mgr.ConfigCache(clazz=config_generator_class,
+                                                           init_kwargs=config_generator_kwargs,
+                                                           model=model)
         # noinspection PyUnresolvedReferences
-        self.structure_generator: BaseStructureGenerator = mgr.StructureGenerator(cfg_cache=self.cfg_cache,
-                                                                                  cutoff=self.cutoff,
-                                                                                  workdir=self.working_directory,
-                                                                                  model=model,
-                                                                                  **structure_generator_kwargs)
+        self.structure_generator: BaseStructureGenerator = self.mgr.StructureGenerator(cfg_cache=self.cfg_cache,
+                                                                                       cutoff=self.cutoff,
+                                                                                       workdir=self.working_directory,
+                                                                                       model=model,
+                                                                                       **structure_generator_kwargs)
 
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
@@ -129,11 +129,12 @@ class Master:
         self.bandit_learner: BanditLearner = bandit_learner_class(**bandit_learner_kwargs)
 
     def shutdown(self) -> None:
-        self.logger.info('shutdown initiated')
+        self.logger.info('Shutdown initiated')
         # Sleep one second to guarantee dispatcher start, if startup procedure fails
         time.sleep(1)
         self.structure_generator.shutdown()
-        self.temp_dir.cleanup()
+        self.dispatcher.shutdown()
+        self.mgr.shutdown()
 
     def optimize(self) -> Tuple[Pipeline, RunHistory]:
         """
@@ -247,6 +248,8 @@ class Master:
                 offset += len(self.bandit_learner.iterations)
         except KeyboardInterrupt:
             self.logger.info('Aborting optimization due to user interrupt')
+        finally:
+            self.shutdown()
 
         self.meta_data['end'] = time.time()
         self.logger.info('Finished run after {} seconds'.format(math.ceil(timeit.default_timer() - start)))
@@ -258,9 +261,9 @@ class Master:
         pipeline, _ = self.rh_.get_incumbent()
         return pipeline, self.rh_
 
-    def build_ensemble(self) -> PrefitVotingClassifier:
+    def build_ensemble(self, ds: Dataset = None) -> PrefitVotingClassifier:
         ensemble = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
-        return ensemble.fit(self.ds, self.rh_).get_ensemble()
+        return ensemble.fit(self.ds if ds is None else ds, self.rh_).get_ensemble()
 
     def _evaluation_callback(self, job: EvaluationJob) -> None:
         """

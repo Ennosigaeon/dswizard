@@ -125,6 +125,10 @@ class Dispatcher:
                 else:
                     self.condition.wait(deadline - now)
 
+    def shutdown(self):
+        self.pool.close()
+        self.pool.join()
+
     def __getstate__(self):
         # Copy the object's state from self.__dict__ which contains
         # all our instance attributes. Always use the dict.copy()
