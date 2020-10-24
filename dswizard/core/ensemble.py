@@ -21,11 +21,11 @@ class EnsembleBuilder:
     def __init__(self,
                  workdir: str,
                  structure_fn: str,
-                 n_bags: int = 20,
+                 n_bags: int = 4,
                  bag_fraction: float = 0.25,
                  prune_fraction: float = 0.8,
                  min_models: int = 5,
-                 max_models: int = 50,
+                 max_models: int = 25,
                  random_state=None,
                  logger: logging.Logger = None):
         self.workdir = workdir
@@ -105,11 +105,12 @@ class EnsembleBuilder:
             cand_indices = rs.permutation(n_models)[:bag_size]
             candidates.append(np.array([self._data[ci] for ci in cand_indices]))
 
-        self.ensembles_ = Parallel()(
+        self.ensembles_ = Parallel(n_jobs=-1)(
             delayed(self._ensemble_from_candidates)(ds.X, ds.y, ds.metric, c)
             for c in candidates
         )
         self.ensembles_.sort(key=lambda x: x[0])
+        self.logger.debug('Ensemble constructed')
         return self
 
     def _ensemble_from_candidates(self, X, y, metric, candidates) -> Tuple[float, PrefitVotingClassifier]:
