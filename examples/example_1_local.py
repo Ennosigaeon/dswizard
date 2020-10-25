@@ -66,28 +66,25 @@ master = Master(
                            'max_budget': args.max_budget}
 )
 
-try:
-    pipeline, run_history = master.optimize()
+pipeline, run_history = master.optimize()
 
-    # Analysis
-    _, incumbent = run_history.get_incumbent()
+# Analysis
+_, incumbent = run_history.get_incumbent()
 
-    logging.info('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
-                                                                        incumbent.get_incumbent().config,
-                                                                        incumbent.get_incumbent().loss))
-    logging.info('A total of {} unique structures where sampled.'.format(len(run_history.data)))
-    logging.info('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
+logging.info('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
+                                                                    incumbent.get_incumbent().config,
+                                                                    incumbent.get_incumbent().loss))
+logging.info('A total of {} unique structures where sampled.'.format(len(run_history.data)))
+logging.info('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
 
-    logging.info('Final pipeline:\n{}'.format(pipeline))
-    pipeline.fit(X_train, y_train)
+logging.info('Final pipeline:\n{}'.format(pipeline))
+pipeline.fit(X_train, y_train)
 
-    y_pred = pipeline.predict(X_test)
-    y_prob = pipeline.predict_proba(X_test)
-    logging.info('Final test performance {}'.format(util.score(y_test, y_prob, y_pred, ds.metric)))
+y_pred = pipeline.predict(X_test)
+y_prob = pipeline.predict_proba(X_test)
+logging.info('Final test performance {}'.format(util.score(y_test, y_prob, y_pred, ds.metric)))
 
-    ensemble = master.build_ensemble(ds)
-    logging.info('Final ensemble performance {} based on {} pipelines'.format(
-        util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric),
-        len(ensemble.estimators_)))
-finally:
-    master.shutdown()
+ensemble = master.build_ensemble()
+logging.info('Final ensemble performance {} based on {} pipelines'.format(
+    util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric),
+    len(ensemble.estimators_)))
