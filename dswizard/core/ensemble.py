@@ -7,7 +7,6 @@ from typing import List, Tuple
 
 import joblib
 import numpy as np
-from joblib import Parallel, delayed
 from sklearn.utils import check_random_state
 
 from dswizard.components.pipeline import FlexiblePipeline
@@ -24,7 +23,7 @@ class EnsembleBuilder:
                  structure_fn: str,
                  cutoff: int = 900,
                  n_bags: int = 4,
-                 bag_fraction: float = 0.25,
+                 bag_fraction: float = 0.75,
                  prune_fraction: float = 0.8,
                  min_models: int = 5,
                  max_models: int = 25,
@@ -48,11 +47,19 @@ class EnsembleBuilder:
 
         self._data: List[Tuple[float, FlexiblePipeline, np.ndarray]] = []
         self._n_classes = 0
+        self.start = None
 
     def fit(self, ds: Dataset, rh: RunHistory):
-        """Perform model fitting and ensemble building"""
+        self.start = timeit.default_timer()
         self._load(ds, rh)
-        self._build_ensemble(ds)
+        self._n_classes = len(np.unique(ds.y))
+
+        if self.n_bags > 0:
+            self._build_bagged_ensemble(ds)
+        else:
+            self._build_ensemble(ds)
+
+        self.logger.debug('Ensemble constructed')
         return self
 
     def _load(self, ds: Dataset, rh: RunHistory):
@@ -96,7 +103,11 @@ class EnsembleBuilder:
 
     def _build_ensemble(self, ds: Dataset):
         self.logger.debug('Building ensemble')
-        self._n_classes = len(np.unique(ds.y))
+        self.ensembles_ = [self._ensemble_from_candidates(ds.X, ds.y, ds.metric, self._data)]
+        return self
+
+    def _build_bagged_ensemble(self, ds: Dataset):
+        self.logger.debug('Building bagged ensemble')
 
         n_models = len(self._data)
         bag_size = int(self.bag_fraction * n_models)
@@ -106,20 +117,18 @@ class EnsembleBuilder:
         candidates = []
         for i in range(self.n_bags):
             cand_indices = rs.permutation(n_models)[:bag_size]
-            candidates.append(np.array([self._data[ci] for ci in cand_indices]))
+            candidates.append([self._data[ci] for ci in cand_indices])
 
-        self.ensembles_ = Parallel(n_jobs=-1)(
-            delayed(self._ensemble_from_candidates)(ds.X, ds.y, ds.metric, c)
-            for c in candidates
-        )
+        for c in candidates:
+            score, ens = self._ensemble_from_candidates(ds.X, ds.y, ds.metric, c)
+            if ens is not None:
+                self.ensembles_.append((score, ens))
         self.ensembles_.sort(key=lambda x: x[0])
-        self.logger.debug('Ensemble constructed')
         return self
 
     def _ensemble_from_candidates(self, X, y, metric, candidates) -> Tuple[float, PrefitVotingClassifier]:
         weights = np.zeros(len(candidates))
         ens_score, ens_probs = self._get_ensemble_score(y, metric, candidates, weights)
-        start = timeit.default_timer()
 
         cand_ensembles = []
         for ens_count in range(self.max_models):
@@ -128,23 +137,26 @@ class EnsembleBuilder:
                 score, _ = self._score_with_model(y, metric, ens_probs, ens_count, entry)
                 new_scores[idx] = score
 
-                if timeit.default_timer() - start > self.cutoff:
+                if timeit.default_timer() - self.start > self.cutoff:
                     self.logger.info('Aborting ensemble construction after timeout')
                     break
             else:
                 idx = np.random.choice(np.where(new_scores == np.min(new_scores))[0])
                 weights[idx] += 1
-                ens_score, ens_probs = self._score_with_model(y, metric, ens_probs, ens_count, candidates[idx, :])
+                ens_score, ens_probs = self._score_with_model(y, metric, ens_probs, ens_count, candidates[idx])
 
                 cand_ensembles.append((ens_score, np.copy(weights)))
                 continue
             break
 
+        if len(cand_ensembles) == 0:
+            return None, None
+
         scores = np.array([score for score, _ in cand_ensembles])
         idx = np.random.choice(np.where(scores == np.min(scores))[0])
         score, weights = cand_ensembles[idx]
         return score, PrefitVotingClassifier(
-            [(str(i), clf) for i, clf in enumerate(candidates[weights > 0][:, 1].tolist())],
+            [(str(i), clf[1]) for i, clf in enumerate(candidates) if weights[i] > 0],
             weights=weights[weights > 0], voting='soft').fit(X, y)
 
     def _get_ensemble_score(self, y, metric, candidates, weights):
