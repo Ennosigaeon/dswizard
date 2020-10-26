@@ -60,7 +60,8 @@ class Worker(abc.ABC):
         result = None
         try:
             process_logger = ProcessLogger(self.workdir, job.cid)
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5)(self.compute)
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5, logger=self.logger)(
+                self.compute)
             c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.cfg_keys, job.component, process_logger)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
@@ -125,7 +126,8 @@ class Worker(abc.ABC):
 
         X = None
         try:
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5)(self.transform_dataset)
+            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5, logger=self.logger)(
+                self.transform_dataset)
             c = wrapper(job.ds, job.cid, job.component, job.config)
 
             if wrapper.exit_status is pynisher2.TimeoutException:
