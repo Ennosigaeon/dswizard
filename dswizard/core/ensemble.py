@@ -79,15 +79,21 @@ class EnsembleBuilder:
 
         # Load models with tuned hyperparameters
         for cid, result in runs:
+            file = os.path.join(self.workdir, 'models_{}-{}-{}.pkl'.format(*cid.as_tuple()))
             try:
-                with open(os.path.join(self.workdir, 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())), 'rb') as f:
+                with open(file, 'rb') as f:
                     models += joblib.load(f)
             except FileNotFoundError:
-                partial = [steps[name] for name, _ in rh[cid.without_config()].steps]
-                for t in itertools.product(*partial):
-                    pipeline = FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)])
-                    pipeline.configuration = pipeline.get_hyperparameter_search_space(None).get_default_configuration()
-                    models.append(pipeline)
+                try:
+                    partial = [steps[name] for name, _ in rh[cid.without_config()].steps]
+                    for t in itertools.product(*partial):
+                        pipeline = FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)])
+                        pipeline.configuration = pipeline.get_hyperparameter_search_space(
+                            None).get_default_configuration()
+                        models.append(pipeline)
+                except KeyError as ex:
+                    self.logger.warning(
+                        'File {}does not exist and pipeline step {} is not available'.format(file, str(ex)))
 
         n_failed = 0
         for model in models:
