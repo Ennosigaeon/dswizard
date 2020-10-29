@@ -3,7 +3,6 @@ from __future__ import annotations
 import timeit
 from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
-import networkx as nx
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
 from sklearn.base import BaseEstimator, clone
@@ -44,6 +43,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             self.set_hyperparameters(configuration)
 
     def to_networkx(self, prefix: str = None):
+        import networkx as nx
         G = nx.DiGraph()
         predecessor = None
         for name, estimator in self.steps_.items():
