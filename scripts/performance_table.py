@@ -37,17 +37,20 @@ def get_raw(idx: int):
 
 tpot = pd.read_excel('results.xlsx', sheet_name=0)
 autosklearn = pd.read_excel('results.xlsx', sheet_name=1)
+dswizard = pd.read_excel('results.xlsx', sheet_name=2)
 
 impute_missing(tpot)
 impute_missing(autosklearn)
+impute_missing(dswizard)
 
 tpot2 = compute_statistics(tpot)
 autosklearn2 = compute_statistics(autosklearn)
+dswizard2 = compute_statistics(dswizard)
 
-raw = [autosklearn, tpot]
-raw2 = [autosklearn2, tpot2]
+raw = [autosklearn, tpot, dswizard]
+raw2 = [autosklearn2, tpot2, dswizard2]
 
-for ds in tpot2.index:
+for ds in dswizard2.index:
     metric = tpot2.loc[ds]['metric']
     mean = np.array([df.loc[ds]['mean'] for df in raw2])
     std = np.array([df.loc[ds]['std'] for df in raw2])
@@ -57,26 +60,28 @@ for ds in tpot2.index:
 
     print('{:40s}\t& '.format(str(ds) + ('*' if metric == 'auc' else '')), end='')
 
+    columns = []
     for idx in range(len(mean)):
         if mean[idx] in {0, 4}:
-            print('       ---                  \t& ', end='')
+            columns.append('       ---                  ')
         else:
+            entry = []
             if mean[idx] == best(mean):
-                print('\\B ', end='')
+                entry.append('\\B ')
                 significant = False
             else:
-                print('   ', end='')
+                entry.append('   ')
                 res = wilcoxon(significance_ref, get_raw(idx))
                 significant = res.pvalue < 0.05
             if significant:
-                print('\\ul{', end='')
+                entry.append('\\ul{')
             else:
-                print('    ', end='')
-            print('{:.4f} \\(\\pm\\) {:.4f}'.format(mean[idx], std[idx]), end='')
+                entry.append('    ')
+            entry.append('{:.4f} \\(\\pm\\) {:.4f}'.format(mean[idx], std[idx]))
             if significant:
-                print('}\t& ', end='')
-            else:
-                print(' \t& ', end='')
-    print('\\\\')
+                entry.append('}')
+            columns.append(''.join(entry))
+    print('\t& '.join(columns), end='')
+    print('\t\\\\')
 
 a = 0
