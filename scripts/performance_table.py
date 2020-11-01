@@ -2,6 +2,7 @@ import warnings
 
 import pandas as pd
 import numpy as np
+import scipy
 from scipy.stats import wilcoxon
 
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -50,18 +51,23 @@ dswizard2 = compute_statistics(dswizard)
 raw = [autosklearn, tpot, dswizard]
 raw2 = [autosklearn2, tpot2, dswizard2]
 
+tables = {}
+
 for ds in dswizard2.index:
     metric = tpot2.loc[ds]['metric']
     mean = np.array([df.loc[ds]['mean'] for df in raw2])
     std = np.array([df.loc[ds]['std'] for df in raw2])
     best, argbest = (np.max, np.argmax) if metric == 'auc' else (np.min, np.argmin)
 
+    if metric not in tables:
+        tables[metric] = [], []
+
     significance_ref = get_raw(argbest(mean))
 
-    print('{:40s}\t& '.format(str(ds) + ('*' if metric == 'auc' else '')), end='')
-
-    columns = []
+    columns = ['{:40s}'.format(str(ds).replace('_', '\\_'))]
+    rank = []
     for idx in range(len(mean)):
+        rank.append(mean[idx])
         if mean[idx] in {0, 4}:
             columns.append('       ---                  ')
         else:
@@ -81,7 +87,15 @@ for ds in dswizard2.index:
             if significant:
                 entry.append('}')
             columns.append(''.join(entry))
-    print('\t& '.join(columns), end='')
-    print('\t\\\\')
+    tables[metric][0].append('\t& '.join(columns) + '\t\\\\')
+    tables[metric][1].append(rank)
 
-a = 0
+for metric, data in tables.items():
+    print('\n\n', metric)
+    print('\n'.join(data[0]))
+
+    rank = np.array(data[1])
+    if metric == 'auc':
+        rank *= -1
+    a = scipy.stats.rankdata(rank, axis=1)
+    print('Avg. Rank\t& ' + '\t& '.join(['{:.4f}'.format(v) for v in np.mean(a, axis=0)]) + '\t\\\\')
