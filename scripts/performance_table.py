@@ -74,17 +74,17 @@ for ds in dswizard2.index:
             entry = []
             if mean[idx] == best(mean):
                 entry.append('\\B ')
-                significant = False
+                significant = True
             else:
                 entry.append('   ')
                 res = wilcoxon(significance_ref, get_raw(idx))
                 significant = res.pvalue < 0.05
-            if significant:
+            if not significant:
                 entry.append('\\ul{')
             else:
                 entry.append('    ')
             entry.append('{:.4f} \\(\\pm\\) {:.4f}'.format(mean[idx], std[idx]))
-            if significant:
+            if not significant:
                 entry.append('}')
             columns.append(''.join(entry))
     tables[metric][0].append('\t& '.join(columns) + '\t\\\\')
