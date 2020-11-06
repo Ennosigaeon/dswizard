@@ -136,6 +136,9 @@ class Master:
         self.dispatcher.shutdown()
         self.mgr.shutdown()
 
+    def cleanup(self):
+        self.temp_dir.cleanup()
+
     def optimize(self) -> Tuple[Pipeline, RunHistory]:
         """
         run optimization
