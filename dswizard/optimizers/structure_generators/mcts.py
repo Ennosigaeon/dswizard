@@ -200,9 +200,12 @@ class Tree:
 
 class Policy(ABC):
 
-    def __init__(self, logger: logging.Logger, exploration_weight: float = 2, **kwargs):
+    def __init__(self, logger: logging.Logger, exploration_weight: float = 2, wallclock_limit: float = None, **kwargs):
         self.logger = logger
         self.exploration_weight = exploration_weight
+        self._exploration_weight = exploration_weight
+        self.start = timeit.default_timer()
+        self.wallclock_limit = wallclock_limit
 
     @abc.abstractmethod
     def get_next_action(self,
@@ -233,7 +236,7 @@ class Policy(ABC):
         exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
         exploration = math.sqrt(log_N_vertex / n.visits)
         overfitting = (scale ** len(n.steps)) / (scale ** 10)
-        return (exploitation + self.exploration_weight * exploration) * (1 - overfitting)
+        return (exploitation + self._exploration_weight * exploration) * (1 - overfitting)
 
     def select(self, node: Node, tree: Tree, force: bool = False) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
@@ -254,6 +257,10 @@ class Policy(ABC):
             children = current_children + possible_children
         else:
             children = current_children
+
+        if self.wallclock_limit is not None:
+            self._exploration_weight = max(0.0, self.exploration_weight * (
+                    math.exp((self.wallclock_limit + self.start - timeit.default_timer()) / self.wallclock_limit) - 1))
 
         scores = [self.uct(n, node) for n in children]
         idx = int(np.argmax(scores))
@@ -330,8 +337,15 @@ class TransferLearning(Policy):
 class MCTS(BaseStructureGenerator):
     """Monte Carlo tree searcher. First rollout the tree then choose a move."""
 
-    def __init__(self, cutoff: int, workdir: str, model: str = None, policy: Type[Policy] = None,
-                 policy_kwargs: dict = None, store_ds: bool = False, **kwargs):
+    def __init__(self,
+                 cutoff: int,
+                 workdir: str,
+                 policy: Type[Policy] = None,
+                 store_ds: bool = False,
+                 model: str = None,
+                 wallclock_limit: float = None,
+                 epsilon_greedy: bool = True,
+                 **kwargs):
         super().__init__(**kwargs)
         self.workdir = workdir
         self.cutoff = cutoff
@@ -341,10 +355,12 @@ class MCTS(BaseStructureGenerator):
 
         if policy is None:
             policy = RandomSelection
-        if policy_kwargs is None:
-            policy_kwargs = {}
+        policy_kwargs = {
+            'model': model,
+            'wallclock_limit': wallclock_limit if epsilon_greedy else None
+        }
         try:
-            self.policy = policy(self.logger, **policy_kwargs, model=model)
+            self.policy = policy(self.logger, **policy_kwargs)
             # noinspection PyUnresolvedReferences
             similarity_model = self.policy.mean
         except (KeyError, FileNotFoundError) as ex:

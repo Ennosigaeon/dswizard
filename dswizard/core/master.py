@@ -115,6 +115,7 @@ class Master:
                                                                                        cutoff=self.cutoff,
                                                                                        workdir=self.working_directory,
                                                                                        model=model,
+                                                                                       wallclock_limit=wallclock_limit,
                                                                                        **structure_generator_kwargs)
 
         if n_workers < 1:
