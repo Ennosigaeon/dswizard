@@ -97,6 +97,7 @@ class Master:
         self.cutoff = cutoff
         self.structure_cutoff_factor = structure_cutoff_factor
         self.pre_sample = pre_sample
+        self.abort = False
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
@@ -175,6 +176,10 @@ class Master:
             while True:
                 if timeit.default_timer() > deadline:
                     self.logger.info("Timeout reached. Stopping optimization")
+                    self.dispatcher.finish_work(self.cutoff)
+                    return True
+                if self.abort:
+                    self.logger.info('Aborting optimization')
                     self.dispatcher.finish_work(self.cutoff)
                     return True
 
@@ -297,6 +302,10 @@ class Master:
                     self.incomplete_structures[job.cs.cid] = cs, n_configs, running - 1
             except KeyboardInterrupt:
                 raise
+            except (BrokenPipeError, EOFError) as ex:
+                self.logger.fatal('Lost connection to SyncManager probably due to OOM. Aborting...: {}'.format(ex),
+                                  exc_info=True)
+                self.abort = True
             except Exception as ex:
                 self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
                                   exc_info=True)
@@ -326,6 +335,10 @@ class Master:
                 self.incomplete_structures[cs.cid] = cs, int(cs.budget), 0
             except KeyboardInterrupt:
                 raise
+            except (BrokenPipeError, EOFError) as ex:
+                self.logger.fatal('Lost connection to SyncManager probably due to OOM. Aborting...: {}'.format(ex),
+                                  exc_info=True)
+                self.abort = True
             except Exception as ex:
                 self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
                                   exc_info=True)
