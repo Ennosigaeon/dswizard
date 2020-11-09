@@ -7,6 +7,7 @@ from typing import List, Tuple
 
 import joblib
 import numpy as np
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.utils import check_random_state
 
 from dswizard.components.pipeline import FlexiblePipeline
@@ -49,15 +50,20 @@ class EnsembleBuilder:
         self._n_classes = 0
         self.start = None
 
-    def fit(self, ds: Dataset, rh: RunHistory):
+    def fit(self, ds: Dataset, rh: RunHistory, fraction: float = 0.2):
         self.start = timeit.default_timer()
-        self._load(ds, rh)
         self._n_classes = len(np.unique(ds.y))
 
+        rs = StratifiedShuffleSplit(n_splits=1, test_size=fraction, random_state=0)
+        train_idx, test_idx = next(rs.split(ds.X, ds.y))
+        ds2 = Dataset(ds.X[test_idx], ds.y[test_idx], ds.metric)
+
+        self._load(ds2, rh)
+
         if self.n_bags > 0:
-            self._build_bagged_ensemble(ds)
+            self._build_bagged_ensemble(ds2)
         else:
-            self._build_ensemble(ds)
+            self._build_ensemble(ds2)
 
         self.logger.debug('Ensemble constructed')
         return self
