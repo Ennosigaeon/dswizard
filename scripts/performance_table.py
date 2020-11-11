@@ -39,21 +39,27 @@ def get_raw(idx: int):
 tpot = pd.read_excel('results.xlsx', sheet_name=0)
 autosklearn = pd.read_excel('results.xlsx', sheet_name=1)
 dswizard = pd.read_excel('results.xlsx', sheet_name=2)
+dswizard_star = pd.read_excel('results.xlsx', sheet_name=3)
 
 impute_missing(tpot)
 impute_missing(autosklearn)
 impute_missing(dswizard)
+impute_missing(dswizard_star)
 
 tpot2 = compute_statistics(tpot)
 autosklearn2 = compute_statistics(autosklearn)
 dswizard2 = compute_statistics(dswizard)
+dswizard_star2 = compute_statistics(dswizard_star)
 
-raw = [autosklearn, tpot, dswizard]
-raw2 = [autosklearn2, tpot2, dswizard2]
+raw = [autosklearn, tpot, dswizard, dswizard_star]
+raw2 = [autosklearn2, tpot2, dswizard2, dswizard_star2]
 
 tables = {}
 
 for ds in dswizard2.index:
+    if ds == 'collins':
+        continue
+
     metric = tpot2.loc[ds]['metric']
     mean = np.array([df.loc[ds]['mean'] for df in raw2])
     std = np.array([df.loc[ds]['std'] for df in raw2])
@@ -64,7 +70,7 @@ for ds in dswizard2.index:
 
     significance_ref = get_raw(argbest(mean))
 
-    columns = ['{:40s}'.format(str(ds).replace('_', '\\_'))]
+    columns = ['{:17}'.format(str(ds).replace('_', '\\_')[:18])]
     rank = []
     for idx in range(len(mean)):
         rank.append(mean[idx])
@@ -91,7 +97,7 @@ for ds in dswizard2.index:
     tables[metric][1].append(rank)
 
 for metric, data in tables.items():
-    print('\n\n', metric)
+    print('\n\n', metric, len(data[0]))
     print('\n'.join(data[0]))
 
     rank = np.array(data[1])
