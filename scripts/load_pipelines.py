@@ -1,6 +1,7 @@
 import glob
 import os
 import pickle
+from argparse import ArgumentParser
 from typing import List, Union
 
 import networkx as nx
@@ -158,7 +159,7 @@ def load_autosklearn(base_dir: str):
             print(ex, input)
             return []
 
-    with open('configspace.pkl', 'rb') as f:
+    with open('fig/configspace.pkl', 'rb') as f:
         cs = pickle.load(f)
 
     from autosklearn.pipeline.classification import SimpleClassificationPipeline
@@ -309,7 +310,7 @@ def build_graph(models: List[List[str]], name: str, prune_factor: float = 0.025)
             G.nodes[n]['style'] = 'filled'
 
     H = nx.nx_agraph.to_agraph(G)
-    H.draw('{}_full.pdf'.format(name), prog='dot')
+    H.draw('fig/{}_full.pdf'.format(name), prog='dot')
 
     min_weight = 3 / len(models)
     to_remove = []
@@ -325,7 +326,7 @@ def build_graph(models: List[List[str]], name: str, prune_factor: float = 0.025)
         G[u][v]['penwidth'] = max(0.25, 6 * G[u][v]['weight'])
 
     H = nx.nx_agraph.to_agraph(G)
-    H.draw('{}_pruned.pdf'.format(name), prog='dot')
+    H.draw('fig/{}_pruned.pdf'.format(name), prog='dot')
 
     return G
 
@@ -381,21 +382,27 @@ def build_circo_graph(models: List[List[str]], name: str, start: int = 0, prune_
             G.nodes[n]['style'] = 'filled'
 
     H = nx.nx_agraph.to_agraph(G)
-    H.draw('{}_circo.pdf'.format(name), prog='circo')
+    H.draw('fig/{}_circo.pdf'.format(name), prog='circo')
 
     return G
 
 
-base_dir = '/home/marc/phd/results/combined/'
-# autosklearn = load_autosklearn(base_dir)
-# tpot = load_tpot(base_dir)
-# dswizard = load_dswizard(base_dir, 'dswizard')
-# dswizard_star = load_dswizard(base_dir, 'dswizard_star')
-# with open('models.pkl', 'wb') as f:
-#     pickle.dump((autosklearn, dswizard, dswizard_star, tpot), f)
+parser = ArgumentParser()
+parser.add_argument('base_dir', type=str, help='Base dir containing raw results')
+parser.add_argument('--load', type=bool, help='Load raw results instead of cache', default=False)
+args = parser.parse_args()
 
-with open('models.pkl', 'rb') as f:
-    autosklearn, dswizard, dswizard_star, tpot = pickle.load(f)
+base_dir = args.base_dir
+if args.load:
+    autosklearn = load_autosklearn(base_dir)
+    tpot = load_tpot(base_dir)
+    dswizard = load_dswizard(base_dir, 'dswizard')
+    dswizard_star = load_dswizard(base_dir, 'dswizard_star')
+    with open('fig/models.pkl', 'wb') as f:
+        pickle.dump((autosklearn, dswizard, dswizard_star, tpot), f)
+else:
+    with open('fig/models.pkl', 'rb') as f:
+        autosklearn, dswizard, dswizard_star, tpot = pickle.load(f)
 
 tpot = flatten(tpot)
 tpot = coalesce(tpot)
