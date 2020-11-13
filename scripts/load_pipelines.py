@@ -172,7 +172,7 @@ def load_autosklearn(base_dir: str):
     return models
 
 
-def load_dswizard(base_dir: str):
+def load_dswizard(base_dir: str, variant: str):
     def load_model(ensemble):
         from automl.components.base import NoopComponent
 
@@ -191,7 +191,7 @@ def load_dswizard(base_dir: str):
         return ls
 
     models = []
-    for file in glob.glob(os.path.join(base_dir, 'dswizard/**/models.pkl'), recursive=True):
+    for file in glob.glob(os.path.join(base_dir, variant, '**/models.pkl'), recursive=True):
         print(file)
         with open(file, 'rb') as f:
             try:
@@ -336,7 +336,7 @@ def build_circo_graph(models: List[List[str]], name: str, start: int = 0, prune_
     total_edges = 0
     total_nodes = 0
 
-    print(name, np.array([len(p) - start for p in models]).mean())
+    print(name, np.mean(np.array([len(p) - start for p in models])), np.std(np.array([len(p) - start for p in models])))
 
     for pipeline in models:
         for i in range(start, len(pipeline)):
@@ -358,12 +358,12 @@ def build_circo_graph(models: List[List[str]], name: str, start: int = 0, prune_
             else:
                 data['weight'] = data['weight'] + 1.0
 
-    def scale(x: float):
-        return (1 - 0.15) * (x - 0.01) / (0.8 - 0.01) + 0.15 if normalize else x
+    def scale(x: float, borders=(0.01, 0.8), offset: float = 0.15):
+        return (1 - offset) * (x - borders[0]) / (borders[1] - borders[0]) + offset if normalize else x
 
     for u, v in G.edges():
         G[u][v]['weight'] /= total_edges
-        G[u][v]['label'] = '{:.4f}'.format(scale(G[u][v]['weight']))
+        G[u][v]['label'] = '{:.4f}'.format(scale(G[u][v]['weight'], borders=(0.01, 0.25)))
     for n in G.nodes():
         G.nodes[n]['weight'] /= total_nodes
 
@@ -389,12 +389,13 @@ def build_circo_graph(models: List[List[str]], name: str, start: int = 0, prune_
 base_dir = '/home/marc/phd/results/combined/'
 # autosklearn = load_autosklearn(base_dir)
 # tpot = load_tpot(base_dir)
-# dswizard = load_dswizard(base_dir)#
+# dswizard = load_dswizard(base_dir, 'dswizard')
+# dswizard_star = load_dswizard(base_dir, 'dswizard_star')
 # with open('models.pkl', 'wb') as f:
-#     pickle.dump((autosklearn, dswizard, tpot), f)
+#     pickle.dump((autosklearn, dswizard, dswizard_star, tpot), f)
 
 with open('models.pkl', 'rb') as f:
-    autosklearn, dswizard, tpot = pickle.load(f)
+    autosklearn, dswizard, dswizard_star, tpot = pickle.load(f)
 
 tpot = flatten(tpot)
 tpot = coalesce(tpot)
@@ -416,3 +417,10 @@ build_circo_graph(dswizard, 'dswizard')
 dswizard = to_prefixed_names(dswizard)
 build_graph(dswizard, 'dswizard')
 print(dswizard)
+
+dswizard_star = flatten(dswizard_star)
+dswizard_star = coalesce(dswizard_star)
+build_circo_graph(dswizard_star, 'dswizard_star')
+dswizard_star = to_prefixed_names(dswizard_star)
+build_graph(dswizard_star, 'dswizard_star')
+print(dswizard_star)
