@@ -11,7 +11,7 @@ import openml
 
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
-from dswizard.optimizers.bandit_learners import HyperbandLearner
+from dswizard.optimizers.bandit_learners.pseudo import PseudoBandit
 from dswizard.optimizers.config_generators import Hyperopt
 from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
 from dswizard.util import util
@@ -61,9 +61,7 @@ master = Master(
     structure_generator_class=MCTS,
     structure_generator_kwargs={'policy': TransferLearning},
 
-    bandit_learner_class=HyperbandLearner,
-    bandit_learner_kwargs={'min_budget': args.min_budget,
-                           'max_budget': args.max_budget}
+    bandit_learner_class=PseudoBandit
 )
 
 pipeline, run_history = master.optimize()

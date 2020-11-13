@@ -1,5 +1,7 @@
 import os
 import pickle
+from argparse import ArgumentParser
+
 import numpy as np
 from scipy.stats import rankdata
 
@@ -69,6 +71,11 @@ def compute_rank(data):
     return rank
 
 
+parser = ArgumentParser()
+parser.add_argument('base_dir', type=str, help='Base dir containing raw results')
+args = parser.parse_args()
+base_dir = args.base_dir
+
 for task, metric in [('ada_agnostic', 'auc'),
                      ('adult', 'auc'),
                      ('analcatdata_authorship', 'logloss'),
@@ -87,8 +94,8 @@ for task, metric in [('ada_agnostic', 'auc'),
         worst_score = (0, 1)
 
     for fold in range(10):
-        auto_sklearn = load_autosklearn(os.path.join('/mnt/c/local/results/combined/autosklearn/', task, str(fold)))
-        tpot = load_tpot(os.path.join('/mnt/c/local/results/combined/tpot/', task, str(fold)))
+        auto_sklearn = load_autosklearn(os.path.join(base_dir, 'autosklearn', task, str(fold)))
+        tpot = load_tpot(os.path.join(base_dir, 'tpot', task, str(fold)))
 
         rank = compute_rank([auto_sklearn, tpot])
 
