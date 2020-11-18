@@ -11,19 +11,17 @@ import openml
 
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
-from dswizard.optimizers.bandit_learners import HyperbandLearner
+from dswizard.optimizers.bandit_learners.pseudo import PseudoBandit
 from dswizard.optimizers.config_generators import Hyperopt
 from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
 from dswizard.util import util
 
-parser = argparse.ArgumentParser(description='Example 1 - sequential and local execution.')
-parser.add_argument('--min_budget', type=float, help='Minimum budget used during the optimization.', default=1)
-parser.add_argument('--max_budget', type=float, help='Maximum budget used during the optimization.', default=10)
-parser.add_argument('--n_configs', type=float, help='Number of configurations to test on a single structure', default=1)
+parser = argparse.ArgumentParser(description='Example 1 - dswizard optimization.')
 parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=300)
 parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=60)
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/')
-parser.add_argument('--task', type=int, help='OpenML task id', default=3913)
+parser.add_argument('--fold', type=int, help='Fold of OpenML task to optimize', default=0)
+parser.add_argument('task', type=int, help='OpenML task id')
 args = parser.parse_args()
 
 util.setup_logging(os.path.join(args.log_dir, str(args.task), 'log.txt'))
@@ -34,7 +32,7 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 # Tasks: 18, 53, 9983, 146822, 168912
 logger.info('Processing task {}'.format(args.task))
 task = openml.tasks.get_task(args.task)
-train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=0, sample=0)
+train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=args.fold, sample=0)
 
 # noinspection PyUnresolvedReferences
 X, y, _, _ = task.get_dataset().get_data(task.target_name)
@@ -61,9 +59,7 @@ master = Master(
     structure_generator_class=MCTS,
     structure_generator_kwargs={'policy': TransferLearning},
 
-    bandit_learner_class=HyperbandLearner,
-    bandit_learner_kwargs={'min_budget': args.min_budget,
-                           'max_budget': args.max_budget}
+    bandit_learner_class=PseudoBandit
 )
 
 pipeline, run_history = master.optimize()
