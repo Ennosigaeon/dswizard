@@ -40,19 +40,22 @@ tpot = pd.read_excel('results.xlsx', sheet_name=0)
 autosklearn = pd.read_excel('results.xlsx', sheet_name=1)
 dswizard = pd.read_excel('results.xlsx', sheet_name=2)
 dswizard_star = pd.read_excel('results.xlsx', sheet_name=3)
+rf = pd.read_excel('results.xlsx', sheet_name=4)
 
 impute_missing(tpot)
 impute_missing(autosklearn)
 impute_missing(dswizard)
 impute_missing(dswizard_star)
+impute_missing(rf)
 
 tpot2 = compute_statistics(tpot)
 autosklearn2 = compute_statistics(autosklearn)
 dswizard2 = compute_statistics(dswizard)
 dswizard_star2 = compute_statistics(dswizard_star)
+rf2 = compute_statistics(rf)
 
-raw = [autosklearn, tpot, dswizard, dswizard_star]
-raw2 = [autosklearn2, tpot2, dswizard2, dswizard_star2]
+raw = [rf, autosklearn, tpot, dswizard, dswizard_star]
+raw2 = [rf2, autosklearn2, tpot2, dswizard2, dswizard_star2]
 
 tables = {}
 
@@ -70,7 +73,7 @@ for ds in dswizard2.index:
 
     significance_ref = get_raw(argbest(mean))
 
-    columns = ['{:17}'.format(str(ds).replace('_', '\\_')[:18])]
+    columns = ['{:15}'.format(str(ds).replace('_', '\\_')[:14])]
     rank = []
     for idx in range(len(mean)):
         rank.append(mean[idx])
@@ -89,7 +92,7 @@ for ds in dswizard2.index:
                 entry.append('\\ul{')
             else:
                 entry.append('    ')
-            entry.append('{:.4f} \\(\\pm\\) {:.4f}'.format(mean[idx], std[idx]))
+            entry.append('{:.3f} \\(\\pm\\) {:.3f}'.format(mean[idx], std[idx]))
             if not significant:
                 entry.append('}')
             columns.append(''.join(entry))
@@ -104,4 +107,4 @@ for metric, data in tables.items():
     if metric == 'auc':
         rank *= -1
     a = scipy.stats.rankdata(rank, axis=1)
-    print('Avg. Rank\t& ' + '\t& '.join(['{:.4f}'.format(v) for v in np.mean(a, axis=0)]) + '\t\\\\')
+    print('Avg. Rank\t& ' + '\t& '.join(['{:.3f}'.format(v) for v in np.mean(a, axis=0)]) + '\t\\\\')
