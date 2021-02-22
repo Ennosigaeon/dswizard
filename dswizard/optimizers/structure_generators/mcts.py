@@ -619,4 +619,8 @@ class MCTS(BaseStructureGenerator):
         if self.tree is None:
             self.logger.info("Search graph not initiated. Skipping rendering as pdf")
             return
-        self.tree.plot(os.path.join(self.workdir, 'search_graph.pdf'))
+        try:
+            self.tree.plot(os.path.join(self.workdir, 'search_graph.pdf'))
+        except ImportError as ex:
+            self.logger.warning("Saving search graph is not possible. Please ensure that visualization "
+                                "is correctly setup: {}".format(ex))

@@ -28,6 +28,14 @@ pip install -e dswizard
 
 Now you are ready to go.
 
+### Visualization
+`dswizard` contains an optional pipeline search space visualization functionality intended for debugging and
+explainability. If you don't need this feature, you can skip this step. To use the visualization you have to install
+[Graphviz](https://graphviz.org/) manually and add the additional visualization libraries using
+```
+pip install -r requirements-visualization.txt
+```
+
 
 ## Usage
 

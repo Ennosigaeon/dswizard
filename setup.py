@@ -15,9 +15,6 @@ setup(
     packages=find_packages(),
     python_requires='>=3',
     install_requires=requirements,
-    extras_require={
-        'docu': ['sphinx', 'sphinx_rtd_theme', 'sphinx_gallery'],
-    },
     keywords=['distributed', 'optimization', 'multifidelity'],
     test_suite="tests"
 )

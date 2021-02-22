@@ -99,7 +99,7 @@ class EnsembleBuilder:
                         models.append(pipeline)
                 except KeyError as ex:
                     self.logger.warning(
-                        'File {}does not exist and pipeline step {} is not available'.format(file, str(ex)))
+                        'File {} does not exist and pipeline step {} is not available'.format(file, str(ex)))
 
         n_failed = 0
         for model in models:
