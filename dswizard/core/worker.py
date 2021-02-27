@@ -10,7 +10,7 @@ from typing import Optional, TYPE_CHECKING, Tuple, List
 import numpy as np
 from ConfigSpace import Configuration
 
-import pynisher2
+from automl import pynisher
 from automl.components.base import EstimatorComponent
 from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.logger import ProcessLogger
@@ -60,14 +60,14 @@ class Worker(abc.ABC):
         result = None
         try:
             process_logger = ProcessLogger(self.workdir, job.cid)
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5, logger=self.logger)(
+            wrapper = pynisher.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5, logger=self.logger)(
                 self.compute)
             c = wrapper(job.ds, job.cid, job.config, self.cfg_cache, job.cfg_keys, job.component, process_logger)
 
-            if wrapper.exit_status is pynisher2.TimeoutException:
+            if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT
                 cost = util.worst_score(job.ds.metric)
-            elif wrapper.exit_status is pynisher2.MemorylimitException:
+            elif wrapper.exit_status is pynisher.MemorylimitException:
                 status = StatusType.MEMOUT
                 cost = util.worst_score(job.ds.metric)
             elif wrapper.exit_status == 0 and c is not None:
@@ -126,14 +126,14 @@ class Worker(abc.ABC):
 
         X = None
         try:
-            wrapper = pynisher2.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5, logger=self.logger)(
+            wrapper = pynisher.enforce_limits(wall_time_in_s=job.cutoff, grace_period_in_s=5, logger=self.logger)(
                 self.transform_dataset)
             c = wrapper(job.ds, job.cid, job.component, job.config)
 
-            if wrapper.exit_status is pynisher2.TimeoutException:
+            if wrapper.exit_status is pynisher.TimeoutException:
                 status = StatusType.TIMEOUT
                 score = util.worst_score(job.ds.metric)
-            elif wrapper.exit_status is pynisher2.MemorylimitException:
+            elif wrapper.exit_status is pynisher.MemorylimitException:
                 status = StatusType.MEMOUT
                 score = util.worst_score(job.ds.metric)
             elif wrapper.exit_status == 0 and c is not None:

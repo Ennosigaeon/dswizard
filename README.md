@@ -6,11 +6,10 @@ contains the source code and data used in our publication [Iterative Search Spac
 
 ## How to install
 
-Unfortunately, the setup is currently a bit tedious. The code is split over three repositories:
+Unfortunately, the setup is currently a bit tedious. The code is split over two repositories:
 
 1. [dswizard](https://github.com/Ennosigaeon/dswizzard)
 2. [sklearn-components](https://github.com/Ennosigaeon/sklearn-components)
-3. [pynisher2](https://github.com/Ennosigaeon/pynisher)
 
 The code has only be tested with Python 3.8, but any version supporting type hints should work. We recommend using a
 virtual environment.
@@ -21,7 +20,6 @@ source venv/bin/activate
 
 After downloading all three repositories, they have to be installed via
 ```
-pip install -e pynisher
 pip install -e sklearn-components
 pip install -e dswizard
 ```
