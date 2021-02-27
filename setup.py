@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
@@ -12,8 +12,8 @@ setup(
     url="https://gitlab.usu-research.ml/research/automl/dswizard",
     license='BSD 3-Clause License',
     classifiers=['Development Status :: 4 - Beta'],
-    packages=find_packages(),
-    python_requires='>=3',
+    packages=find_namespace_packages(include=['dswizard.*']),
+    python_requires='>=3.5',
     install_requires=requirements,
     keywords=['distributed', 'optimization', 'multifidelity'],
     test_suite="tests"

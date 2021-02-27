@@ -1,18 +1,18 @@
+import math
 import random
 from typing import Tuple, List
 
-import math
 import numpy as np
 from ConfigSpace import ConfigurationSpace
 
-from automl.components import classification, data_preprocessing, feature_preprocessing
-from automl.components.base import EstimatorComponent
-from automl.components.classification import ClassifierChoice
-from automl.components.data_preprocessing import DataPreprocessorChoice
-from automl.components.feature_preprocessing import FeaturePreprocessorChoice
-from dswizard.components.pipeline import FlexiblePipeline, SubPipeline
+from dswizard.components import classification, data_preprocessing, feature_preprocessing
+from dswizard.components.base import EstimatorComponent
+from dswizard.components.classification import ClassifierChoice
+from dswizard.components.data_preprocessing import DataPreprocessorChoice
+from dswizard.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateStructure, Dataset
+from dswizard.pipeline.pipeline import FlexiblePipeline, SubPipeline
 
 
 class RandomStructureGenerator(BaseStructureGenerator):

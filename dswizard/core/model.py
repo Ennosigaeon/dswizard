@@ -9,13 +9,13 @@ from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
 from sklearn.base import BaseEstimator
 
-from automl.components.base import EstimatorComponent
-from automl.components.meta_features import MetaFeatureFactory
+from dswizard.components.base import EstimatorComponent
+from dswizard.components.meta_features import MetaFeatureFactory
 from dswizard.util import util
 
 if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
-    from automl.components.meta_features import MetaFeatures
+    from dswizard.pipeline.pipeline import FlexiblePipeline
+    from dswizard.components.meta_features import MetaFeatures
 
 
 class StatusType(Enum):
@@ -179,7 +179,7 @@ class CandidateStructure:
     @staticmethod
     def from_dict(raw: dict) -> 'CandidateStructure':
         # local import due to circular imports
-        from dswizard.components.pipeline import FlexiblePipeline
+        from dswizard.pipeline.pipeline import FlexiblePipeline
 
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])

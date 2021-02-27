@@ -10,11 +10,11 @@ from typing import Optional, TYPE_CHECKING, Tuple, List
 import numpy as np
 from ConfigSpace import Configuration
 
-from automl import pynisher
-from automl.components.base import EstimatorComponent
-from dswizard.components.pipeline import FlexiblePipeline
+from dswizard import pynisher
+from dswizard.components.base import EstimatorComponent
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, EvaluationJob
+from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
 
 if TYPE_CHECKING:

@@ -12,12 +12,12 @@ from sklearn.model_selection._validation import _fit_and_predict, _check_is_perm
 from sklearn.utils import indexable
 from sklearn.utils.validation import _num_samples
 
-from automl.components.base import EstimatorComponent
-from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.components.base import EstimatorComponent
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import CandidateId, Dataset
 from dswizard.core.worker import Worker
+from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
 
 warnings.filterwarnings("ignore", category=UserWarning)

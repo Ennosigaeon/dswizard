@@ -16,16 +16,16 @@ import numpy as np
 from sklearn.base import is_classifier
 from sklearn.pipeline import Pipeline
 
-from automl.components.base import EstimatorComponent
-from automl.components.classification import ClassifierChoice
-from automl.components.data_preprocessing import DataPreprocessorChoice
-from automl.components.feature_preprocessing import FeaturePreprocessorChoice
-from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.components.base import EstimatorComponent
+from dswizard.components.classification import ClassifierChoice
+from dswizard.components.data_preprocessing import DataPreprocessorChoice
+from dswizard.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateId, PartialConfig, StatusType, CandidateStructure, Dataset, Result, \
     EvaluationJob
 from dswizard.core.similaritystore import SimilarityStore
 from dswizard.core.worker import Worker
+from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
 
 

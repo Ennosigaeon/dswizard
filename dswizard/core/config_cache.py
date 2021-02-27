@@ -15,7 +15,7 @@ from dswizard.util import autoproxy
 if TYPE_CHECKING:
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.model import Job
-    from automl.components.meta_features import MetaFeatures
+    from dswizard.components.meta_features import MetaFeatures
 
 autoproxy.apply()
 

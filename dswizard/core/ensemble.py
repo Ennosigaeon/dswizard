@@ -10,10 +10,10 @@ import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.utils import check_random_state
 
-from dswizard.components.pipeline import FlexiblePipeline
-from dswizard.components.voting_ensemble import PrefitVotingClassifier
 from dswizard.core.model import Dataset
 from dswizard.core.runhistory import RunHistory
+from dswizard.pipeline.pipeline import FlexiblePipeline
+from dswizard.pipeline.voting_ensemble import PrefitVotingClassifier
 from dswizard.util import util
 
 

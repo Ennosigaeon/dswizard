@@ -1,15 +1,14 @@
 import inspect
-from collections import OrderedDict
 from typing import List
 
 import networkx as nx
 
-from automl.components import classification, data_preprocessing, feature_preprocessing
-from automl.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
-from automl.components.classification import ClassifierChoice
-from automl.components.data_preprocessing import DataPreprocessorChoice
-from automl.components.feature_preprocessing import FeaturePreprocessorChoice
-from dswizard.components.pipeline import FlexiblePipeline, SubPipeline
+from dswizard.components import classification, data_preprocessing, feature_preprocessing
+from dswizard.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
+from dswizard.components.classification import ClassifierChoice
+from dswizard.components.data_preprocessing import DataPreprocessorChoice
+from dswizard.components.feature_preprocessing import FeaturePreprocessorChoice
+from dswizard.pipeline.pipeline import FlexiblePipeline, SubPipeline
 from dswizard.util import util
 
 

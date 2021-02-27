@@ -9,7 +9,7 @@ from sklearn.base import BaseEstimator, clone
 from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
-from automl.components.base import ComponentChoice, EstimatorComponent
+from dswizard.components.base import ComponentChoice, EstimatorComponent
 from dswizard.core.model import PartialConfig
 from dswizard.util import util
 from dswizard.util.util import prefixed_name
@@ -17,7 +17,7 @@ from dswizard.util.util import prefixed_name
 if TYPE_CHECKING:
     from dswizard.core.logger import ProcessLogger
     from dswizard.core.config_cache import ConfigCache
-    from automl.components.meta_features import MetaFeatures
+    from dswizard.components.meta_features import MetaFeatures
 
 
 class FlexiblePipeline(Pipeline, BaseEstimator):

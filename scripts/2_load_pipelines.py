@@ -175,7 +175,7 @@ def load_autosklearn(base_dir: str):
 
 def load_dswizard(base_dir: str, variant: str):
     def load_model(ensemble):
-        from automl.components.base import NoopComponent
+        from dswizard.components.base import NoopComponent
 
         ls = []
         for pipeline in ensemble.estimators_:

@@ -13,7 +13,7 @@ from dswizard.core.model import PartialConfig
 from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
-    from dswizard.components.pipeline import FlexiblePipeline
+    from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 class JsonResultLogger:

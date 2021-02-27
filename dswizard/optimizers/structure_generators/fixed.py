@@ -1,10 +1,10 @@
 from typing import List, Tuple
 
-from automl.components.base import ComponentChoice, EstimatorComponent
-from dswizard.components.pipeline import FlexiblePipeline
+from dswizard.components.base import ComponentChoice, EstimatorComponent
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import CandidateStructure, Dataset
+from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 class FixedStructure(BaseStructureGenerator):

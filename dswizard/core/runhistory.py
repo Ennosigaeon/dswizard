@@ -2,8 +2,8 @@ from typing import List, Dict, Optional, Tuple
 
 from sklearn import clone
 
-from dswizard.components.pipeline import FlexiblePipeline
 from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType
+from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 class RunHistory:

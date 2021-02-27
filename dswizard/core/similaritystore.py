@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from sklearn.pipeline import Pipeline
 
-from automl.components.meta_features import MetaFeatures
+from dswizard.components.meta_features import MetaFeatures
 
 
 class SimilarityStore:

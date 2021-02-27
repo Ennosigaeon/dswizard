@@ -15,7 +15,6 @@ from typing import Type, TYPE_CHECKING, Tuple, Dict
 from ConfigSpace.configuration_space import ConfigurationSpace
 from sklearn.pipeline import Pipeline
 
-from dswizard.components.voting_ensemble import PrefitVotingClassifier
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import Dispatcher
@@ -26,6 +25,7 @@ from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import HyperbandLearner
 from dswizard.optimizers.config_generators import RandomSampling
 from dswizard.optimizers.structure_generators.mcts import MCTS
+from dswizard.pipeline.voting_ensemble import PrefitVotingClassifier
 from dswizard.workers import SklearnWorker
 
 if TYPE_CHECKING:
@@ -317,9 +317,9 @@ class Master:
         with self.thread_cond:
             try:
                 if cs.is_proxy():
-                    from automl.components.data_preprocessing.imputation import ImputationComponent
-                    from automl.components.feature_preprocessing.one_hot_encoding import OneHotEncoderComponent
-                    from automl.components.classification.decision_tree import DecisionTree
+                    from dswizard.components.data_preprocessing.imputation import ImputationComponent
+                    from dswizard.components.feature_preprocessing.one_hot_encoding import OneHotEncoderComponent
+                    from dswizard.components.classification.decision_tree import DecisionTree
                     from dswizard.optimizers.structure_generators.fixed import FixedStructure
 
                     self.logger.warning('Encountered job without a structure. Using simple best-practice pipeline.')
