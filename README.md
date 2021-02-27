@@ -6,11 +6,6 @@ contains the source code and data used in our publication [Iterative Search Spac
 
 ## How to install
 
-Unfortunately, the setup is currently a bit tedious. The code is split over two repositories:
-
-1. [dswizard](https://github.com/Ennosigaeon/dswizzard)
-2. [sklearn-components](https://github.com/Ennosigaeon/sklearn-components)
-
 The code has only be tested with Python 3.8, but any version supporting type hints should work. We recommend using a
 virtual environment.
 ```
@@ -18,9 +13,13 @@ python3 -m virtualenv venv
 source venv/bin/activate
 ```
 
-After downloading all three repositories, they have to be installed via
+_dswizard_ is available on PyPI, you can simply install it via
 ```
-pip install -e sklearn-components
+pip install dswizard
+```
+
+Alternatively, you can checkout the source code and install it directly via
+```
 pip install -e dswizard
 ```
 
@@ -126,3 +125,10 @@ It is available in in `dswizard/assets/`. `scripts/1_optimize.py` is already con
 The data used to train the regression model is also available [online](https://github.com/Ennosigaeon/meta-learning-base/tree/master/assets/defaults).
 Please refer to [meta-learning-base](https://github.com/Ennosigaeon/meta-learning-base) to see how to train the model
 from the raw data.
+
+
+## dswizard-components
+
+This repository only contains the optimization logic. The actual basic ML components to be optimized are available in
+[_dswizard-components_](https://github.com/Ennosigaeon/dswizard-components). Currently, only _sklearn_ components are
+supported.

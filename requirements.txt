@@ -7,3 +7,4 @@ scikit-learn==0.23.*
 scipy==1.5.*
 openml==0.10.*
 multiprocessing_logging==0.3.*
+dswizard-components==0.1.*
