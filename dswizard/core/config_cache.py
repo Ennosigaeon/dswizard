@@ -39,8 +39,11 @@ class ConfigCache:
         self.clazz = clazz
 
         try:
-            with open(model, 'rb') as f:
-                self.model, _ = joblib.load(f)
+            if model is not None:
+                with open(model, 'rb') as f:
+                    self.model, _ = joblib.load(f)
+            else:
+                self.model = None
         except FileNotFoundError:
             self.model = None
 
