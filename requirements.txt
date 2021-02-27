@@ -5,6 +5,5 @@ numpy==1.19.*
 pandas==1.1.*
 scikit-learn==0.23.*
 scipy==1.5.*
-smac==0.8.*
 openml==0.10.*
 multiprocessing_logging==0.3.*

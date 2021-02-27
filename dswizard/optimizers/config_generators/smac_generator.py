@@ -4,11 +4,16 @@ import random
 import threading
 from queue import Queue
 
-from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
-from smac.facade.smac_facade import SMAC
-from smac.scenario.scenario import Scenario
-from smac.stats.stats import Stats
-from smac.tae.execute_ta_run import ExecuteTARun, StatusType as SmacStatus
+try:
+    from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
+    from smac.facade.smac_facade import SMAC
+    from smac.scenario.scenario import Scenario
+    from smac.stats.stats import Stats
+    from smac.tae.execute_ta_run import ExecuteTARun, StatusType as SmacStatus
+except ImportError:
+    import sys
+    print("smac is not installed. See https://pypi.org/project/smac/0.8.0/ for installing smac", file=sys.stderr)
+    sys.exit(1)
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
 from dswizard.core.model import StatusType
