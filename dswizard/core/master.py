@@ -9,6 +9,7 @@ import tempfile
 import threading
 import time
 import timeit
+import joblib
 from multiprocessing.managers import SyncManager
 from typing import Type, TYPE_CHECKING, Tuple, Dict
 
@@ -270,9 +271,12 @@ class Master:
         pipeline, _ = self.rh_.get_incumbent()
         return pipeline, self.rh_
 
-    def build_ensemble(self, ds: Dataset = None) -> PrefitVotingClassifier:
-        ensemble = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
-        return ensemble.fit(self.ds if ds is None else ds, self.rh_).get_ensemble()
+    def build_ensemble(self, ds: Dataset = None, store: bool = True) -> PrefitVotingClassifier:
+        builder = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
+        ensemble = builder.fit(self.ds if ds is None else ds, self.rh_).get_ensemble()
+        if store:
+            joblib.dump(ensemble, os.path.join(self.working_directory, 'final_ensemble.pkl'))
+        return ensemble
 
     def _evaluation_callback(self, job: EvaluationJob) -> None:
         """
