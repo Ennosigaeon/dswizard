@@ -39,5 +39,9 @@ if __name__ == '__main__':
         python_requires='>=3.5',
         include_package_data=True,
         install_requires=requirements,
+        extras_require={
+            'visualization': ['pygraphviz==1.6'],
+            'smac': ['smac==0.8.0']
+        },
         keywords=['automl', 'machine learning', 'pipeline synthesis']
     )

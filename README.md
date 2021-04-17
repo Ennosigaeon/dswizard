@@ -30,7 +30,7 @@ Now you are ready to go.
 explainability. If you don't need this feature, you can skip this step. To use the visualization you have to install
 [Graphviz](https://graphviz.org/) manually and add the additional visualization libraries using
 ```
-pip install -r requirements-visualization.txt
+pip install dswizard[visualization]
 ```
 
 
