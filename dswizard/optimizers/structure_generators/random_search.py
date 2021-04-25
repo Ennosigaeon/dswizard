@@ -58,8 +58,8 @@ class RandomStructureGenerator(BaseStructureGenerator):
 
                 cfg_keys = []
                 for step, task in steps:
-                    cg, key = self.cfg_cache.get_config_generator(configspace=task.get_hyperparameter_search_space(),
-                                                                  mf=np.ones((1, 1)) * len(cfg_keys))
+                    key = self.cfg_cache.get_config_key(configspace=task.get_hyperparameter_search_space(),
+                                                        mf=np.ones((1, 1)) * len(cfg_keys))
                     cfg_keys.append(key)
 
                 cs.configspace = config_space

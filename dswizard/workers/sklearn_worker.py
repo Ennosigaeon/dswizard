@@ -15,7 +15,7 @@ from sklearn.utils.validation import _num_samples
 from dswizard.components.base import EstimatorComponent
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.logger import ProcessLogger
-from dswizard.core.model import CandidateId, Dataset
+from dswizard.core.model import CandidateId, ConfigKey, Dataset
 from dswizard.core.worker import Worker
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
@@ -30,7 +30,7 @@ class SklearnWorker(Worker):
                 cid: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
-                cfg_keys: Optional[List[Tuple[float, int]]],
+                cfg_keys: Optional[List[ConfigKey]],
                 pipeline: FlexiblePipeline,
                 process_logger: ProcessLogger) -> List[float]:
         if config is None:

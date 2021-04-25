@@ -14,11 +14,11 @@ class FixedStructure(BaseStructureGenerator):
         self.steps = steps
 
     def fill_candidate(self, cs: CandidateStructure, ds: Dataset, **kwargs) -> CandidateStructure:
-        cfg_keys: List[Tuple[float, int]] = []
+        cfg_keys = []
         for step, task in self.steps:
             if isinstance(task, ComponentChoice) or isinstance(task, EstimatorComponent):
-                cg, key = self.cfg_cache.get_config_generator(configspace=task.get_hyperparameter_search_space(),
-                                                              mf=ds.meta_features)
+                key = self.cfg_cache.get_config_key(configspace=task.get_hyperparameter_search_space(),
+                                                    mf=ds.meta_features)
             else:
                 raise ValueError('Unable to handle type {}'.format(type(task)))
             cfg_keys.append(key)

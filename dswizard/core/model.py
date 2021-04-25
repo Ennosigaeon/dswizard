@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import namedtuple
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING, Tuple, Union
 
@@ -28,6 +29,10 @@ class StatusType(Enum):
     CAPPED = 6
     INEFFECTIVE = 7
     DUPLICATE = 8
+
+
+# Namedtuple instead of class to allow sharing between processes
+ConfigKey = namedtuple('ConfigKey', 'hash idx')
 
 
 class CandidateId:
@@ -139,7 +144,7 @@ class CandidateStructure:
     def __init__(self,
                  configspace: ConfigurationSpace,
                  pipeline: FlexiblePipeline,
-                 cfg_keys: List[Tuple[float, int]],
+                 cfg_keys: List[ConfigKey],
                  budget: float = 1):
         self.configspace = configspace
         self.pipeline = pipeline
@@ -168,7 +173,7 @@ class CandidateStructure:
         return {
             'cid': self.cid.without_config().as_tuple(),
             'pipeline': self.pipeline.as_list(),
-            'cfg_keys': self.cfg_keys,
+            'cfg_keys': [(key.hash, key.idx) for key in self.cfg_keys],
             'budget': self.budget,
             'configspace': config_json.write(self.configspace),
         }
@@ -185,6 +190,7 @@ class CandidateStructure:
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId(*raw['cid'])
         cs.pipeline = FlexiblePipeline.from_list(raw['pipeline'])
+        cs.cfg_keys = [ConfigKey(*tuple) for tuple in raw['cfg_keys']]
         return cs
 
     @staticmethod
@@ -212,7 +218,7 @@ class EvaluationJob(Job):
                  cs: Union[CandidateStructure, EstimatorComponent],
                  cutoff: float = None,
                  config: Optional[Configuration] = None,
-                 cfg_keys: Optional[List[Tuple[float, int]]] = None):
+                 cfg_keys: Optional[List[ConfigKey]] = None):
         super().__init__(candidate_id, cutoff)
         self.ds: Dataset = ds
         self.cs: Union[CandidateStructure, EstimatorComponent] = cs
@@ -230,7 +236,7 @@ class EvaluationJob(Job):
 
 class StructureJob(Job):
 
-    def __init__(self, ds: Dataset, cs: CandidateStructure, cutoff: float = None,):
+    def __init__(self, ds: Dataset, cs: CandidateStructure, cutoff: float = None):
         super().__init__(cs.cid.without_config(), cutoff)
         self.ds = ds
         self.cs = cs

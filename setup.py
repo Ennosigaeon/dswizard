@@ -33,7 +33,7 @@ if __name__ == '__main__':
         classifiers=[
             'License :: OSI Approved :: MIT License',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.5'
+            'Programming Language :: Python :: 3.8'
         ],
         packages=find_namespace_packages(include=['dswizard.*']),
         python_requires='>=3.5',

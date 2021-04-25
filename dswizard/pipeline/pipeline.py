@@ -17,6 +17,7 @@ from dswizard.util.util import prefixed_name
 if TYPE_CHECKING:
     from dswizard.core.logger import ProcessLogger
     from dswizard.core.config_cache import ConfigCache
+    from dswizard.core.model import ConfigKey
     from dswizard.components.meta_features import MetaFeatures
 
 
@@ -26,7 +27,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                  steps: List[Tuple[str, EstimatorComponent]],
                  configuration: Optional[dict] = None,
                  cfg_cache: Optional[ConfigCache] = None,
-                 cfg_keys: Optional[List[Tuple[float, int]]] = None):
+                 cfg_keys: Optional[List[ConfigKey]] = None):
         self.configuration = None
         self.cfg_keys = cfg_keys
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
@@ -34,7 +35,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         # super.__init__ has to be called after initializing all properties provided in constructor
         super().__init__(steps, verbose=False)
         self.steps_ = dict(steps)
-        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space(mf=None)
+        self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
 
         self.fit_time = 0
         self.config_time = 0
@@ -251,7 +252,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         return self
 
-    def get_hyperparameter_search_space(self, mf: MetaFeatures) -> ConfigurationSpace:
+    def get_hyperparameter_search_space(self, mf: Optional[MetaFeatures] = None) -> ConfigurationSpace:
         cs = ConfigurationSpace()
         for name, step in self.steps:
             step_configuration_space = step.get_hyperparameter_search_space(mf=mf)
@@ -339,7 +340,7 @@ class SubPipeline(EstimatorComponent):
                     sub_config_dict[new_name] = value
             pipeline.set_hyperparameters(sub_config_dict, init_params)
 
-    def get_hyperparameter_search_space(self, mf: MetaFeatures):
+    def get_hyperparameter_search_space(self, mf: Optional[MetaFeatures] = None):
         cs = ConfigurationSpace()
         for pipeline_name, pipeline in self.pipelines.items():
             pipeline_cs = ConfigurationSpace()

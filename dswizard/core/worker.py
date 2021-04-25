@@ -18,7 +18,7 @@ from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
 
 if TYPE_CHECKING:
-    from dswizard.core.model import CandidateId
+    from dswizard.core.model import CandidateId, ConfigKey
     from dswizard.core.config_cache import ConfigCache
 
 
@@ -105,7 +105,7 @@ class Worker(abc.ABC):
                 cid: CandidateId,
                 config: Optional[Configuration],
                 cfg_cache: Optional[ConfigCache],
-                cfg_keys: Optional[List[Tuple[float, int]]],
+                cfg_keys: Optional[List[ConfigKey]],
                 pipeline: FlexiblePipeline,
                 process_logger: ProcessLogger
                 ) -> List[float]:
