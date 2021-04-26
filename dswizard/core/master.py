@@ -23,8 +23,8 @@ from dswizard.core.ensemble import EnsembleBuilder
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId
 from dswizard.core.runhistory import RunHistory
-from dswizard.optimizers.bandit_learners import HyperbandLearner
-from dswizard.optimizers.config_generators import RandomSampling
+from dswizard.optimizers.bandit_learners import PseudoBandit
+from dswizard.optimizers.config_generators import Hyperopt
 from dswizard.optimizers.structure_generators.mcts import MCTS
 from dswizard.pipeline.voting_ensemble import PrefitVotingClassifier
 from dswizard.workers import SklearnWorker
@@ -46,18 +46,18 @@ class Master:
                  wallclock_limit: int = 60,
                  cutoff: int = None,
                  structure_cutoff_factor: float = 2.,
-                 pre_sample: bool = True,
+                 pre_sample: bool = False,
 
                  n_workers: int = 1,
                  worker_class: Type[Worker] = SklearnWorker,
 
-                 config_generator_class: Type[BaseConfigGenerator] = RandomSampling,
+                 config_generator_class: Type[BaseConfigGenerator] = Hyperopt,
                  config_generator_kwargs: dict = None,
 
                  structure_generator_class: Type[BaseStructureGenerator] = MCTS,
                  structure_generator_kwargs: dict = None,
 
-                 bandit_learner_class: Type[BanditLearner] = HyperbandLearner,
+                 bandit_learner_class: Type[BanditLearner] = PseudoBandit,
                  bandit_learner_kwargs: dict = None
                  ):
         """

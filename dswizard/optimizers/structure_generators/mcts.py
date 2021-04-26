@@ -354,7 +354,11 @@ class MCTS(BaseStructureGenerator):
         self.lock = threading.Lock()
 
         if policy is None:
-            policy = RandomSelection
+            if model is None:
+                policy = RandomSelection
+            else:
+                policy = TransferLearning
+
         policy_kwargs = {
             'model': model,
             'wallclock_limit': wallclock_limit if epsilon_greedy else None
