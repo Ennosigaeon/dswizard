@@ -60,8 +60,8 @@ class BaseIteration(abc.ABC):
         return cs
 
     def replace_proxy(self, cs: CandidateStructure):
-        assert self.data[cs.cid].is_proxy()
-        self.data[cs.cid] = cs
+        if self.data[cs.cid].is_proxy():
+            self.data[cs.cid] = cs
 
     def get_next_candidate(self) -> Optional[CandidateStructure]:
         """

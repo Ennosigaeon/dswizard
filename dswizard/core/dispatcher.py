@@ -7,11 +7,11 @@ import time
 import timeit
 from typing import Dict, List, TYPE_CHECKING, Union, Callable
 
-from dswizard.core.model import EvaluationJob, CandidateId, CandidateStructure
+from dswizard.core.model import EvaluationJob, StructureJob, CandidateId, CandidateStructure
 
 if TYPE_CHECKING:
     from dswizard.core.base_structure_generator import BaseStructureGenerator
-    from dswizard.core.model import Job, StructureJob
+    from dswizard.core.model import Job
     from dswizard.core.worker import Worker
 
 
@@ -50,7 +50,10 @@ class Dispatcher:
         self.worker_pool: List[Worker] = workers
         self.running_jobs: Dict[CandidateId, Callable] = {}
 
-        self.pool = MyPool(len(self.worker_pool))
+        if len(self.worker_pool) > 1:
+            self.pool = MyPool(len(self.worker_pool))
+        else:
+            self.pool = None
         self.condition = threading.Condition()
 
     def submit_job(self, job: Job, callback: Callable) -> None:
@@ -58,24 +61,28 @@ class Dispatcher:
             n_running = len(self.running_jobs)
             job.time_submitted = time.time()
             self.running_jobs[job.cid] = callback
-            self.pool.apply_async(self._process_job, args=(self.worker_pool[n_running], job),
-                                  callback=self._job_callback)
-            # Sleep 1 second to ensure process start. Maybe not necessary
-            time.sleep(1)
+
+            if len(self.worker_pool) > 1:
+                self.pool.apply_async(self._process_job, args=(self.worker_pool[n_running], job),
+                                      callback=self._job_callback)
+                # Sleep 1 second to ensure process start. Maybe not necessary
+                time.sleep(1)
+            else:
+                res = self._process_job(self.worker_pool[0], job)
+                self._job_callback(res)
 
             if len(self.running_jobs) == len(self.worker_pool):
                 self.logger.debug('waiting for next worker to be available')
                 # TODO infinite waiting is possible
                 self.condition.wait()
 
-    def _process_job(self, worker: Worker, job: Union[EvaluationJob, StructureJob]) -> \
+    def _process_job(self, worker: Worker, job: Job) -> \
             Union[EvaluationJob, CandidateStructure]:
         self.logger.debug('Processing job {}'.format(job.cid))
         job.time_started = time.time()
         worker.runs_job = job.cid
 
-        eval_job = isinstance(job, EvaluationJob)
-        if eval_job:
+        if isinstance(job, EvaluationJob):
             try:
                 result = worker.start_computation(job)
                 job.result = result
@@ -88,7 +95,7 @@ class Dispatcher:
                 # Catch all. Should never happen
                 self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
                 return job
-        else:
+        elif isinstance(job, StructureJob):
             try:
                 cs = self.structure_generator.fill_candidate(job.cs, job.ds, cutoff=job.cutoff, worker=worker)
                 job.time_finished = timeit.default_timer()
@@ -98,6 +105,8 @@ class Dispatcher:
                 # Catch all. Should never happen
                 self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
                 return job.cs
+        else:
+            raise ValueError("Unknown Job type {}".format(type(job)))
 
     def _job_callback(self, result: Union[EvaluationJob, CandidateStructure]):
         try:
@@ -113,10 +122,6 @@ class Dispatcher:
         deadline = timeit.default_timer() + timeout
         while True:
             now = timeit.default_timer()
-            if now > deadline:
-                self.logger.warning('Workers did not finish within deadline. {} / {} busy...'.format(busy, total))
-                break
-
             with self.condition:
                 busy = len(self.running_jobs)
                 self.logger.debug('Waiting for all workers to finish current work. {} / {} busy...'.format(busy, total))
@@ -124,10 +129,14 @@ class Dispatcher:
                     break
                 else:
                     self.condition.wait(deadline - now)
+            if now > deadline:
+                self.logger.warning('Workers did not finish within deadline. {} / {} busy...'.format(busy, total))
+                break
 
     def shutdown(self):
-        self.pool.close()
-        self.pool.join()
+        if self.pool is not None:
+            self.pool.close()
+            self.pool.join()
 
     def __getstate__(self):
         # Copy the object's state from self.__dict__ which contains

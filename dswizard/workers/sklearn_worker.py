@@ -41,8 +41,9 @@ class SklearnWorker(Worker):
             cloned_pipeline.fit(ds.X, ds.y, logger=process_logger)
             config = process_logger.get_config(cloned_pipeline)
 
-        pipeline.set_hyperparameters(config.get_dictionary())
-        score, _, _, models = self._score(ds, pipeline)
+        cloned_pipeline = clone(pipeline)
+        cloned_pipeline.set_hyperparameters(config.get_dictionary())
+        score, _, _, models = self._score(ds, cloned_pipeline)
         self._store_models(cid, models)
         return score
 

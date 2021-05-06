@@ -173,6 +173,6 @@ class ProcessLogger:
             config = Configuration(pipeline.configuration_space, complete)
             return config
         except ValueError as ex:
-            self.logger.error('Failed to reconstruct global config. '
+            self.logger.error('Failed to reconstruct global config.\n'
                               'Config: {}\nConfigSpace: {}'.format(complete, pipeline.configuration_space))
             raise ex

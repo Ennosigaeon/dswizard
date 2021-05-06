@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Dict
 from typing import Type, Tuple
 
@@ -36,7 +37,8 @@ class ConfigCache:
     def __init__(self,
                  clazz: Type[BaseConfigGenerator],
                  model: str = None,
-                 init_kwargs: dict = None):
+                 init_kwargs: dict = None,
+                 logger: logging.Logger = None):
         self.clazz = clazz
 
         try:
@@ -50,6 +52,11 @@ class ConfigCache:
 
         self.init_kwargs = init_kwargs
         self.cache: Dict[float, ConfigCache.Entry] = {}
+
+        if logger is None:
+            self.logger = logging.getLogger('ConfigCache')
+        else:
+            self.logger = logger
 
     def get_config_key(self,
                        configspace: ConfigurationSpace = None,
@@ -84,7 +91,8 @@ class ConfigCache:
         if cfg_key is None:
             cfg_key = self.get_config_key(configspace, mf, max_distance, **kwargs)
         cg = self.cache[cfg_key.hash].generators[cfg_key.idx]
-        return cg.sample_config(default=default), cfg_key
+        config = cg.sample_config(default=default)
+        return config, cfg_key
 
     # noinspection PyUnresolvedReferences
     def register_result(self, job: Job) -> None:
@@ -105,4 +113,4 @@ class ConfigCache:
                 cfg_key = job.cfg_keys[0]
                 self.cache[cfg_key[0]].generators[cfg_key[1]].register_result(job.config, loss, status)
         except Exception as ex:
-            print(ex)
+            self.logger.exception("Failed to register results")

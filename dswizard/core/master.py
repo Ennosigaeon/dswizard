@@ -11,7 +11,7 @@ import time
 import timeit
 import joblib
 from multiprocessing.managers import SyncManager
-from typing import Type, TYPE_CHECKING, Tuple, Dict
+from typing import Type, TYPE_CHECKING, Tuple, Dict, Optional
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 from sklearn.pipeline import Pipeline
@@ -104,24 +104,39 @@ class Master:
         self.thread_cond = threading.Condition()
         self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = {}
 
-        SyncManager.register('StructureGenerator', structure_generator_class)
-        SyncManager.register('ConfigCache', ConfigCache)
-
-        self.mgr = multiprocessing.Manager()
-        # noinspection PyUnresolvedReferences
-        self.cfg_cache: ConfigCache = self.mgr.ConfigCache(clazz=config_generator_class,
-                                                           init_kwargs=config_generator_kwargs,
-                                                           model=model)
-        # noinspection PyUnresolvedReferences
-        self.structure_generator: BaseStructureGenerator = self.mgr.StructureGenerator(cfg_cache=self.cfg_cache,
-                                                                                       cutoff=self.cutoff,
-                                                                                       workdir=self.working_directory,
-                                                                                       model=model,
-                                                                                       wallclock_limit=wallclock_limit,
-                                                                                       **structure_generator_kwargs)
-
         if n_workers < 1:
             raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
+        elif n_workers == 1 and cutoff <= 0:
+            self.mgr: Optional[multiprocessing.Manager] = None
+            self.cfg_cache: ConfigCache = ConfigCache(
+                clazz=config_generator_class,
+                init_kwargs=config_generator_kwargs,
+                model=model)
+            self.structure_generator: BaseStructureGenerator = structure_generator_class(
+                cfg_cache=self.cfg_cache,
+                cutoff=self.cutoff,
+                workdir=self.working_directory,
+                model=model,
+                wallclock_limit=wallclock_limit,
+                **structure_generator_kwargs)
+        else:
+            SyncManager.register('StructureGenerator', structure_generator_class)
+            SyncManager.register('ConfigCache', ConfigCache)
+            self.mgr: Optional[multiprocessing.Manager] = multiprocessing.Manager()
+            # noinspection PyUnresolvedReferences
+            self.cfg_cache: ConfigCache = self.mgr.ConfigCache(
+                clazz=config_generator_class,
+                init_kwargs=config_generator_kwargs,
+                model=model)
+            # noinspection PyUnresolvedReferences
+            self.structure_generator: BaseStructureGenerator = self.mgr.StructureGenerator(
+                cfg_cache=self.cfg_cache,
+                cutoff=self.cutoff,
+                workdir=self.working_directory,
+                model=model,
+                wallclock_limit=wallclock_limit,
+                **structure_generator_kwargs)
+
         self.workers = []
         self.temp_dir = tempfile.TemporaryDirectory()
         for i in range(n_workers):
@@ -137,7 +152,8 @@ class Master:
         time.sleep(1)
         self.structure_generator.shutdown()
         self.dispatcher.shutdown()
-        self.mgr.shutdown()
+        if self.mgr is not None:
+            self.mgr.shutdown()
 
     def cleanup(self):
         self.temp_dir.cleanup()
