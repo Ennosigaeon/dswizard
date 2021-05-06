@@ -78,8 +78,9 @@ class Master:
 
         self.working_directory = working_directory
         os.makedirs(self.working_directory, exist_ok=True)
+        self.temp_dir = tempfile.TemporaryDirectory()
         if 'working_directory' not in config_generator_kwargs:
-            config_generator_kwargs['working_directory'] = self.working_directory
+            config_generator_kwargs['working_directory'] = self.temp_dir.name
 
         if logger is None:
             self.logger = logging.getLogger('Master')
@@ -138,7 +139,6 @@ class Master:
                 **structure_generator_kwargs)
 
         self.workers = []
-        self.temp_dir = tempfile.TemporaryDirectory()
         for i in range(n_workers):
             worker = worker_class(wid=str(i), cfg_cache=self.cfg_cache, workdir=self.temp_dir.name)
             self.workers.append(worker)
