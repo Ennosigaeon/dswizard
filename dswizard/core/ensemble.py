@@ -10,11 +10,12 @@ import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.utils import check_random_state
 
-from dswizard.core.model import Dataset
+from dswizard.core.model import Dataset, StatusType
 from dswizard.core.runhistory import RunHistory
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.pipeline.voting_ensemble import PrefitVotingClassifier
 from dswizard.util import util
+from dswizard.util.util import model_file
 
 
 class EnsembleBuilder:
@@ -85,21 +86,18 @@ class EnsembleBuilder:
 
         # Load models with tuned hyperparameters
         for cid, result in runs:
-            file = os.path.join(self.workdir, 'models_{}-{}-{}.pkl'.format(*cid.as_tuple()))
-            try:
-                with open(file, 'rb') as f:
-                    models += joblib.load(f)
-            except FileNotFoundError:
+            file = os.path.join(self.workdir, model_file(cid))
+            if result.status == StatusType.SUCCESS:
                 try:
+                    with open(file, 'rb') as f:
+                        models += joblib.load(f)
+                except FileNotFoundError:
                     partial = [steps[name] for name, _ in rh[cid.without_config()].steps]
                     for t in itertools.product(*partial):
                         pipeline = FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)])
                         pipeline.configuration = pipeline.get_hyperparameter_search_space(
                             None).get_default_configuration()
                         models.append(pipeline)
-                except KeyError as ex:
-                    self.logger.warning(
-                        'File {} does not exist and pipeline step {} is not available'.format(file, str(ex)))
 
         n_failed = 0
         for model in models:

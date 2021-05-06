@@ -282,7 +282,7 @@ class Master:
 
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
-        self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data})
+        self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name)
 
         pipeline, _ = self.rh_.get_incumbent()
         return pipeline, self.rh_

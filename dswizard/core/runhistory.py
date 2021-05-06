@@ -1,9 +1,11 @@
+import os
 from typing import List, Dict, Optional, Tuple
 
 from sklearn import clone
 
 from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType
 from dswizard.pipeline.pipeline import FlexiblePipeline
+from dswizard.util.util import model_file
 
 
 class RunHistory:
@@ -15,9 +17,28 @@ class RunHistory:
 
     def __init__(self,
                  data: Dict[CandidateId, CandidateStructure],
-                 meta_config: dict):
+                 meta_config: dict,
+                 workdir: str):
         self.meta_config = meta_config
-        self.data: Dict[CandidateId, CandidateStructure] = data
+
+        # Collapse data to merge identical structures
+        reverse = {}
+        self.data: Dict[CandidateId, CandidateStructure] = {}
+        for cid, structure in data.items():
+            if structure not in reverse:
+                reverse[structure] = cid
+                self.data[cid] = structure
+            else:
+                old_cid = reverse[structure]
+                prev = self.data[old_cid]
+                offset = len(prev.results)
+
+                for i, r in enumerate(structure.results):
+                    prev.results.append(r)
+                    if r.status == StatusType.SUCCESS:
+                        # Rename model files so that they can be found during ensemble construction
+                        os.rename(os.path.join(workdir, model_file(cid.with_config(i))),
+                                  os.path.join(workdir, model_file(old_cid.with_config(offset + i))))
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]

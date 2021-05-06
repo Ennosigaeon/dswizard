@@ -81,6 +81,6 @@ y_prob = pipeline.predict_proba(X_test)
 logging.info('Final test performance {}'.format(util.score(y_test, y_prob, y_pred, ds.metric)))
 
 ensemble = master.build_ensemble()
-logging.info('Final ensemble performance {} based on {} pipelines'.format(
+logging.info('Final ensemble performance {} based on {} individuals'.format(
     util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric),
     len(ensemble.estimators_)))

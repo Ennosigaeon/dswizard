@@ -165,6 +165,14 @@ class CandidateStructure:
     def add_result(self, result: Result):
         self.results.append(result)
 
+    def __hash__(self):
+        return hash(self.configspace)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, CandidateStructure):
+            return self.configspace == other.configspace
+        return False
+
     @property
     def steps(self):
         return self.pipeline.steps

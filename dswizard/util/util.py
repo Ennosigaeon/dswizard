@@ -109,3 +109,10 @@ def get_object(clazz: str, kwargs=None):
         kwargs = {}
 
     return get_type(clazz)(**kwargs)
+
+
+def model_file(cid) -> str:
+    if cid.config < 0:
+        return 'step_{}.pkl'.format(cid.config)
+    else:
+        return 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())

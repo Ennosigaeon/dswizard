@@ -19,6 +19,7 @@ from dswizard.core.model import CandidateId, ConfigKey, Dataset
 from dswizard.core.worker import Worker
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
+from dswizard.util.util import model_file
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -107,11 +108,7 @@ class SklearnWorker(Worker):
             return predictions[inv_test_indices], probabilities[inv_test_indices], fitted_pipelines
 
     def _store_models(self, cid: CandidateId, models: List[EstimatorComponent]):
-        if cid.config < 0:
-            name = 'step_{}.pkl'.format(cid.config)
-        else:
-            name = 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())
-
+        name = model_file(cid)
         file = os.path.join(self.workdir, name)
         with open(file, 'wb') as f:
             joblib.dump(models, f)
