@@ -11,7 +11,7 @@ import time
 import timeit
 import joblib
 from multiprocessing.managers import SyncManager
-from typing import Type, TYPE_CHECKING, Tuple, Dict, Optional
+from typing import Type, TYPE_CHECKING, Tuple, Dict, Optional, Union
 
 from ConfigSpace.configuration_space import ConfigurationSpace
 from sklearn.pipeline import Pipeline
@@ -158,7 +158,10 @@ class Master:
     def cleanup(self):
         self.temp_dir.cleanup()
 
-    def optimize(self) -> Tuple[Pipeline, RunHistory]:
+    def optimize(self, fit: bool = True,
+                 ensemble: bool = True,
+                 store: bool = True) -> Union[Tuple[Pipeline, RunHistory],
+                                              Tuple[Pipeline, RunHistory, PrefitVotingClassifier]]:
         """
         run optimization
         :return:
@@ -285,7 +288,18 @@ class Master:
         self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name)
 
         pipeline, _ = self.rh_.get_incumbent()
-        return pipeline, self.rh_
+
+        if fit:
+            pipeline.fit(self.ds.X, self.ds.y)
+        if store and fit:
+            joblib.dump(pipeline, os.path.join(self.working_directory, 'incumbent.pkl'))
+        if store:
+            joblib.dump(self.ds, os.path.join(self.working_directory, 'dataset.pkl'))
+        if ensemble:
+            ensemble = self.build_ensemble(store=store)
+            return pipeline, self.rh_, ensemble
+        else:
+            return pipeline, self.rh_
 
     def build_ensemble(self, ds: Dataset = None, store: bool = True) -> PrefitVotingClassifier:
         builder = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
