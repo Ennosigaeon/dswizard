@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, List, Tuple, Dict
 import networkx as nx
 from ConfigSpace import Configuration
 
+from dswizard.components.util import prefixed_name
 from dswizard.core.model import CandidateStructure, CandidateId, Result
 from dswizard.core.model import PartialConfig
-from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
     from dswizard.pipeline.pipeline import FlexiblePipeline
@@ -47,7 +47,7 @@ class JsonResultLogger:
                     with open(self.structure_fn, 'w'):
                         pass
                 else:
-                    raise FileExistsError('The file {} already exists.'.format(self.structure_fn))
+                    raise FileExistsError(f'The file {self.structure_fn} already exists.')
 
             try:
                 with open(self.results_fn, 'x'):
@@ -57,7 +57,7 @@ class JsonResultLogger:
                     with open(self.results_fn, 'w'):
                         pass
                 else:
-                    raise FileExistsError('The file {} already exists.'.format(self.structure_fn))
+                    raise FileExistsError(f'The file {self.results_fn} already exists.')
 
     def new_structure(self, structure: CandidateStructure, draw_structure: bool = False) -> None:
         if structure.cid.without_config() not in self.structure_ids:
@@ -73,12 +73,12 @@ class JsonResultLogger:
             if draw_structure:
                 G = structure.pipeline.to_networkx()
                 H = nx.nx_agraph.to_agraph(G)
-                H.draw('{}/{}.png'.format(self.directory, structure.cid), prog='dot')
+                H.draw(f'{self.directory}/{structure.cid}.png', prog='dot')
 
     def log_evaluated_config(self, cid: CandidateId, result: Result) -> None:
         if cid.without_config() not in self.structure_ids:
             # should never happen!
-            raise ValueError('Unknown structure {}'.format(cid.without_config()))
+            raise ValueError(f'Unknown structure {cid.without_config()}')
         with open(self.results_fn, 'a') as fh:
             fh.write(
                 json.dumps([cid.as_tuple(), result.as_dict() if result is not None else None])
@@ -116,7 +116,7 @@ class ProcessLogger:
         else:
             self.logger = logger
 
-        self.file = '{}.json'.format(self.prefix)
+        self.file = f'{self.prefix}.json'
         with open(self.file, 'w'):
             pass
 
@@ -174,5 +174,5 @@ class ProcessLogger:
             return config
         except ValueError as ex:
             self.logger.error('Failed to reconstruct global config.\n'
-                              'Config: {}\nConfigSpace: {}'.format(complete, pipeline.configuration_space))
+                              f'Config: {complete}\nConfigSpace: {pipeline.configuration_space}')
             raise ex

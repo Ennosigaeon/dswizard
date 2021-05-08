@@ -37,7 +37,7 @@ class BaseStructureGenerator(abc.ABC):
 
         :return:
         """
-        raise NotImplementedError('get_config_space not implemented for {}'.format(type(self).__name__))
+        raise NotImplementedError(f'get_config_space not implemented for {type(self).__name__}')
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
@@ -54,7 +54,7 @@ class BaseStructureGenerator(abc.ABC):
         """
 
         if result.status == 'CRASHED':
-            self.logger.warning('candidate {} failed'.format(candidate.cid))
+            self.logger.warning(f'candidate {candidate.cid} failed')
 
     def shutdown(self):
         pass

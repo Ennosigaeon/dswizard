@@ -54,7 +54,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
 
                 pipeline = FlexiblePipeline(steps)
                 print(steps)
-                self.logger.debug('Created valid pipeline after {} tries'.format(attempts))
+                self.logger.debug(f'Created valid pipeline after {attempts} tries')
 
                 cfg_keys = []
                 for step, task in steps:
@@ -76,7 +76,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
         i = 0
 
         while i < depth:
-            name = 'step_{}'.format(i)
+            name = f'step_{i}'
             clazz = random.sample(self.candidates, 1)[0]
 
             if clazz == SubPipeline.name():

@@ -261,7 +261,7 @@ class Dataset:
         self.y = y
 
         if metric not in util.valid_metrics:
-            raise KeyError('Unknown metric {}'.format(metric))
+            raise KeyError(f'Unknown metric {metric}')
         self.metric = metric
         self.cutoff = cutoff
 

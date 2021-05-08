@@ -16,7 +16,7 @@ def impute_missing(df: pd.DataFrame):
             elif row['metric'] == 'logloss':
                 res = 4
             else:
-                raise ValueError('Unknown metric {}'.format(row['metric']))
+                raise ValueError(f'Unknown metric {row["metric"]}')
         else:
             res = row['result']
         return res
@@ -92,7 +92,7 @@ for ds in dswizard2.index:
                 entry.append('\\ul{')
             else:
                 entry.append('    ')
-            entry.append('{:.3f} \\(\\pm\\) {:.3f}'.format(mean[idx], std[idx]))
+            entry.append(f'{mean[idx]:.3f} \\(\\pm\\) {std[idx]:.3f}')
             if not significant:
                 entry.append('}')
             columns.append(''.join(entry))
@@ -107,4 +107,4 @@ for metric, data in tables.items():
     if metric == 'auc':
         rank *= -1
     a = scipy.stats.rankdata(rank, axis=1)
-    print('Avg. Rank\t& ' + '\t& '.join(['{:.3f}'.format(v) for v in np.mean(a, axis=0)]) + '\t\\\\')
+    print('Avg. Rank\t& ' + '\t& '.join([f'{v:.3f}' for v in np.mean(a, axis=0)]) + '\t\\\\')

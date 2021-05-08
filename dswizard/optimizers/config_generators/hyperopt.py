@@ -220,7 +220,7 @@ class Hyperopt(BaseConfigGenerator):
         for h in configspace.get_hyperparameters():
             if hasattr(h, 'sequence'):
                 raise RuntimeError('This version on dswizard does not support ordinal hyperparameters. '
-                                   'Please encode {} as an integer parameter!'.format(h.name))
+                                   f'Please encode {h.name} as an integer parameter!')
             if hasattr(h, 'choices'):
                 kde_vartypes += 'u'
                 vartypes += [len(h.choices)]

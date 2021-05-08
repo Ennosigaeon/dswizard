@@ -20,7 +20,7 @@ class FixedStructure(BaseStructureGenerator):
                 key = self.cfg_cache.get_config_key(configspace=task.get_hyperparameter_search_space(),
                                                     mf=ds.meta_features)
             else:
-                raise ValueError('Unable to handle type {}'.format(type(task)))
+                raise ValueError(f'Unable to handle type {type(task)}')
             cfg_keys.append(key)
 
         cs.pipeline = FlexiblePipeline(self.steps)

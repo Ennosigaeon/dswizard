@@ -67,17 +67,16 @@ pipeline, run_history, ensemble = master.optimize()
 # Analysis
 _, incumbent = run_history.get_incumbent()
 
-logging.info('Best found configuration: {}\n{} with loss {}'.format(incumbent.steps,
-                                                                    incumbent.get_incumbent().config,
-                                                                    incumbent.get_incumbent().loss))
-logging.info('A total of {} unique structures where sampled.'.format(len(run_history.data)))
-logging.info('A total of {} runs where executed.'.format(len(run_history.get_all_runs())))
+logging.info(f'Best found configuration: {incumbent.steps}\n'
+             f'{incumbent.get_incumbent().config} with loss {incumbent.get_incumbent().loss}')
+logging.info(f'A total of {len(run_history.data)} unique structures where sampled.')
+logging.info(f'A total of {len(run_history.get_all_runs())} runs where executed.')
 
 y_pred = pipeline.predict(X_test)
 y_prob = pipeline.predict_proba(X_test)
 
-logging.info('Final pipeline:\n{}'.format(pipeline))
-logging.info('Final test performance {}'.format(util.score(y_test, y_prob, y_pred, ds.metric)))
-logging.info('Final ensemble performance {} based on {} individuals'.format(
-    util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric),
-    len(ensemble.estimators_)))
+logging.info(f'Final pipeline:\n{pipeline}')
+logging.info(f'Final test performance {util.score(y_test, y_prob, y_pred, ds.metric)}')
+logging.info(f'Final ensemble performance '
+             f'{util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric)} '
+             f'based on {len(ensemble.estimators_)} individuals')
