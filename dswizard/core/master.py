@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import logging
 import math
 import multiprocessing
@@ -106,7 +107,7 @@ class Master:
         self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = {}
 
         if n_workers < 1:
-            raise ValueError('Expected at least 1 worker, given {}'.format(n_workers))
+            raise ValueError(f'Expected at least 1 worker, given {n_workers}')
         elif n_workers == 1 and cutoff <= 0:
             self.mgr: Optional[multiprocessing.Manager] = None
             self.cfg_cache: ConfigCache = ConfigCache(
@@ -169,11 +170,10 @@ class Master:
 
         start = timeit.default_timer()
         self.meta_data['start'] = start
-        self.logger.info('starting run at {}. Configuration:\n'
-                         '\twallclock_limit: {}\n'
-                         '\tcutoff: {}\n'
-                         '\tpre_sample: {}'.format(time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime(time.time())),
-                                                   self.wallclock_limit, self.cutoff, self.pre_sample))
+        self.logger.info(f'starting run at {datetime.datetime.now():%Y-%m-%d %H:%M:%S}. Configuration:\n'
+                         f'\twallclock_limit: {self.wallclock_limit}\n'
+                         f'\tcutoff: {self.cutoff}\n'
+                         f'\tpre_sample: {self.pre_sample}')
         for worker in self.workers:
             worker.start_time = start
         deadline = start + self.wallclock_limit
@@ -233,10 +233,9 @@ class Master:
                         try:
                             candidate = next(it)
                             if candidate is None:
-                                self.logger.debug(
-                                    'Waiting for next job to finish. Currently {} running, {} outstanding'.format(
-                                        len(self.dispatcher.running_jobs),
-                                        self.bandit_learner.iterations[-1].num_running))
+                                self.logger.debug(f'Waiting for next job to finish. '
+                                                  f'Currently {len(self.dispatcher.running_jobs)} running, '
+                                                  f'{self.bandit_learner.iterations[-1].num_running} outstanding')
                                 # Safety-net to prevent infinite waiting
                                 # noinspection PyTypeChecker
                                 self.thread_cond.wait(max(self.cutoff, deadline - timeit.default_timer()))
@@ -270,7 +269,7 @@ class Master:
             while not timeout:
                 # noinspection PyTypeChecker
                 self.dispatcher.finish_work(max(self.cutoff, deadline - timeit.default_timer()))
-                self.logger.info('Starting repetition {}'.format(repetition))
+                self.logger.info(f'Starting repetition {repetition}')
                 self.bandit_learner.reset(offset)
                 timeout = _optimize()
                 repetition += 1
@@ -281,7 +280,7 @@ class Master:
             self.shutdown()
 
         self.meta_data['end'] = time.time()
-        self.logger.info('Finished run after {} seconds'.format(math.ceil(timeit.default_timer() - start)))
+        self.logger.info(f'Finished run after {math.ceil(timeit.default_timer() - start)} seconds')
 
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
@@ -315,12 +314,12 @@ class Master:
         :param job: Finished Job
         :return:
         """
-        self.logger.debug('Evaluation callback {}'.format(job.cid))
+        self.logger.debug(f'Evaluation callback {job.cid}')
         with self.thread_cond:
             try:
                 if job.config is None:
                     self.logger.error(
-                        'Encountered job without a configuration: {}. Using empty config as fallback'.format(job.cid))
+                        f'Encountered job without a configuration: {job.cid}. Using empty config as fallback')
                     job.config = ConfigurationSpace().get_default_configuration()
 
                 if self.result_logger is not None:
@@ -337,17 +336,16 @@ class Master:
             except KeyboardInterrupt:
                 raise
             except (BrokenPipeError, EOFError) as ex:
-                self.logger.fatal('Lost connection to SyncManager probably due to OOM. Aborting...: {}'.format(ex),
+                self.logger.fatal(f'Lost connection to SyncManager probably due to OOM. Aborting...: {ex}',
                                   exc_info=True)
                 self.abort = True
             except Exception as ex:
-                self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
-                                  exc_info=True)
+                self.logger.fatal(f'Encountered unhandled exception {ex}. This should never happen!', exc_info=True)
             finally:
                 self.thread_cond.notify_all()
 
     def _structure_callback(self, cs: CandidateStructure):
-        self.logger.debug('Structure callback {}'.format(cs.cid))
+        self.logger.debug(f'Structure callback {cs.cid}')
         with self.thread_cond:
             try:
                 if cs.is_proxy():
@@ -370,11 +368,10 @@ class Master:
             except KeyboardInterrupt:
                 raise
             except (BrokenPipeError, EOFError) as ex:
-                self.logger.fatal('Lost connection to SyncManager probably due to OOM. Aborting...: {}'.format(ex),
+                self.logger.fatal(f'Lost connection to SyncManager probably due to OOM. Aborting...: {ex}',
                                   exc_info=True)
                 self.abort = True
             except Exception as ex:
-                self.logger.fatal('Encountered unhandled exception {}. This should never happen!'.format(ex),
-                                  exc_info=True)
+                self.logger.fatal(f'Encountered unhandled exception {ex}. This should never happen!', exc_info=True)
             finally:
                 self.thread_cond.notify_all()

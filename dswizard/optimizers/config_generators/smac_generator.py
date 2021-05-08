@@ -71,7 +71,7 @@ class SmacGenerator(BaseConfigGenerator):
     def __init__(self, configspace: ConfigurationSpace, working_directory: str = '.'):
         super().__init__(configspace)
 
-        self.working_directory = os.path.join(working_directory, 'smac/{:d}/'.format(random.randint(0, 10000000)))
+        self.working_directory = os.path.join(working_directory, f'smac/{random.randint(0, 10000000):d}/')
 
         smac_logger = logging.getLogger('smac')
         logging.getLogger('smac').setLevel(logging.WARNING)

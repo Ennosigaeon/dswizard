@@ -50,7 +50,7 @@ def score(y, y_prob, y_pred, metric: str):
             y_prob = y_prob[:, 1]
         score = roc_auc_score(y, y_prob, average='weighted', multi_class='ovr')
     else:
-        raise ValueError('Unknown metric {}'.format(metric))
+        raise ValueError(f'Unknown metric {metric}')
 
     return sign * score
 
@@ -88,13 +88,6 @@ def openml_mapping(task: int = None, ds: int = None, name: str = None):
         return -1
 
 
-def prefixed_name(prefix: Optional[str], name: str) -> str:
-    """
-    Returns the potentially prefixed name name.
-    """
-    return name if prefix is None else '{}:{}'.format(prefix, name)
-
-
 def get_type(clazz: str) -> type:
     module_name = clazz.rpartition(".")[0]
     class_name = clazz.split(".")[-1]
@@ -113,6 +106,6 @@ def get_object(clazz: str, kwargs=None):
 
 def model_file(cid) -> str:
     if cid.config < 0:
-        return 'step_{}.pkl'.format(cid.config)
+        return f'step_{cid.config}.pkl'
     else:
         return 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())

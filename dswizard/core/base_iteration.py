@@ -95,7 +95,7 @@ class BaseIteration(abc.ABC):
             return candidate
         elif self.num_running == 0:
             # at this point a stage is completed
-            self.logger.info('Stage {} completed'.format(self.stage))
+            self.logger.info(f'Stage {self.stage} completed')
             self._finish_stage()
             return self.get_next_candidate()
         else:
@@ -110,7 +110,7 @@ class BaseIteration(abc.ABC):
             raise RuntimeError("This iteration is finished, you can't add more configurations!")
 
         if self.actual_num_candidates[self.stage] == self.num_candidates[self.stage]:
-            raise RuntimeError("Can't add another candidate to stage {}.".format(self.stage))
+            raise RuntimeError(f"Can't add another candidate to stage {self.stage}.")
 
         candidate = CandidateStructure.proxy()
         candidate.budget = self.budgets[self.stage]
@@ -152,8 +152,8 @@ class BaseIteration(abc.ABC):
 
         for i, cid in enumerate(candidate_ids):
             if advance[i]:
-                self.logger.debug('Advancing candidate structure {} to next budget {} with loss {}'
-                                  .format(cid, self.budgets[self.stage], losses[i]))
+                self.logger.debug(f'Advancing candidate structure {cid} to next budget {self.budgets[self.stage]} '
+                                  f'with loss {losses[i]}')
 
                 candidate = self.data[cid]
                 candidate.status = 'QUEUED'
@@ -179,4 +179,4 @@ class BaseIteration(abc.ABC):
         :param losses: losses of the run on the current budget
         :return: A boolean for each entry in config_ids indicating whether to advance it or not
         """
-        raise NotImplementedError('_advance_to_next_stage not implemented for {}'.format(type(self).__name__))
+        raise NotImplementedError(f'_advance_to_next_stage not implemented for {type(self).__name__}')

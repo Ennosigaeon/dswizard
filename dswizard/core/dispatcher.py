@@ -78,7 +78,7 @@ class Dispatcher:
 
     def _process_job(self, worker: Worker, job: Job) -> \
             Union[EvaluationJob, CandidateStructure]:
-        self.logger.debug('Processing job {}'.format(job.cid))
+        self.logger.debug(f'Processing job {job.cid}')
         job.time_started = time.time()
         worker.runs_job = job.cid
 
@@ -88,25 +88,25 @@ class Dispatcher:
                 job.result = result
                 # necessary if config was generated on the fly
                 job.config = result.config
-                self.logger.debug('job {} finished with: {} -> {}'.format(job.cid, result.status, result.loss))
+                self.logger.debug(f'job {job.cid} finished with: {result.status} -> {result.loss}')
                 job.time_finished = timeit.default_timer()
                 return job
             except Exception as ex:
                 # Catch all. Should never happen
-                self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
+                self.logger.exception(f'Unhandled exception during job processing: {ex}')
                 return job
         elif isinstance(job, StructureJob):
             try:
                 cs = self.structure_generator.fill_candidate(job.cs, job.ds, cutoff=job.cutoff, worker=worker)
                 job.time_finished = timeit.default_timer()
-                self.logger.debug('job {} finished'.format(job.cid))
+                self.logger.debug(f'job {job.cid} finished')
                 return cs
             except Exception as ex:
                 # Catch all. Should never happen
-                self.logger.exception('Unhandled exception during job processing: {}'.format(ex))
+                self.logger.exception(f'Unhandled exception during job processing: {ex}')
                 return job.cs
         else:
-            raise ValueError("Unknown Job type {}".format(type(job)))
+            raise ValueError(f'Unknown Job type {job}')
 
     def _job_callback(self, result: Union[EvaluationJob, CandidateStructure]):
         try:
@@ -115,7 +115,7 @@ class Dispatcher:
                 callback(result)
                 self.condition.notify()
         except Exception as ex:
-            self.logger.exception('Unhandled exception in callback: {}'.format(ex))
+            self.logger.exception(f'Unhandled exception in callback: {ex}')
 
     def finish_work(self, timeout: float):
         total = len(self.worker_pool)
@@ -124,13 +124,13 @@ class Dispatcher:
             now = timeit.default_timer()
             with self.condition:
                 busy = len(self.running_jobs)
-                self.logger.debug('Waiting for all workers to finish current work. {} / {} busy...'.format(busy, total))
+                self.logger.debug(f'Waiting for all workers to finish current work. {busy} / {total} busy...')
                 if busy == 0:
                     break
                 else:
                     self.condition.wait(deadline - now)
             if now > deadline:
-                self.logger.warning('Workers did not finish within deadline. {} / {} busy...'.format(busy, total))
+                self.logger.warning(f'Workers did not finish within deadline. {busy} / {total} busy...')
                 break
 
     def shutdown(self):

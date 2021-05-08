@@ -280,7 +280,7 @@ def coalesce(models: List[Union[str, List[str]]]):
 def to_prefixed_names(models: List[Union[str, List[str]]]):
     prefixed = []
     for pipeline in models:
-        prefixed.append(['__ROOT'] + ['{}_{}'.format(idx, name) for idx, name in enumerate(pipeline)])
+        prefixed.append(['__ROOT'] + [f'{idx}_{name}' for idx, name in enumerate(pipeline)])
     return prefixed
 
 
@@ -298,7 +298,7 @@ def build_graph(models: List[List[str]], name: str, prune_factor: float = 0.025)
     for u, v in G.edges():
         weight = G[u][v]['weight'] / max_weight
         G[u][v]['weight'] = weight
-        G[u][v]['label'] = '{:.4f}'.format(G[u][v]['weight'])
+        G[u][v]['label'] = f'{G[u][v]["weight"]:.4f}'
         G[u][v]['fontsize'] = 5
         G[u][v]['penwidth'] = max(0.25, 6 * weight)
 
@@ -310,7 +310,7 @@ def build_graph(models: List[List[str]], name: str, prune_factor: float = 0.025)
             G.nodes[n]['style'] = 'filled'
 
     H = nx.nx_agraph.to_agraph(G)
-    H.draw('fig/{}_full.pdf'.format(name), prog='dot')
+    H.draw(f'fig/{name}_full.pdf', prog='dot')
 
     min_weight = 3 / len(models)
     to_remove = []
@@ -321,12 +321,12 @@ def build_graph(models: List[List[str]], name: str, prune_factor: float = 0.025)
     # G.remove_nodes_from(list(nx.isolates(G)))
 
     for u, v in G.edges():
-        G[u][v]['label'] = '{:.4f}'.format(G[u][v]['weight'])
+        G[u][v]['label'] = f'{G[u][v]["weight"]:.4f}'
         G[u][v]['fontsize'] = 5
         G[u][v]['penwidth'] = max(0.25, 6 * G[u][v]['weight'])
 
     H = nx.nx_agraph.to_agraph(G)
-    H.draw('fig/{}_pruned.pdf'.format(name), prog='dot')
+    H.draw(f'fig/{name}_pruned.pdf', prog='dot')
 
     return G
 
@@ -364,7 +364,7 @@ def build_circo_graph(models: List[List[str]], name: str, start: int = 0, prune_
 
     for u, v in G.edges():
         G[u][v]['weight'] /= total_edges
-        G[u][v]['label'] = '{:.4f}'.format(scale(G[u][v]['weight'], borders=(0.01, 0.25)))
+        G[u][v]['label'] = f'{scale(G[u][v]["weight"], borders=(0.01, 0.25)):.4f}'
     for n in G.nodes():
         G.nodes[n]['weight'] /= total_nodes
 
@@ -376,13 +376,13 @@ def build_circo_graph(models: List[List[str]], name: str, start: int = 0, prune_
 
     for n in G.nodes():
         weight = G.nodes[n]['weight']
-        G.nodes[n]['label'] = '{}: {:.4f}'.format(n, scale(weight))
+        G.nodes[n]['label'] = f'{n}: {weight:.4f}'
         if weight < prune_factor:
             G.nodes[n]['fillcolor'] = 'gray'
             G.nodes[n]['style'] = 'filled'
 
     H = nx.nx_agraph.to_agraph(G)
-    H.draw('fig/{}_circo.pdf'.format(name), prog='circo')
+    H.draw(f'fig/{name}_circo.pdf', prog='circo')
 
     return G
 

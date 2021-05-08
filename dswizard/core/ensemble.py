@@ -109,7 +109,7 @@ class EnsembleBuilder:
             except Exception:
                 n_failed += 1
         self._data.sort(key=lambda x: x[0])
-        self.logger.info('Loaded {} models. Failed to load {} models'.format(len(self._data), n_failed))
+        self.logger.info(f'Loaded {len(self._data)} models. Failed to load {n_failed} models')
 
     def _build_ensemble(self, ds: Dataset):
         self.logger.debug('Building ensemble')

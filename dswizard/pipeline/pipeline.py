@@ -10,9 +10,9 @@ from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
+from dswizard.components.util import prefixed_name
 from dswizard.core.model import PartialConfig
 from dswizard.util import util
-from dswizard.util.util import prefixed_name
 
 if TYPE_CHECKING:
     from dswizard.core.logger import ProcessLogger
@@ -34,6 +34,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         # super.__init__ has to be called after initializing all properties provided in constructor
         super().__init__(steps, verbose=False)
+        self.steps: List[Tuple[str, EstimatorComponent]] = self.steps  # only for type hinting
         self.steps_ = dict(steps)
         self.configuration_space: ConfigurationSpace = self.get_hyperparameter_search_space()
 
@@ -52,7 +53,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
             if isinstance(estimator, SubPipeline):
                 split = name
-                name = '{}_merge'.format(name)
+                name = f'{name}_merge'
 
                 G.add_node(split, label='split', name=name)
                 G.add_node(name, label='merge')
@@ -227,9 +228,9 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             sub_configuration_space = node.get_hyperparameter_search_space()
             sub_config_dict = {}
             for param in configuration:
-                if param.startswith('{}:'.format(node_name)):
+                if param.startswith(f'{node_name}:'):
                     value = configuration[param]
-                    new_name = param.replace('{}:'.format(node_name), '', 1)
+                    new_name = param.replace(f'{node_name}:', '', 1)
                     sub_config_dict[new_name] = value
 
             sub_configuration = Configuration(sub_configuration_space, values=sub_config_dict)
@@ -237,9 +238,9 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             if init_params is not None:
                 sub_init_params_dict = {}
                 for param in init_params:
-                    if param.startswith('{}:'.format(node_name)):
+                    if param.startswith(f'{node_name}:'):
                         value = init_params[param]
-                        new_name = param.replace('{}:'.format(node_name), '', 1)
+                        new_name = param.replace(f'{node_name}:', '', 1)
                         sub_init_params_dict[new_name] = value
             else:
                 sub_init_params_dict = None
@@ -282,7 +283,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                         ls.append(__load(sub_value))
                     d.append((name, SubPipeline(ls)))
                 else:
-                    raise ValueError('Unable to handle type {}'.format(type(value)))
+                    raise ValueError(f'Unable to handle type {type(value)}')
             return d
 
         ds = __load(steps)
@@ -305,7 +306,7 @@ class SubPipeline(EstimatorComponent):
         # TODO cfg_keys missing
         ls = list(map(lambda wf: FlexiblePipeline(wf), sub_wfs))
         for idx, wf in enumerate(sorted(ls)):
-            self.pipelines['pipeline_{}'.format(idx)] = wf
+            self.pipelines[f'pipeline_{idx}'] = wf
 
     def fit(self, X, y=None, cfg_cache: ConfigCache = None, logger: ProcessLogger = None, prefix: str = None,
             **fit_params):
@@ -334,9 +335,9 @@ class SubPipeline(EstimatorComponent):
         for node_name, pipeline in self.pipelines.items():
             sub_config_dict = {}
             for param in configuration:
-                if param.startswith('{}:'.format(node_name)):
+                if param.startswith(f'{node_name}:'):
                     value = configuration[param]
-                    new_name = param.replace('{}:'.format(node_name), '', 1)
+                    new_name = param.replace(f'{node_name}:', '', 1)
                     sub_config_dict[new_name] = value
             pipeline.set_hyperparameters(sub_config_dict, init_params)
 

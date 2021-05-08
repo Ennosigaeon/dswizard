@@ -184,7 +184,7 @@ class Tree:
                 data['label'] = node.label[:-9]
 
             score = node.reward / node.visits if node.visits > 0 else 0
-            data['label'] = '{} ({})\n{:.4f} / {}'.format(data['label'], n, score, node.visits)
+            data['label'] = f'{data["label"]} ({n})\n{score:.4f} / {node.visits}'
 
             if node.failed:
                 data['fillcolor'] = 'gray'
@@ -294,7 +294,7 @@ class TransferLearning(Policy):
     def __init__(self, logger: logging.Logger, model: str, **kwargs):
         super().__init__(logger, **kwargs)
 
-        logger.info('Loading transfer model from {}'.format(model))
+        logger.info(f'Loading transfer model from {model}')
         with open(model, 'rb') as f:
             mean, var = joblib.load(f)
         self.mean: Pipeline = mean
@@ -368,7 +368,7 @@ class MCTS(BaseStructureGenerator):
             # noinspection PyUnresolvedReferences
             similarity_model = self.policy.mean
         except (KeyError, FileNotFoundError) as ex:
-            self.logger.warning('Failed to initialize Policy: {}. Fallback to RandomSelection.'.format(ex))
+            self.logger.warning(f'Failed to initialize Policy: {ex}. Fallback to RandomSelection.')
             self.policy = RandomSelection(self.logger)
             similarity_model = None
         except AttributeError:
@@ -416,20 +416,20 @@ class MCTS(BaseStructureGenerator):
                 for node in path:
                     self.tree.get_node(node.id).exit()
             self.logger.warning(
-                'Current path contains only ROOT node. Trying tree traversal {} more times...'.format(retries))
+                f'Current path contains only ROOT node. Trying tree traversal {retries} more times...')
             return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
         if not path[-1].is_terminal():
             with self.lock:
                 for node in path:
                     self.tree.get_node(node.id).exit()
             self.logger.warning(
-                'Current path does not end in a classifier. Trying tree traversal {} more times...'.format(retries))
+                f'Current path does not end in a classifier. Trying tree traversal {retries} more times...')
             return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
 
         # A simulation is not necessary. Simulated results are already incorporated in the policy
 
         node = path[-1]
-        self.logger.debug('Sampled pipeline structure: {}'.format(node.steps))
+        self.logger.debug(f'Sampled pipeline structure: {node.steps}')
         pipeline = FlexiblePipeline(node.steps)
 
         cs.configspace = pipeline.configuration_space
@@ -449,7 +449,7 @@ class MCTS(BaseStructureGenerator):
         node = self.tree.get_node(Tree.ROOT)
         score = -math.inf
         while True:
-            self.logger.debug('\tSelecting {}'.format(node.label))
+            self.logger.debug(f'\tSelecting {node.label}')
             if node.failed:
                 self.logger.warning(
                     'Selected node has no dataset, meta-features or partial configurations. This should not happen')
@@ -510,13 +510,12 @@ class MCTS(BaseStructureGenerator):
                 if action is None:
                     return None, None, failure_count
                 if failure_count >= max_failures:
-                    self.logger.warning('Aborting expansion due to {} failed expansions'.format(failure_count))
+                    self.logger.warning(f'Aborting expansion due to {failure_count} failed expansions')
                     return None, None, failure_count
 
                 component = action()
 
-                self.logger.debug(
-                    '\tExpanding with {}. Option {}/{}'.format(component.name(), n_children + 1, n_actions))
+                self.logger.debug(f'\tExpanding with {component.name()}. Option {n_children + 1}/{n_actions}')
                 new_node = self.tree.add_node(estimator=action, parent_node=node)
 
             ds = node.ds
@@ -544,16 +543,16 @@ class MCTS(BaseStructureGenerator):
                     # Check if any node in the tree is similar to the new dataset
                     distance, idx = self.store.get_similar(ds.meta_features)
                     if np.allclose(node.ds.meta_features, ds.meta_features, equal_nan=True):
-                        self.logger.debug('\t{} did not modify dataset'.format(component.name()))
+                        self.logger.debug(f'\t{component.name()} did not modify dataset')
                         result.status = StatusType.INEFFECTIVE
                         result.structure_loss = util.worst_score(ds.metric)[-1]
                         new_node.failure_message = 'Ineffective'
                     elif distance[0][0] <= max_distance:
                         # TODO: currently always the existing node is selected. This node could represent simpler model
-                        self.logger.debug('\t{} produced a dataset similar to {}'.format(component.name(), idx[0][0]))
+                        self.logger.debug(f'\t{component.name()} produced a dataset similar to {idx[0][0]}')
                         result.status = StatusType.DUPLICATE
                         result.structure_loss = util.worst_score(ds.metric)[-1]
-                        new_node.failure_message = 'Duplicate {}'.format(idx[0][0])
+                        new_node.failure_message = f'Duplicate {idx[0][0]}'
                     else:
                         self.store.add(ds.meta_features)
                         node.enter()
@@ -563,11 +562,10 @@ class MCTS(BaseStructureGenerator):
                             new_node.failure_message = None
 
                         if self.store_ds:
-                            with open(os.path.join(self.workdir, '{}.pkl'.format(new_node.id)), 'wb') as f:
+                            with open(os.path.join(self.workdir, f'{new_node.id}.pkl'), 'wb') as f:
                                 pickle.dump(ds, f)
             else:
-                self.logger.debug(
-                    '\t{} failed with default hyperparamter: {}'.format(component.name(), result.status))
+                self.logger.debug(f'\t{component.name()} failed with default hyperparamter: {result.status}')
                 result.structure_loss = util.worst_score(ds.metric)[-1]
                 if result.status == StatusType.TIMEOUT:
                     new_node.failure_message = 'Timeout'
@@ -603,7 +601,7 @@ class MCTS(BaseStructureGenerator):
         try:
             self._backpropagate(candidate.pipeline.steps_.keys(), reward, exit=True)
         except (IndexError, ValueError, AttributeError) as ex:
-            self.logger.warning('Unable to backpropagate results: {}'.format(ex))
+            self.logger.warning(f'Unable to backpropagate results: {ex}')
 
     # noinspection PyMethodMayBeStatic
     def _backpropagate(self, path: List[str], reward: float, exit: bool = False) -> None:
@@ -627,4 +625,4 @@ class MCTS(BaseStructureGenerator):
             self.tree.plot(os.path.join(self.workdir, 'search_graph.pdf'))
         except ImportError as ex:
             self.logger.warning("Saving search graph is not possible. Please ensure that visualization "
-                                "is correctly setup: {}".format(ex))
+                                f"is correctly setup: {ex}")

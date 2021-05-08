@@ -27,7 +27,7 @@ class HyperbandLearner(BanditLearner):
 
         self.max_iterations = -int(np.log(min_budget / max_budget) / np.log(eta)) + 1
         self.budgets = max_budget * np.power(eta, -np.linspace(self.max_iterations - 1, 0, self.max_iterations))
-        self.logger.info('Using budgets {}'.format(self.budgets))
+        self.logger.info(f'Using budgets {self.budgets}')
 
         self.meta_data.update({
             'eta': eta,
@@ -54,7 +54,7 @@ class HyperbandLearner(BanditLearner):
         # number of configurations in that bracket
         n0 = int(np.floor(self.max_iterations / (s + 1)) * self.eta ** s)
         ns = [max(int(n0 * (self.eta ** (-i))), 1) for i in range(s + 1)]
-        self.logger.debug('Starting next iteration with {} candidates'.format(ns))
+        self.logger.debug(f'Starting next iteration with {ns} candidates')
 
         return SuccessiveHalving(iteration=iteration + self.offset, num_candidates=ns,
                                  budgets=self.budgets[(-s - 1):], **iteration_kwargs)

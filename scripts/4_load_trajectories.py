@@ -106,5 +106,5 @@ for task, metric in [('ada_agnostic', 'auc'),
         ax.scatter(tpot[:, 0], tpot[:, 1], label='tpot')
         ax.step(tpot[:, 0], np.maximum.accumulate(tpot[:, 1]), label='tpot', where='post')
         ax.legend()
-        fig.savefig('fig/{}_{}.png'.format(task, fold))
+        fig.savefig(f'fig/{task}_{fold}.png')
         plt.close(fig)
