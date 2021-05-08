@@ -123,7 +123,7 @@ def load_autosklearn(base_dir: str):
 
     def resolve_type(step):
         if isinstance(step, AutoSklearnChoice):
-            name = type(step.choice).__name__
+            name = type(step.estimator).__name__
             return rename[name] if name in rename else name
         elif isinstance(step, DataPreprocessor):
             ls = []
@@ -181,7 +181,7 @@ def load_dswizard(base_dir: str, variant: str):
         for pipeline in ensemble.estimators_:
             pip = []
             for _, est in pipeline.steps:
-                est = est.preprocessor if hasattr(est, 'preprocessor') else est.estimator
+                est = est.estimator
 
                 if isinstance(est, ColumnTransformer):
                     est = est.transformers[0][1]
