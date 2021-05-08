@@ -90,7 +90,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
                 else:
                     i += n
             else:
-                instance = self._get_estimator_instance(clazz)
+                instance = clazz()
 
             steps.append((name, instance))
             cs.add_configuration_space(name, instance.get_hyperparameter_search_space())

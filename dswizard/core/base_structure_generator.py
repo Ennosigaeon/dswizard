@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 import abc
-import inspect
 import logging
 from typing import TYPE_CHECKING
 
-from dswizard.components.base import EstimatorComponent, TunablePredictor, TunableEstimator
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import Dataset
-from dswizard.util import util
 
 if TYPE_CHECKING:
     from dswizard.core.model import CandidateStructure, Result
@@ -61,16 +58,3 @@ class BaseStructureGenerator(abc.ABC):
 
     def shutdown(self):
         pass
-
-    @staticmethod
-    def _get_estimator_instance(clazz: str) -> EstimatorComponent:
-        try:
-            return util.get_object(clazz)
-        except TypeError:
-            estimator = util.get_type(clazz)
-            if 'predict' in inspect.getmembers(estimator, inspect.isfunction):
-                # noinspection PyTypeChecker
-                return TunablePredictor(estimator)
-            else:
-                # noinspection PyTypeChecker
-                return TunableEstimator(estimator)
