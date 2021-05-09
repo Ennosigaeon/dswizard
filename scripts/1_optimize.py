@@ -7,8 +7,6 @@ import argparse
 import logging
 import os
 
-import openml
-
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners.pseudo import PseudoBandit
@@ -31,18 +29,7 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 # Load dataset
 # Tasks: 18, 53, 9983, 146822, 168912
 logger.info(f'Processing task {args.task}')
-task = openml.tasks.get_task(args.task)
-train_indices, test_indices = task.get_train_test_split_indices(repeat=0, fold=args.fold, sample=0)
-
-# noinspection PyUnresolvedReferences
-X, y, _, _ = task.get_dataset().get_data(task.target_name)
-X_train = X.loc[train_indices]
-y_train = y[train_indices]
-X_test = X.loc[test_indices]
-y_test = y[test_indices]
-
-ds = Dataset(X_train.to_numpy(), y_train.to_numpy(), metric='rocauc')
-ds_test = Dataset(X_test.to_numpy(), y_test.to_numpy(), metric=ds.metric)
+ds, ds_test = Dataset.from_openml(args.task, args.fold, 'rocauc')
 
 master = Master(
     ds=ds,
@@ -72,11 +59,11 @@ logging.info(f'Best found configuration: {incumbent.steps}\n'
 logging.info(f'A total of {len(run_history.data)} unique structures where sampled.')
 logging.info(f'A total of {len(run_history.get_all_runs())} runs where executed.')
 
-y_pred = pipeline.predict(X_test)
-y_prob = pipeline.predict_proba(X_test)
+y_pred = pipeline.predict(ds_test.X)
+y_prob = pipeline.predict_proba(ds_test.X)
 
 logging.info(f'Final pipeline:\n{pipeline}')
-logging.info(f'Final test performance {util.score(y_test, y_prob, y_pred, ds.metric)}')
+logging.info(f'Final test performance {util.score(ds_test.y, y_prob, y_pred, ds.metric)}')
 logging.info(f'Final ensemble performance '
              f'{util.score(ds_test.y, ensemble.predict_proba(ds_test.X), ensemble.predict(ds_test.X), ds.metric)} '
              f'based on {len(ensemble.estimators_)} individuals')

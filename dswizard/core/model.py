@@ -5,9 +5,11 @@ from enum import Enum
 from typing import Optional, List, TYPE_CHECKING, Tuple, Union
 
 import numpy as np
+import openml
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
+from openml import OpenMLSupervisedTask
 from sklearn.base import BaseEstimator
 
 from dswizard.components.base import EstimatorComponent
@@ -256,7 +258,9 @@ class Dataset:
                  X: np.ndarray,
                  y: np.ndarray,
                  metric: str = 'f1',
-                 cutoff: int = 120):
+                 cutoff: int = 120,
+                 task: int = None,
+                 fold: int = None):
         self.X = X
         self.y = y
 
@@ -266,6 +270,25 @@ class Dataset:
         self.cutoff = cutoff
 
         self.mf_dict, self.meta_features = MetaFeatureFactory.calculate(X, y, timeout=self.cutoff)
+
+        self.task = task
+        self.fold = fold
+
+    @staticmethod
+    def from_openml(task: int, fold: int, metric: str):
+        # noinspection PyTypeChecker
+        task: OpenMLSupervisedTask = openml.tasks.get_task(task)
+        train_indices, test_indices = task.get_train_test_split_indices(fold=fold)
+
+        X, y = task.get_X_and_y()
+        X_train = X[train_indices, :]
+        y_train = y[train_indices]
+        X_test = X[test_indices, :]
+        y_test = y[test_indices]
+
+        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold)
+        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold)
+        return ds, ds_test
 
 
 class PartialConfig:
