@@ -24,6 +24,6 @@ class FixedStructure(BaseStructureGenerator):
             cfg_keys.append(key)
 
         cs.pipeline = FlexiblePipeline(self.steps)
-        cs.configspace = cs.pipeline.get_hyperparameter_search_space(ds.meta_features)
+        cs.configspace = cs.pipeline.get_hyperparameter_search_space(ds.mf_dict)
         cs.cfg_keys = cfg_keys
         return cs

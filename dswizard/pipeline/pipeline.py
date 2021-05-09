@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from dswizard.core.logger import ProcessLogger
     from dswizard.core.config_cache import ConfigCache
     from dswizard.core.model import ConfigKey
-    from dswizard.components.meta_features import MetaFeatures
+    from dswizard.components.meta_features import MetaFeatures, MetaFeaturesDict
 
 
 class FlexiblePipeline(Pipeline, BaseEstimator):
@@ -253,7 +253,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         return self
 
-    def get_hyperparameter_search_space(self, mf: Optional[MetaFeatures] = None) -> ConfigurationSpace:
+    def get_hyperparameter_search_space(self, mf: Optional[MetaFeaturesDict] = None) -> ConfigurationSpace:
         cs = ConfigurationSpace()
         for name, step in self.steps:
             step_configuration_space = step.get_hyperparameter_search_space(mf=mf)
