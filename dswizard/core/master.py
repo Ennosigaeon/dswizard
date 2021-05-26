@@ -10,12 +10,11 @@ import tempfile
 import threading
 import time
 import timeit
-import joblib
 from multiprocessing.managers import SyncManager
 from typing import Type, TYPE_CHECKING, Tuple, Dict, Optional, Union
 
+import joblib
 from ConfigSpace.configuration_space import ConfigurationSpace
-from sklearn.pipeline import Pipeline
 
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
@@ -23,6 +22,7 @@ from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.ensemble import EnsembleBuilder
 from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId
+from dswizard.core.renderer import NotebookRenderer
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import PseudoBandit
 from dswizard.optimizers.config_generators import Hyperopt
@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from dswizard.core.base_bandit_learner import BanditLearner
     from dswizard.core.base_config_generator import BaseConfigGenerator
     from dswizard.core.worker import Worker
+    from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 class Master:
@@ -161,8 +162,9 @@ class Master:
 
     def optimize(self, fit: bool = True,
                  ensemble: bool = True,
-                 store: bool = True) -> Union[Tuple[Pipeline, RunHistory],
-                                              Tuple[Pipeline, RunHistory, PrefitVotingClassifier]]:
+                 render: bool = True,
+                 store: bool = True) -> Union[Tuple[FlexiblePipeline, RunHistory],
+                                              Tuple[FlexiblePipeline, RunHistory, PrefitVotingClassifier]]:
         """
         run optimization
         :return:
@@ -290,6 +292,8 @@ class Master:
 
         if fit:
             pipeline.fit(self.ds.X, self.ds.y)
+        if render and fit:
+            self.render(pipeline)
         if store and fit:
             joblib.dump(pipeline, os.path.join(self.working_directory, 'incumbent.pkl'))
         if store:
@@ -306,6 +310,12 @@ class Master:
         if store:
             joblib.dump(ensemble, os.path.join(self.working_directory, 'final_ensemble.pkl'))
         return ensemble
+
+    def render(self, incumbent: FlexiblePipeline, ds: Dataset = None):
+        renderer = NotebookRenderer()
+        renderer.render(incumbent,
+                        self.ds if ds is None else ds,
+                        os.path.join(self.working_directory, 'incumbent.ipynb'))
 
     def _evaluation_callback(self, job: EvaluationJob) -> None:
         """
