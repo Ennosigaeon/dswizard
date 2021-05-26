@@ -107,6 +107,8 @@ class Node:
         if include_preprocessing:
             components.update(DataPreprocessorChoice().get_available_components(mf=mf))
             components.update(FeaturePreprocessorChoice().get_available_components(mf=mf))
+        if 'noop' in components:
+            del components['noop']
         return components
 
     def enter(self):
@@ -323,15 +325,30 @@ class TransferLearning(Policy):
                         current_children: List[Node],
                         include_preprocessing: bool = True,
                         include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
-        available_actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                                include_classifier=include_classifier)
-        exhausted_actions = [type(n.component) for n in current_children]
-        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+        available_actions = n.available_actions()
+        actions = []
+        # Prefer classifier if no children have been visited yet
+        if include_classifier and len(current_children) < 2:
+            actions = self._get_actions(n, current_children, include_preprocessing=False, include_classifier=True)
+        if len(actions) == 0:
+            actions = self._get_actions(n, current_children, include_preprocessing=include_preprocessing,
+                                        include_classifier=include_classifier)
         if len(actions) == 0:
             return None
 
         perf = self.estimate_performance(actions, n.ds)
         return available_actions[actions[int(np.argmax(perf))]]
+
+    @staticmethod
+    def _get_actions(n: Node,
+                     current_children: List[Node],
+                     include_preprocessing: bool,
+                     include_classifier: bool) -> List[str]:
+        available_actions = n.available_actions(include_preprocessing=include_preprocessing,
+                                                include_classifier=include_classifier)
+        exhausted_actions = [type(n.component) for n in current_children]
+        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+        return actions
 
 
 class MCTS(BaseStructureGenerator):
@@ -396,7 +413,7 @@ class MCTS(BaseStructureGenerator):
             # expand last node in path if possible
             max_depths = 3
             max_failures = 3
-            timeout = None if cutoff is None else timeit.default_timer() + cutoff
+            timeout = None if cutoff is None or cutoff <= 0 else timeit.default_timer() + cutoff
             for i in range(1, max_depths + 1):
                 expansion, result, failures = self._expand(path, worker, cs.cid, timeout=timeout,
                                                            max_failures=max_failures,
