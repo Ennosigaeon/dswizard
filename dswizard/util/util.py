@@ -1,20 +1,21 @@
 import importlib
 import logging
 import os
-from typing import Optional
 
 import multiprocessing_logging
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from sklearn.metrics import roc_auc_score, log_loss
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, log_loss
 from sklearn.utils.multiclass import type_of_target
 
 valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'rocauc'}
 
 
 def setup_logging(log_file: str = None):
-    multiprocessing_logging.install_mp_handler()
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
+    while len(logger.handlers) > 0:
+        logger.removeHandler(logger.handlers[0])
+
+    multiprocessing_logging.install_mp_handler(logger)
     formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(name)-15s %(threadName)-10s %(message)s')
 
     if log_file is not None:
