@@ -36,6 +36,7 @@ class JsonResultLogger:
         self.directory = directory
         self.structure_fn = os.path.join(directory, 'structures.json')
         self.results_fn = os.path.join(directory, 'results.json')
+        self.runhistory_fn = os.path.join(directory, 'runhistory.json')
         self.structure_ids = set()
 
         if init:
@@ -84,6 +85,18 @@ class JsonResultLogger:
                 json.dumps([cid.as_tuple(), result.as_dict() if result is not None else None])
             )
             fh.write("\n")
+
+    def run_history(self, structures: List[CandidateStructure]) -> None:
+        configs = {}
+        for s in structures:
+            configs[f'{s.cid.iteration}:{s.cid.structure}'] = [r.as_dict() for r in s.results]
+        data = {
+            'structures': [s.as_dict() for s in structures],
+            'configs': configs
+        }
+
+        with open(self.runhistory_fn, 'w') as fh:
+            fh.write(json.dumps(data))
 
     def load(self) -> Dict[CandidateId, CandidateStructure]:
         structures = {}

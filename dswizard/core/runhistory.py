@@ -3,6 +3,7 @@ from typing import List, Dict, Optional, Tuple
 
 from sklearn import clone
 
+from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util.util import model_file
@@ -18,7 +19,8 @@ class RunHistory:
     def __init__(self,
                  data: Dict[CandidateId, CandidateStructure],
                  meta_config: dict,
-                 workdir: str):
+                 workdir: str,
+                 result_logger: JsonResultLogger):
         self.meta_config = meta_config
 
         # Collapse data to merge identical structures
@@ -39,6 +41,7 @@ class RunHistory:
                         # Rename model files so that they can be found during ensemble construction
                         os.rename(os.path.join(workdir, model_file(cid.with_config(i))),
                                   os.path.join(workdir, model_file(old_cid.with_config(offset + i))))
+        result_logger.run_history(list(self.data.values()))
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]
