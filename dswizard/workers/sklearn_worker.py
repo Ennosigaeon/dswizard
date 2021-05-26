@@ -83,7 +83,9 @@ class SklearnWorker(Worker):
         fitted_pipelines = []
         for train, test in cv.split(X, y, groups):
             cloned_pipeline = clone(pipeline)
-            probability_blocks.append(_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, 'predict_proba'))
+            probability_blocks.append(
+                (_fit_and_predict(cloned_pipeline, X, y, train, test, 0, {}, 'predict_proba'), test)
+            )
             prediction_blocks.append(cloned_pipeline.predict(X))
             fitted_pipelines.append(cloned_pipeline)
 

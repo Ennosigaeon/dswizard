@@ -40,7 +40,7 @@ if __name__ == '__main__':
         include_package_data=True,
         install_requires=requirements,
         extras_require={
-            'visualization': ['pygraphviz==1.6'],
+            'visualization': ['pygraphviz==1.7'],
             'smac': ['smac==0.13.1']
         },
         keywords=['automl', 'machine learning', 'pipeline synthesis']
