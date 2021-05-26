@@ -59,11 +59,24 @@ class SplitSMBO(SMBO):
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
                         **kwargs) -> None:
-        info, start_time = self.run_infos[config]
-        end_time = time.time()
-        del self.run_infos[config]
-        result = RunValue(loss, end_time - start_time, SmacStatus(status.value), start_time, end_time, {})
-        self._incorporate_run_results(info, result, 0)
+        try:
+            info, start_time = self.run_infos[config]
+            end_time = time.time()
+            del self.run_infos[config]
+            result = RunValue(loss, end_time - start_time, SmacStatus(status.value), start_time, end_time, {})
+            if update_model:
+                self._incorporate_run_results(info, result, 10)
+        except KeyError:
+            # Configuration was sampled during structure search and not via SMAC
+            if update_model:
+                self.runhistory.add(
+                    config=config,
+                    cost=loss,
+                    time=0.0,
+                    status=SmacStatus(status.value),
+                    instance_id=None,
+                    seed=0,
+                )
 
 
 class SmacGenerator(BaseConfigGenerator):
@@ -77,20 +90,17 @@ class SmacGenerator(BaseConfigGenerator):
         logging.getLogger('smac').setLevel(logging.WARNING)
 
         scenario = Scenario({
-            'abort_on_first_run_crash': True,
             'run_obj': 'quality',
             'deterministic': True,
             'shared-model': False,
-
             'cs': self.configspace,
-            'initial_incumbent': 'DEFAULT',
-
             'output_dir': self.working_directory
         })
         scenario.logger = smac_logger
 
         self.smbo: SplitSMBO = SMAC4HPO(scenario=scenario, smbo_class=SplitSMBO).solver
         self.smbo.logger = smac_logger
+        self.smbo.start()
 
     def sample_config(self, default: bool = False) -> Configuration:
         if default:
