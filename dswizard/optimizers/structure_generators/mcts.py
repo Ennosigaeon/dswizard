@@ -36,6 +36,10 @@ class Node:
     Could be e.g. a chess or checkers board state.
     """
 
+    UNVISITED = 'Unvisited'
+    INCOMPLETE = 'Incomplete'
+    ROOT = 'Root'
+
     def __init__(self,
                  node_id: int,
                  ds: Optional[Dataset],
@@ -50,11 +54,14 @@ class Node:
         self.failure_message: Optional[str] = None
 
         if component is None:
-            self.label = 'ROOT'
+            self.label = Node.ROOT
             self.component = None
         else:
             self.component = component()
-            self.label = self.component.name(short=True)
+            label = self.component.name(short=True)
+            if label.endswith('Component'):
+                label = label[:-9]
+            self.label = label
 
         if pipeline_prefix is None:
             pipeline_prefix = []
@@ -129,7 +136,7 @@ class Tree:
         new_id = self.id_count
         node = Node(new_id, ds, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
         if ds is None:
-            node.failure_message = 'Incomplete'
+            node.failure_message = Node.INCOMPLETE
 
         self.G.add_node(new_id, value=node, label=node.label)
         if parent_node is not None:
@@ -160,8 +167,6 @@ class Tree:
         # TODO plot can only be called once
         for n, data in self.G.nodes(data=True):
             node: Node = data['value']
-            if node.label.endswith('Component'):
-                data['label'] = node.label[:-9]
 
             score = node.reward / node.visits if node.visits > 0 else 0
             data['label'] = f'{data["label"]} ({n})\n{score:.4f} / {node.visits}'

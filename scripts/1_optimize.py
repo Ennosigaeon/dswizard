@@ -10,13 +10,13 @@ import os
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners.pseudo import PseudoBandit
-from dswizard.optimizers.config_generators import Hyperopt
-from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
+from dswizard.optimizers.config_generators import SmacGenerator
+from dswizard.optimizers.structure_generators.mcts import TransferLearning, MCTS
 from dswizard.util import util
 
 parser = argparse.ArgumentParser(description='Example 1 - dswizard optimization.')
-parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=300)
-parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=60)
+parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=60)
+parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=-1)
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/')
 parser.add_argument('--fold', type=int, help='Fold of OpenML task to optimize', default=0)
 parser.add_argument('task', type=int, help='OpenML task id')
@@ -34,14 +34,14 @@ ds, ds_test = Dataset.from_openml(args.task, args.fold, 'rocauc')
 master = Master(
     ds=ds,
     working_directory=os.path.join(args.log_dir, str(args.task)),
-    n_workers=2,
+    n_workers=1,
     model='../dswizard/assets/rf_complete.pkl',
 
     wallclock_limit=args.wallclock_limit,
     cutoff=args.cutoff,
     pre_sample=False,
 
-    config_generator_class=Hyperopt,
+    config_generator_class=SmacGenerator,
 
     structure_generator_class=MCTS,
     structure_generator_kwargs={'policy': TransferLearning},
