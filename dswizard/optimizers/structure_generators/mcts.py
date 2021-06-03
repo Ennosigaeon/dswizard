@@ -29,28 +29,6 @@ from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util import util
 
 
-# Ideas
-#   1. Bandit Learning
-#       - Iterate all pipelines with maximum depth d
-#       - Use MCTS to select next pipeline to tune
-#           - Use grammar to generate valid pipelines during simulation and expansion
-#           - Consider pipeline complexity to avoid over-fitting
-#           - Stop node selection to re-select a shorter pipeline
-#           - Prior for step performance via OpenML flows
-#           - Do not select next action indepently but consider previous steps. Algorithms are often selected in paris
-#               (see MLPlan)
-#       - Optimize hyperparameters via BO
-#           - Prior for hyperparameters via OpenML flows
-#
-#  General:
-#   - Multi-target optimization
-#       - Quality
-#       - Complexity
-#       - Training time
-#       - Hardware limitations
-#
-
-
 class Node:
     """
     A representation of a single board state.
@@ -59,13 +37,13 @@ class Node:
     """
 
     def __init__(self,
-                 id: int,
+                 node_id: int,
                  ds: Optional[Dataset],
                  component: Optional[Type[EstimatorComponent]],
                  pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None,
                  partial_config: PartialConfig = None
                  ):
-        self.id = id
+        self.id = node_id
         self.ds = ds
         self.partial_config = partial_config
 
@@ -83,7 +61,7 @@ class Node:
         else:
             pipeline_prefix = deepcopy(pipeline_prefix)
             # TODO check if also add if pipeline_prefix is None
-            pipeline_prefix.append((str(id), self.component))
+            pipeline_prefix.append((str(node_id), self.component))
         self.steps: List[Tuple[str, EstimatorComponent]] = pipeline_prefix
 
         self.visits = 0
@@ -193,8 +171,8 @@ class Tree:
                 data['style'] = 'filled'
                 data['label'] += '\n' + node.failure_message
 
-        H = nx.nx_agraph.to_agraph(self.G)
-        H.draw(file, prog='dot')
+        h = nx.nx_agraph.to_agraph(self.G)
+        h.draw(file, prog='dot')
 
     def __contains__(self, node: int) -> bool:
         return node in self.G.nodes

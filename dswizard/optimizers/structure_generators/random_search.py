@@ -109,5 +109,5 @@ class RandomStructureGenerator(BaseStructureGenerator):
 
             cs, steps = self._generate_pipeline(d)
             pipelines.append(steps)
-        pipelines = list(filter(lambda d: len(d) > 0, pipelines))
+        pipelines = list(filter(lambda dep: len(dep) > 0, pipelines))
         return SubPipeline(pipelines), max(depths)

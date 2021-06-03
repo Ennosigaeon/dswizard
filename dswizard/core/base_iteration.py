@@ -79,7 +79,7 @@ class BaseIteration(abc.ABC):
             return None
 
         # Check if candidates exists from previous stage
-        candidates = list(filter(lambda cid: self.data[cid].status == 'QUEUED', self.data.keys()))
+        candidates = list(filter(lambda c: self.data[c].status == 'QUEUED', self.data.keys()))
         for cid in candidates:
             candidate = self.data[cid]
             assert candidate.budget == self.budgets[self.stage], 'Config budget does not align with current stage!'
@@ -167,7 +167,7 @@ class BaseIteration(abc.ABC):
         self.is_finished = True
 
         for k, v in self.data.items():
-            assert v.status in ['TERMINATED', 'REVIEW', 'CRASHED'], 'Configuration has not finshed yet!'
+            assert v.status in ['TERMINATED', 'REVIEW', 'CRASHED'], 'Configuration has not finished yet!'
             v.status = 'COMPLETED'
 
     @abc.abstractmethod

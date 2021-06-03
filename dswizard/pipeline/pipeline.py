@@ -46,7 +46,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
     def to_networkx(self, prefix: str = None):
         import networkx as nx
-        G = nx.DiGraph()
+        g = nx.DiGraph()
         predecessor = None
         for name, estimator in self.steps_.items():
             name = prefixed_name(prefix, name)
@@ -55,22 +55,22 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                 split = name
                 name = f'{name}_merge'
 
-                G.add_node(split, label='split', name=name)
-                G.add_node(name, label='merge')
+                g.add_node(split, label='split', name=name)
+                g.add_node(name, label='merge')
 
                 for p_name, p in estimator.pipelines.items():
                     prefix = prefixed_name(split, p_name)
-                    H = p.to_networkx(prefix=prefix)
-                    G = nx.compose(G, H)
-                    G.add_edge(split, prefixed_name(prefix, p.steps[0][0]))
-                    G.add_edge(prefixed_name(prefix, p.steps[-1][0]), name)
+                    h = p.to_networkx(prefix=prefix)
+                    g = nx.compose(g, h)
+                    g.add_edge(split, prefixed_name(prefix, p.steps[0][0]))
+                    g.add_edge(prefixed_name(prefix, p.steps[-1][0]), name)
             else:
-                G.add_node(name, label=estimator.name().split('.')[-1], name=name)
+                g.add_node(name, label=estimator.name().split('.')[-1], name=name)
 
             if predecessor is not None:
-                G.add_edge(predecessor, name)
+                g.add_edge(predecessor, name)
             predecessor = name
-        return G
+        return g
 
     def get_step(self, name: str):
         tokens = name.split(':')
@@ -301,10 +301,11 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 class SubPipeline(EstimatorComponent):
 
     def __init__(self, sub_wfs: List[List[Tuple[str, EstimatorComponent]]]):
+        super().__init__()
         self.pipelines: Dict[str, FlexiblePipeline] = {}
 
         # TODO cfg_keys missing
-        ls = list(map(lambda wf: FlexiblePipeline(wf), sub_wfs))
+        ls = list(map(lambda sw: FlexiblePipeline(sw), sub_wfs))
         for idx, wf in enumerate(sorted(ls)):
             self.pipelines[f'pipeline_{idx}'] = wf
 

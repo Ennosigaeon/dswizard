@@ -3,7 +3,7 @@ import itertools
 import logging
 import os
 import timeit
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import joblib
 import numpy as np
@@ -136,7 +136,7 @@ class EnsembleBuilder:
         self.ensembles_.sort(key=lambda x: x[0])
         return self
 
-    def _ensemble_from_candidates(self, X, y, metric, candidates) -> Tuple[float, PrefitVotingClassifier]:
+    def _ensemble_from_candidates(self, X, y, metric, candidates) -> Tuple[float, Optional[PrefitVotingClassifier]]:
         weights = np.zeros(len(candidates))
         ens_score, ens_probs = self._get_ensemble_score(y, metric, candidates, weights)
 
@@ -160,7 +160,7 @@ class EnsembleBuilder:
             break
 
         if len(cand_ensembles) == 0:
-            return None, None
+            return np.inf, None
 
         scores = np.array([score for score, _ in cand_ensembles])
         idx = np.random.choice(np.where(scores == np.min(scores))[0])
@@ -183,7 +183,8 @@ class EnsembleBuilder:
             score = util.worst_score(metric)[0]
         return score, y_probs
 
-    def _score_with_model(self, y, metric, probs, n_models, candidate):
+    @staticmethod
+    def _score_with_model(y, metric, probs, n_models, candidate):
         n_models = float(n_models)
         new_probs = candidate[2]
         new_probs = (probs * n_models + new_probs) / (n_models + 1.0)

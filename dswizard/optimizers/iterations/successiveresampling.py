@@ -16,7 +16,7 @@ class SuccessiveResampling(BaseIteration):
                  budgets: List[float],
                  logger: logging.Logger = None,
                  resampling_rate=0.5,
-                 min_samples_advance=1):
+                 min_samples_advance=1.):
         """
         Iteration class to resample new configurations along side keeping the good ones in SuccessiveHalving.
         :param iteration:

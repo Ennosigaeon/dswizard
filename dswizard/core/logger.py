@@ -72,9 +72,9 @@ class JsonResultLogger:
                 self.log_evaluated_config(structure.cid.with_config(idx), result)
 
             if draw_structure:
-                G = structure.pipeline.to_networkx()
-                H = nx.nx_agraph.to_agraph(G)
-                H.draw(f'{self.directory}/{structure.cid}.png', prog='dot')
+                g = structure.pipeline.to_networkx()
+                h = nx.nx_agraph.to_agraph(g)
+                h.draw(f'{self.directory}/{structure.cid}.png', prog='dot')
 
     def log_evaluated_config(self, cid: CandidateId, result: Result) -> None:
         if cid.without_config() not in self.structure_ids:

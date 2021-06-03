@@ -112,5 +112,5 @@ class ConfigCache:
             else:
                 cfg_key = job.cfg_keys[0]
                 self.cache[cfg_key[0]].generators[cfg_key[1]].register_result(job.config, loss, status)
-        except Exception as ex:
+        except Exception:
             self.logger.exception("Failed to register results")

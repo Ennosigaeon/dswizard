@@ -263,7 +263,7 @@ class Master:
         #   incumbent, loss = bandit_learners.optimize(configspace, structure)
         #   Update score of selected structure with loss
 
-        # Main hyperparamter optimization logic
+        # Main hyperparameter optimization logic
         timeout = False
         repetition = 0
         offset = 0
@@ -286,7 +286,8 @@ class Master:
 
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
-        self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name, self.result_logger)
+        self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name,
+                              self.result_logger)
 
         pipeline, _ = self.rh_.get_incumbent()
 

@@ -36,7 +36,7 @@ class Worker(abc.ABC):
                  logger: logging.Logger = None,
                  wid: str = None,
                  cfg_cache: Optional[ConfigCache] = None,
-                 workdir: str = '/tmp/dswizzard/'):
+                 workdir: str = '/tmp/dswizard/'):
         """
         :param logger: logger used for debugging output
         :param wid: if multiple workers are started in the same process, you MUST provide a unique id for each one of

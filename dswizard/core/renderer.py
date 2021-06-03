@@ -57,9 +57,9 @@ class NotebookRenderer:
         return code
 
     def _imports(self, steps: List[PipelineStep]) -> NotebookNode:
-        '''
+        """
         from sklearn.pipeline import Pipeline
-        '''
+        """
         self._write('import openml')
         modules = defaultdict(list)
         modules['openml'].append('OpenMLSupervisedTask')

@@ -85,7 +85,7 @@ class Hyperopt(BaseConfigGenerator):
 
             if sample is None:
                 sample = self.configspace.sample_configuration()
-        except:
+        except Exception:
             sample = self.configspace.sample_configuration()
 
         return sample
@@ -98,7 +98,6 @@ class Hyperopt(BaseConfigGenerator):
         g = self.kde.bad_kde().pdf
 
         kde_good = self.kde.good_kde()
-        kde_bad = self.kde.bad_kde()
 
         for i in range(self.num_samples):
             idx = np.random.randint(0, len(kde_good.data))
@@ -111,7 +110,7 @@ class Hyperopt(BaseConfigGenerator):
                     bw = self.bw_factor * bw
                     try:
                         vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
-                    except:
+                    except Exception:
                         pass
                 else:
                     if np.random.rand() < (1 - bw):

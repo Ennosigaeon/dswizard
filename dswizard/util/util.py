@@ -35,25 +35,25 @@ def score(y, y_prob, y_pred, metric: str):
     sign = -1
 
     if metric == 'accuracy':
-        score = accuracy_score(y, y_pred)
+        s = accuracy_score(y, y_pred)
     elif metric == 'precision':
-        score = precision_score(y, y_pred, average='weighted')
+        s = precision_score(y, y_pred, average='weighted')
     elif metric == 'recall':
-        score = recall_score(y, y_pred, average='weighted')
+        s = recall_score(y, y_pred, average='weighted')
     elif metric == 'f1':
-        score = f1_score(y, y_pred, average='weighted')
+        s = f1_score(y, y_pred, average='weighted')
     elif metric == 'logloss':
         sign = 1
-        score = log_loss(y, y_prob)
+        s = log_loss(y, y_prob)
     elif metric == 'rocauc':
         y_type = type_of_target(y)
         if y_type == "binary" and y_prob.ndim > 1:
             y_prob = y_prob[:, 1]
-        score = roc_auc_score(y, y_prob, average='weighted', multi_class='ovr')
+        s = roc_auc_score(y, y_prob, average='weighted', multi_class='ovr')
     else:
         raise ValueError(f'Unknown metric {metric}')
 
-    return sign * score
+    return sign * s
 
 
 def worst_score(metric: str):
