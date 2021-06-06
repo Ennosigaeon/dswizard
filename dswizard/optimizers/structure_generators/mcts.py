@@ -52,6 +52,7 @@ class Node:
         self.partial_config = partial_config
 
         self.failure_message: Optional[str] = None
+        self.expanded = False
 
         if component is None:
             self.label = Node.ROOT
@@ -80,6 +81,10 @@ class Node:
     @property
     def failed(self):
         return self.failure_message is not None
+
+    @property
+    def unvisited(self):
+        return self.failure_message is not None and self.failure_message == Node.UNVISITED
 
     # noinspection PyMethodMayBeStatic
     def available_actions(self,
@@ -136,21 +141,31 @@ class Tree:
         new_id = self.id_count
         node = Node(new_id, ds, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
         if ds is None:
-            node.failure_message = Node.INCOMPLETE
+            node.failure_message = Node.UNVISITED
 
-        self.G.add_node(new_id, value=node, label=node.label)
+        self.G.add_node(new_id, value=node)
         if parent_node is not None:
             self.G.add_edge(parent_node, new_id)
+        return node
+
+    def inflate_node(self, estimator: Type[EstimatorComponent], parent_node: Node) -> Node:
+        children = self.get_children(parent_node.id, include_unvisited=True)
+        node = next(filter(lambda n: isinstance(n.component, estimator), children))
+        assert node.failure_message == Node.UNVISITED
+        node.failure_message = Node.INCOMPLETE
         return node
 
     def get_node(self, node: int) -> Node:
         return self.G.nodes[node]['value']
 
-    def get_children(self, node: int) -> List[Node]:
-        return [self.G.nodes[n]['value'] for n in self.G.successors(node)]
+    def get_children(self, node: int, include_unvisited: bool = False) -> List[Node]:
+        nodes = [self.G.nodes[n]['value'] for n in self.G.successors(node)]
+        return list(filter(lambda n: include_unvisited or not n.unvisited, nodes))
 
-    def get_all_children(self, node: int) -> List[Node]:
-        return [self.G.nodes[n]['value'] for n in nx.dfs_tree(self.G, node).nodes.keys()]
+    def expand_node(self, node: Node):
+        for key, value in node.available_actions().items():
+            self.add_node(value, parent_node=node)
+        node.expanded = True
 
     def fully_expanded(self, node: Node, global_max: int = 10):
         # global_max is used as failsafe to prevent massive expansion of single node
@@ -158,26 +173,28 @@ class Tree:
         possible_children = len(node.available_actions())
         max_children = math.floor(math.pow(node.visits, self.coef_progressive_widening))
         max_children = min(max_children, possible_children, global_max)
-
-        current_children = len(list(self.G.successors(node.id)))
+        current_children = len(self.get_children(node.id))
 
         return possible_children == 0 or (current_children != 0 and current_children >= max_children)
 
     def plot(self, file: str):
-        # TODO plot can only be called once
-        for n, data in self.G.nodes(data=True):
+        h = self.G.copy()
+        unvisited_nodes = []
+        for n, data in h.nodes(data=True):
             node: Node = data['value']
 
             score = node.reward / node.visits if node.visits > 0 else 0
-            data['label'] = f'{data["label"]} ({n})\n{score:.4f} / {node.visits}'
+            data['label'] = f'{node.label} ({n})\n{score:.4f} / {node.visits}'
 
-            if node.failed:
+            if node.failure_message == Node.UNVISITED:
+                unvisited_nodes.append(n)
+            elif node.failed:
                 data['fillcolor'] = 'gray'
                 data['style'] = 'filled'
                 data['label'] += '\n' + node.failure_message
 
-        h = nx.nx_agraph.to_agraph(self.G)
-        h.draw(file, prog='dot')
+        h.remove_nodes_from(unvisited_nodes)
+        nx.nx_agraph.to_agraph(h).draw(file, prog='dot')
 
     def __contains__(self, node: int) -> bool:
         return node in self.G.nodes
@@ -500,6 +517,8 @@ class MCTS(BaseStructureGenerator):
                     self.logger.warning('Aborting expansion due to timeout')
                     return None, None, max_failures
 
+                if not node.expanded:
+                    self.tree.expand_node(node)
                 n_children = len(self.tree.get_children(node.id))
                 if n_children >= n_actions:
                     break
@@ -513,10 +532,9 @@ class MCTS(BaseStructureGenerator):
                     self.logger.warning(f'Aborting expansion due to {failure_count} failed expansions')
                     return None, None, failure_count
 
-                component = action()
-
+                new_node = self.tree.inflate_node(estimator=action, parent_node=node)
+                component = new_node.component
                 self.logger.debug(f'\tExpanding with {component.name()}. Option {n_children + 1}/{n_actions}')
-                new_node = self.tree.add_node(estimator=action, parent_node=node)
 
             ds = node.ds
             config, key = self.cfg_cache.sample_configuration(
