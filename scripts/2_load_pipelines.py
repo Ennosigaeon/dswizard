@@ -15,7 +15,7 @@ from tpot.builtins import StackingEstimator
 def load_tpot(base_dir: str):
     def resolve_type(step):
         if isinstance(step, StackingEstimator):
-            return type(step.estimator).__name__
+            return type(step.estimator_).__name__
         elif isinstance(step, FeatureUnion):
             ls = []
             for _, trans in step.transformer_list:
@@ -123,7 +123,7 @@ def load_autosklearn(base_dir: str):
 
     def resolve_type(step):
         if isinstance(step, AutoSklearnChoice):
-            name = type(step.estimator).__name__
+            name = type(step.estimator_).__name__
             return rename[name] if name in rename else name
         elif isinstance(step, DataPreprocessor):
             ls = []

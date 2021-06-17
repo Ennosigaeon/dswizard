@@ -35,9 +35,9 @@ class NotebookRenderer:
 
         steps = []
         for name, step in pipeline.steps:
-            if step.estimator is None:
+            if step.estimator_ is None:
                 raise ValueError(f'Step {name} is not fitted yet. Unable to render pipeline')
-            steps.append(NotebookRenderer.PipelineStep(name, step.estimator))
+            steps.append(NotebookRenderer.PipelineStep(name, step.estimator_))
 
         notebook = nbformat.v4.new_notebook()
         cells = [
