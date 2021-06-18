@@ -1,9 +1,8 @@
-import abc
 import logging
 import math
+import operator
 import os
 import pickle
-import random
 import threading
 import timeit
 from abc import ABC
@@ -142,6 +141,9 @@ class Tree:
         node = Node(new_id, ds, estimator, pipeline_prefix=parent_node.steps if parent_node is not None else None)
         if ds is None:
             node.failure_message = Node.UNVISITED
+        if parent_node is None:
+            # ROOT node should always have at least 1 visit to be able to calculate UCT
+            node.visits += 1
 
         self.G.add_node(new_id, value=node)
         if parent_node is not None:
@@ -209,18 +211,53 @@ class Policy(ABC):
         self.start = timeit.default_timer()
         self.wallclock_limit = wallclock_limit
 
-    @abc.abstractmethod
     def get_next_action(self,
-                        n: Node,
-                        current_children: List[Node],
+                        node: Node,
+                        children: List[Node],
                         include_preprocessing: bool = True,
                         include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
+        available_actions = node.available_actions()
+        actions = []
+        visited_children: List[Node] = list(filter(lambda _: not _.unvisited, children))
+
+        # Prefer classifier if no children have been visited yet
+        if include_classifier and len(visited_children) < 2:
+            actions = self._get_actions(node, visited_children, include_preprocessing=False, include_classifier=True)
+        if len(actions) == 0:
+            actions = self._get_actions(node, visited_children, include_preprocessing=include_preprocessing,
+                                        include_classifier=include_classifier)
+        if len(actions) == 0:
+            return None
+
+        estimated_scores = dict(zip(actions, self.estimate_performance(actions, node.ds)))
+        worst_score = util.worst_score(node.ds.metric)[-1]
+        for n in children:
+            if not n.unvisited:
+                continue
+
+            name = n.component.component_name_
+            score = worst_score
+            if name in estimated_scores:
+                score = estimated_scores[name]
+
+            assert n.failure_message == Node.UNVISITED
+            n.visits += 1
+            n.reward += score
+            n.failure_message = None
+
+            uct = self.uct(n, node)
+            estimated_scores[name] = uct
+
+            n.visits -= 1
+            n.reward -= score
+            n.failure_message = Node.UNVISITED
+
+        return available_actions[min(estimated_scores.items(), key=operator.itemgetter(1))[0]]
+
+    def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1) -> np.ndarray:
         pass
 
-    def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
-        return util.worst_score(ds.metric)[-1] * np.ones(len(actions))
-
-    def uct(self, n: Node, parent: Node, scale=2., force: bool = False) -> float:
+    def uct(self, n: Node, parent: Optional[Node], force: bool = False, decompose: bool = False) -> float:
         """Upper confidence bound for trees"""
         if n.failed or n.visits == 0:
             # Always ignore nodes without meta-features
@@ -273,22 +310,22 @@ class Policy(ABC):
 
         return children[idx], scores[idx]
 
+    @staticmethod
+    def _get_actions(node: Node,
+                     current_children: List[Node],
+                     include_preprocessing: bool,
+                     include_classifier: bool) -> List[str]:
+        available_actions = node.available_actions(include_preprocessing=include_preprocessing,
+                                                   include_classifier=include_classifier)
+        exhausted_actions = [type(n.component) for n in current_children]
+        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
+        return actions
+
 
 class RandomSelection(Policy):
 
-    def get_next_action(self,
-                        n: Node,
-                        current_children: List[Node],
-                        include_preprocessing: bool = True,
-                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
-        actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                      include_classifier=include_classifier).values()
-        exhausted_actions = [type(n.component) for n in current_children]
-        actions = [a for a in actions if a not in exhausted_actions]
-
-        if len(actions) == 0:
-            return None
-        return random.choice(actions)
+    def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1):
+        return np.random.random(len(actions))
 
 
 class TransferLearning(Policy):
@@ -319,36 +356,6 @@ class TransferLearning(Policy):
 
         perf = np.random.multivariate_normal(mean, np.diag(var))
         return perf
-
-    def get_next_action(self,
-                        n: Node,
-                        current_children: List[Node],
-                        include_preprocessing: bool = True,
-                        include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
-        available_actions = n.available_actions()
-        actions = []
-        # Prefer classifier if no children have been visited yet
-        if include_classifier and len(current_children) < 2:
-            actions = self._get_actions(n, current_children, include_preprocessing=False, include_classifier=True)
-        if len(actions) == 0:
-            actions = self._get_actions(n, current_children, include_preprocessing=include_preprocessing,
-                                        include_classifier=include_classifier)
-        if len(actions) == 0:
-            return None
-
-        perf = self.estimate_performance(actions, n.ds)
-        return available_actions[actions[int(np.argmax(perf))]]
-
-    @staticmethod
-    def _get_actions(n: Node,
-                     current_children: List[Node],
-                     include_preprocessing: bool,
-                     include_classifier: bool) -> List[str]:
-        available_actions = n.available_actions(include_preprocessing=include_preprocessing,
-                                                include_classifier=include_classifier)
-        exhausted_actions = [type(n.component) for n in current_children]
-        actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
-        return actions
 
 
 class MCTS(BaseStructureGenerator):
@@ -523,9 +530,8 @@ class MCTS(BaseStructureGenerator):
                 if n_children >= n_actions:
                     break
 
-                current_children = self.tree.get_children(node.id)
-                action = self.policy.get_next_action(node, current_children,
-                                                     include_preprocessing=include_preprocessing)
+                children = self.tree.get_children(node.id, include_unvisited=True)
+                action = self.policy.get_next_action(node, children, include_preprocessing=include_preprocessing)
                 if action is None:
                     return None, None, failure_count
                 if failure_count >= max_failures:
