@@ -67,6 +67,13 @@ class CandidateId:
     def without_config(self) -> 'CandidateId':
         return CandidateId(self.iteration, self.structure)
 
+    @property
+    def external_name(self):
+        if self.config is None:
+            return f'{self.iteration}:{self.structure}'
+        else:
+            return f'{self.iteration}:{self.structure}:{self.config}'
+
     def __repr__(self):
         return str(self)
 
@@ -200,7 +207,7 @@ class CandidateStructure:
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId(*raw['cid'])
         cs.pipeline = FlexiblePipeline.from_list(raw['pipeline'])
-        cs.cfg_keys = [ConfigKey(*tuple) for tuple in raw['cfg_keys']]
+        cs.cfg_keys = [ConfigKey(*t) for t in raw['cfg_keys']]
         return cs
 
     @staticmethod

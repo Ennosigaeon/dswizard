@@ -113,7 +113,7 @@ class Node:
         return self
 
     def record_explanation(self, cid: CandidateId, policy: Dict):
-        self.explanations[str(cid)] = {
+        self.explanations[cid.external_name] = {
             'label': self.label,
             'failure_message': self.failure_message,
             'visits': self.visits,
@@ -249,14 +249,14 @@ class Policy(ABC):
             name = n.component.component_name_
             score = worst_score
             if name in estimated_scores:
-                score = estimated_scores[name]
+                score = -estimated_scores[name]
 
             assert n.failure_message == Node.UNVISITED
             n.visits += 1
             n.reward += score
             n.failure_message = None
 
-            uct = self.uct(n, node, decompose=True)
+            uct = self.uct(n, node, worst_score=worst_score, decompose=True)
             estimated_scores[name] = uct['adjusted_score']
 
             n.visits -= 1
@@ -269,13 +269,13 @@ class Policy(ABC):
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1) -> np.ndarray:
         pass
 
-    def uct(self, n: Node, parent: Optional[Node], force: bool = False, decompose: bool = False) \
-            -> Union[float, Dict[str, float]]:
+    def uct(self, n: Node, parent: Optional[Node], force: bool = False, worst_score: float = math.inf,
+            decompose: bool = False) -> Union[float, Dict[str, float]]:
         """Upper confidence bound for trees"""
 
         # Always pick terminal node if forced
         if force and n.is_terminal():
-            return math.inf
+            return -math.inf
 
         if parent is None or parent.visits == 0:
             log_N_vertex = 0
@@ -284,11 +284,11 @@ class Policy(ABC):
         scale = 2.
 
         if n.failed or n.visits == 0:
-            exploitation = -math.inf
-            exploration = -math.inf
+            exploitation = worst_score
+            exploration = worst_score
         else:
-            exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
-            exploration = math.sqrt(log_N_vertex / n.visits)
+            exploitation = n.reward / n.visits
+            exploration = -math.sqrt(log_N_vertex / n.visits)
         adjusted_exploration = self._exploration_weight * exploration
         overfitting = 1 - (scale ** len(n.steps)) / (scale ** 10)
         score = exploitation + adjusted_exploration
@@ -330,7 +330,8 @@ class Policy(ABC):
             self._exploration_weight = max(0.0, self.exploration_weight * (
                     math.exp((self.wallclock_limit + self.start - timeit.default_timer()) / self.wallclock_limit) - 1))
 
-        scores = [self.uct(n, node) for n in children]
+        worst_score = util.worst_score(node.ds.metric)[-1]
+        scores = [self.uct(n, node, worst_score=worst_score) for n in children]
         idx = int(np.argmax(scores))
 
         # Selected non-existing child. Mark as "failed" to force abortion of select
@@ -437,7 +438,7 @@ class MCTS(BaseStructureGenerator):
                 self.tree = Tree(ds)
                 self.store.add(ds.meta_features)
 
-            self._record_explanations(self.tree.ROOT, cs.cid)
+            self._record_explanations(cs.cid)
 
         if retries < 0:
             self.logger.warning('Retries exhausted. Aborting candidate sampling')
@@ -647,14 +648,16 @@ class MCTS(BaseStructureGenerator):
                 return new_node, result, failure_count
         return None, None, failure_count
 
-    def _record_explanations(self, root: int, cid: CandidateId):
+    def _record_explanations(self, cid: CandidateId):
+        root = self.tree.get_node(self.tree.ROOT)
+        worst_score = util.worst_score(root.ds.metric)[-1]
         for node_id in self.tree.G.successors(root):
             node = self.tree.get_node(node_id)
             try:
                 parent = next(self.tree.G.predecessors(node_id))
             except StopIteration:
                 parent = None
-            policy = self.policy.uct(node, parent, decompose=True)
+            policy = self.policy.uct(node, parent, worst_score=worst_score, decompose=True)
             node.record_explanation(cid, policy)
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
@@ -662,7 +665,7 @@ class MCTS(BaseStructureGenerator):
         reward = result.structure_loss
 
         if reward is None or not np.isfinite(reward):
-            reward = 1
+            reward = util.worst_score(self.tree.get_node(self.tree.ROOT).ds.metric)[-1]
 
         try:
             self._backpropagate(candidate.pipeline.steps_.keys(), reward, exit=True)

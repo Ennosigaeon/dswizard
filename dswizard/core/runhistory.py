@@ -1,3 +1,4 @@
+import json
 import os
 from typing import List, Dict, Optional, Tuple, Any
 
@@ -42,10 +43,15 @@ class RunHistory:
                                   os.path.join(workdir, model_file(old_cid.with_config(offset + i))))
 
         configs = {}
+        structures = {}
         for s in self.data.values():
-            configs[f'{s.cid.iteration}:{s.cid.structure}'] = [r.as_dict() for r in s.results]
+            sid = s.cid.external_name
+            configs[sid] = [r.as_dict() for r in s.results]
+            structure = s.as_dict()
+            del structure['cfg_keys']
+            structures[sid] = structure
         self.complete_data = {
-            'structures': [s.as_dict() for s in self.data.values()],
+            'structures': structures,
             'configs': configs,
             'xai': {
                 'structures': structure_xai
