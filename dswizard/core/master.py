@@ -287,7 +287,7 @@ class Master:
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
         self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name,
-                              self.result_logger)
+                              self.result_logger, self.structure_generator.explain())
 
         pipeline, _ = self.rh_.get_incumbent()
 
@@ -333,9 +333,7 @@ class Master:
                         f'Encountered job without a configuration: {job.cid}. Using empty config as fallback')
                     job.config = ConfigurationSpace().get_default_configuration()
 
-                if self.result_logger is not None:
-                    self.result_logger.log_evaluated_config(job.cid, job.result)
-
+                self.result_logger.log_evaluated_config(job.cid, job.result)
                 cs = self.bandit_learner.register_result(job.cs, job.result)
                 self.structure_generator.register_result(job.cs, job.result)
                 self.cfg_cache.register_result(job)
@@ -371,8 +369,7 @@ class Master:
                                                ('dt', DecisionTree())], cfg_cache=self.cfg_cache) \
                         .fill_candidate(cs, self.ds)
 
-                if self.result_logger is not None:
-                    self.result_logger.new_structure(cs)
+                self.result_logger.new_structure(cs)
                 self.bandit_learner.iterations[-1].replace_proxy(cs)
 
                 self.incomplete_structures[cs.cid] = cs, int(cs.budget), 0

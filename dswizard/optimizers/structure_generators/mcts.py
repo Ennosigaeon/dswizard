@@ -7,7 +7,7 @@ import threading
 import timeit
 from abc import ABC
 from copy import deepcopy
-from typing import List, Optional, Tuple, Type, Dict
+from typing import List, Optional, Tuple, Type, Dict, Union, Any
 
 import joblib
 import networkx as nx
@@ -73,6 +73,7 @@ class Node:
 
         self.visits = 0
         self.reward = 0
+        self.explanations: Dict[str, Dict[str, Any]] = {}
 
     def is_terminal(self):
         return self.component is not None and is_classifier(self.component)
@@ -110,6 +111,15 @@ class Node:
         self.visits += 1
         self.reward += reward
         return self
+
+    def record_explanation(self, cid: CandidateId, policy: Dict):
+        self.explanations[str(cid)] = {
+            'label': self.label,
+            'failure_message': self.failure_message,
+            'visits': self.visits,
+            'reward': self.reward,
+            'policy': policy
+        }
 
     def __hash__(self) -> int:
         return self.id
@@ -214,6 +224,7 @@ class Policy(ABC):
     def get_next_action(self,
                         node: Node,
                         children: List[Node],
+                        cid: CandidateId,
                         include_preprocessing: bool = True,
                         include_classifier: bool = True) -> Optional[Type[EstimatorComponent]]:
         available_actions = node.available_actions()
@@ -245,23 +256,22 @@ class Policy(ABC):
             n.reward += score
             n.failure_message = None
 
-            uct = self.uct(n, node)
-            estimated_scores[name] = uct
+            uct = self.uct(n, node, decompose=True)
+            estimated_scores[name] = uct['adjusted_score']
 
             n.visits -= 1
             n.reward -= score
             n.failure_message = Node.UNVISITED
+            n.record_explanation(cid, uct)
 
         return available_actions[min(estimated_scores.items(), key=operator.itemgetter(1))[0]]
 
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1) -> np.ndarray:
         pass
 
-    def uct(self, n: Node, parent: Optional[Node], force: bool = False, decompose: bool = False) -> float:
+    def uct(self, n: Node, parent: Optional[Node], force: bool = False, decompose: bool = False) \
+            -> Union[float, Dict[str, float]]:
         """Upper confidence bound for trees"""
-        if n.failed or n.visits == 0:
-            # Always ignore nodes without meta-features
-            return -math.inf
 
         # Always pick terminal node if forced
         if force and n.is_terminal():
@@ -271,11 +281,30 @@ class Policy(ABC):
             log_N_vertex = 0
         else:
             log_N_vertex = math.log(parent.visits)
+        scale = 2.
 
-        exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
-        exploration = math.sqrt(log_N_vertex / n.visits)
-        overfitting = (scale ** len(n.steps)) / (scale ** 10)
-        return (exploitation + self._exploration_weight * exploration) * (1 - overfitting)
+        if n.failed or n.visits == 0:
+            exploitation = -math.inf
+            exploration = -math.inf
+        else:
+            exploitation = (-1 * n.reward) / n.visits  # HPO computes minimization problem. UCT selects maximum
+            exploration = math.sqrt(log_N_vertex / n.visits)
+        adjusted_exploration = self._exploration_weight * exploration
+        overfitting = 1 - (scale ** len(n.steps)) / (scale ** 10)
+        score = exploitation + adjusted_exploration
+        adjusted_score = score * overfitting
+
+        if decompose:
+            return {
+                'exploitation': exploitation,
+                'exploration': exploration,
+                'overfitting': overfitting,
+                'adjusted_exploration': adjusted_exploration,
+                'score': score,
+                'adjusted_score': adjusted_score
+            }
+        else:
+            return adjusted_score
 
     def select(self, node: Node, tree: Tree, force: bool = False) -> Tuple[Node, float]:
         """Select a child of node, balancing exploration & exploitation"""
@@ -408,6 +437,8 @@ class MCTS(BaseStructureGenerator):
                 self.tree = Tree(ds)
                 self.store.add(ds.meta_features)
 
+            self._record_explanations(self.tree.ROOT, cs.cid)
+
         if retries < 0:
             self.logger.warning('Retries exhausted. Aborting candidate sampling')
             return cs
@@ -422,7 +453,8 @@ class MCTS(BaseStructureGenerator):
             max_failures = 3
             timeout = None if cutoff is None or cutoff <= 0 else timeit.default_timer() + cutoff
             for i in range(1, max_depths + 1):
-                expansion, result, failures = self._expand(path, worker, cs.cid, timeout=timeout,
+                expansion, result, failures = self._expand(path, worker, cs.cid,
+                                                           timeout=timeout,
                                                            max_failures=max_failures,
                                                            include_preprocessing=i < max_depths)
                 max_failures -= failures
@@ -531,7 +563,7 @@ class MCTS(BaseStructureGenerator):
                     break
 
                 children = self.tree.get_children(node.id, include_unvisited=True)
-                action = self.policy.get_next_action(node, children, include_preprocessing=include_preprocessing)
+                action = self.policy.get_next_action(node, children, cid, include_preprocessing=include_preprocessing)
                 if action is None:
                     return None, None, failure_count
                 if failure_count >= max_failures:
@@ -615,6 +647,16 @@ class MCTS(BaseStructureGenerator):
                 return new_node, result, failure_count
         return None, None, failure_count
 
+    def _record_explanations(self, root: int, cid: CandidateId):
+        for node_id in self.tree.G.successors(root):
+            node = self.tree.get_node(node_id)
+            try:
+                parent = next(self.tree.G.predecessors(node_id))
+            except StopIteration:
+                parent = None
+            policy = self.policy.uct(node, parent, decompose=True)
+            node.record_explanation(cid, policy)
+
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
         reward = result.structure_loss
@@ -640,6 +682,25 @@ class MCTS(BaseStructureGenerator):
                 node.update(reward)
                 if exit:
                     node.exit()
+
+    def explain(self) -> Dict[str, Any]:
+        with self.lock:
+            nodes = {}
+            edges = nx.dfs_successors(self.tree.G, source=Tree.ROOT)
+
+            for node_id in self.tree.G.nodes:
+                node = self.tree.get_node(node_id)
+                nodes[node_id] = {
+                    'label': node.label,
+                    'failure_message': node.failure_message,
+                    'visits': node.visits,
+                    'reward': node.reward,
+                    'policy': node.explanations
+                }
+            return {
+                'nodes': nodes,
+                'edges': edges
+            }
 
     def shutdown(self):
         if self.tree is None:

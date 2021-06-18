@@ -86,18 +86,9 @@ class JsonResultLogger:
             )
             fh.write("\n")
 
-    def run_history(self, structures: List[CandidateStructure], store: bool = True) -> dict:
-        configs = {}
-        for s in structures:
-            configs[f'{s.cid.iteration}:{s.cid.structure}'] = [r.as_dict() for r in s.results]
-        data = {
-            'structures': [s.as_dict() for s in structures],
-            'configs': configs
-        }
-
-        if store:
-            with open(self.runhistory_fn, 'w') as fh:
-                fh.write(json.dumps(data))
+    def run_history(self, data: Dict) -> dict:
+        with open(self.runhistory_fn, 'w') as fh:
+            fh.write(json.dumps(data))
         return data
 
     def load(self) -> Dict[CandidateId, CandidateStructure]:

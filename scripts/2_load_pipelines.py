@@ -181,7 +181,7 @@ def load_dswizard(base_dir: str, variant: str):
         for pipeline in ensemble.estimators_:
             pip = []
             for _, est in pipeline.steps:
-                est = est.estimator
+                est = est.estimator_
 
                 if isinstance(est, ColumnTransformer):
                     est = est.transformers[0][1]

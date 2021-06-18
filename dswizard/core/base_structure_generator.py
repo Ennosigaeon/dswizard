@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any
 
 from dswizard.core.config_cache import ConfigCache
 from dswizard.core.model import Dataset
@@ -55,6 +55,9 @@ class BaseStructureGenerator(abc.ABC):
 
         if result.status == 'CRASHED':
             self.logger.warning(f'candidate {candidate.cid} failed')
+
+    def explain(self) -> Dict[str, Any]:
+        return {}
 
     def shutdown(self):
         pass

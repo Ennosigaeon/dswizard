@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 
 from sklearn import clone
 
@@ -20,7 +20,8 @@ class RunHistory:
                  data: Dict[CandidateId, CandidateStructure],
                  meta_config: dict,
                  workdir: str,
-                 result_logger: JsonResultLogger):
+                 result_logger: JsonResultLogger,
+                 structure_xai: Dict[str, Any]):
         self.meta_config = meta_config
 
         # Collapse data to merge identical structures
@@ -41,7 +42,18 @@ class RunHistory:
                         # Rename model files so that they can be found during ensemble construction
                         os.rename(os.path.join(workdir, model_file(cid.with_config(i))),
                                   os.path.join(workdir, model_file(old_cid.with_config(offset + i))))
-        result_logger.run_history(list(self.data.values()))
+
+        configs = {}
+        for s in self.data.values():
+            configs[f'{s.cid.iteration}:{s.cid.structure}'] = [r.as_dict() for r in s.results]
+        self.complete_data = {
+            'structures': [s.as_dict() for s in self.data.values()],
+            'configs': configs,
+            'xai': {
+                'structures': structure_xai
+            }
+        }
+        result_logger.run_history(self.complete_data)
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]
