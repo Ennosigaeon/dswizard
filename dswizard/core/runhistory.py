@@ -3,7 +3,6 @@ from typing import List, Dict, Optional, Tuple, Any
 
 from sklearn import clone
 
-from dswizard.core.logger import JsonResultLogger
 from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util.util import model_file
@@ -20,7 +19,6 @@ class RunHistory:
                  data: Dict[CandidateId, CandidateStructure],
                  meta_config: dict,
                  workdir: str,
-                 result_logger: JsonResultLogger,
                  structure_xai: Dict[str, Any]):
         self.meta_config = meta_config
 
@@ -53,7 +51,6 @@ class RunHistory:
                 'structures': structure_xai
             }
         }
-        result_logger.run_history(self.complete_data)
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]

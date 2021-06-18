@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import pickle
 from typing import TYPE_CHECKING, List, Tuple, Dict
 
 import networkx as nx
@@ -11,13 +12,14 @@ from ConfigSpace import Configuration
 from dswizard.components.util import prefixed_name
 from dswizard.core.model import CandidateStructure, CandidateId, Result
 from dswizard.core.model import PartialConfig
+from dswizard.core.runhistory import RunHistory
 
 if TYPE_CHECKING:
     from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 class JsonResultLogger:
-    def __init__(self, directory: str, init: bool = True, overwrite: bool = False):
+    def __init__(self, directory: str):
         """
         convenience logger for 'semi-live-results'
 
@@ -25,10 +27,6 @@ class JsonResultLogger:
         objects in each line.  This version opens and closes the files for each result. This might be very slow if
         individual runs are fast and the filesystem is rather slow (e.g. a NFS).
         :param directory: the directory where the two files 'configs.json' and 'results.json' are stored
-        :param overwrite: In case the files already exist, this flag controls the
-            behavior:
-                * True:   The existing files will be overwritten. Potential risk of deleting previous results
-                * False:  A FileExistsError is raised and the files are not modified.
         """
 
         os.makedirs(directory, exist_ok=True)
@@ -36,29 +34,13 @@ class JsonResultLogger:
         self.directory = directory
         self.structure_fn = os.path.join(directory, 'structures.json')
         self.results_fn = os.path.join(directory, 'results.json')
-        self.runhistory_fn = os.path.join(directory, 'runhistory.json')
         self.structure_ids = set()
 
-        if init:
-            try:
-                with open(self.structure_fn, 'x'):
-                    pass
-            except FileExistsError:
-                if overwrite:
-                    with open(self.structure_fn, 'w'):
-                        pass
-                else:
-                    raise FileExistsError(f'The file {self.structure_fn} already exists.')
-
-            try:
-                with open(self.results_fn, 'x'):
-                    pass
-            except FileExistsError:
-                if overwrite:
-                    with open(self.results_fn, 'w'):
-                        pass
-                else:
-                    raise FileExistsError(f'The file {self.results_fn} already exists.')
+        # Delete old results
+        with open(self.structure_fn, 'w'):
+            pass
+        with open(self.results_fn, 'w'):
+            pass
 
     def new_structure(self, structure: CandidateStructure, draw_structure: bool = False) -> None:
         if structure.cid.without_config() not in self.structure_ids:
@@ -86,10 +68,11 @@ class JsonResultLogger:
             )
             fh.write("\n")
 
-    def run_history(self, data: Dict) -> dict:
-        with open(self.runhistory_fn, 'w') as fh:
-            fh.write(json.dumps(data))
-        return data
+    def log_run_history(self, runhistory: RunHistory) -> None:
+        with open(os.path.join(self.directory, 'runhistory.json'), 'w') as fh:
+            fh.write(json.dumps(runhistory.complete_data))
+        with open(os.path.join(self.directory, 'runhistory.pkl'), 'wb') as fh:
+            pickle.dump(runhistory, fh)
 
     def load(self) -> Dict[CandidateId, CandidateStructure]:
         structures = {}

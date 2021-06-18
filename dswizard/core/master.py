@@ -90,7 +90,7 @@ class Master:
             self.logger = logger
 
         if result_logger is None:
-            result_logger = JsonResultLogger(self.working_directory, overwrite=True)
+            result_logger = JsonResultLogger(self.working_directory)
         self.result_logger = result_logger
         self.jobs = []
         self.meta_data = {}
@@ -287,7 +287,8 @@ class Master:
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
         self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name,
-                              self.result_logger, self.structure_generator.explain())
+                              self.structure_generator.explain())
+        self.result_logger.log_run_history(self.rh_)
 
         pipeline, _ = self.rh_.get_incumbent()
 
