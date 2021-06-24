@@ -118,7 +118,7 @@ class Node:
             'failure_message': self.failure_message,
             'visits': self.visits,
             'reward': self.reward,
-            'policy': policy
+            **policy
         }
 
     def __hash__(self) -> int:
@@ -700,10 +700,22 @@ class MCTS(BaseStructureGenerator):
                     'reward': node.reward,
                     'policy': node.explanations
                 }
-            return {
-                'nodes': nodes,
-                'edges': edges
-            }
+
+            def transform_node(node_id: int):
+                element = {
+                    'id': node_id,
+                    'data': nodes[node_id],
+                    'children': []
+                }
+                try:
+                    for child in edges[node_id]:
+                        element['children'].append(transform_node(child))
+                except KeyError:
+                    pass
+                return element
+
+            hierarchy = transform_node(Tree.ROOT)
+            return hierarchy
 
     def shutdown(self):
         if self.tree is None:
