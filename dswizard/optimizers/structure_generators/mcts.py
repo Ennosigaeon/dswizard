@@ -468,19 +468,17 @@ class MCTS(BaseStructureGenerator):
         else:
             self.logger.debug('Skipping MCTS expansion')
 
+        failed = False
         if len(path) == 1:
-            with self.lock:
-                for node in path:
-                    self.tree.get_node(node.id).exit()
-            self.logger.warning(
-                f'Current path contains only ROOT node. Trying tree traversal {retries} more times...')
-            return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
+            self.logger.warning(f'Current path contains only ROOT node. Trying tree traversal {retries} more times...')
+            failed = True
         if not path[-1].is_terminal():
+            self.logger.warning(f'Current path is not terminal. Trying tree traversal {retries} more times...')
+            failed = True
+        if failed:
             with self.lock:
                 for node in path:
                     self.tree.get_node(node.id).exit()
-            self.logger.warning(
-                f'Current path does not end in a classifier. Trying tree traversal {retries} more times...')
             return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
 
         # A simulation is not necessary. Simulated results are already incorporated in the policy
@@ -612,11 +610,9 @@ class MCTS(BaseStructureGenerator):
                         new_node.failure_message = f'Duplicate {idx[0][0]}'
                     else:
                         self.store.add(ds.meta_features)
+                        # Enter node as enter was not called during tree traversal yet
                         node.enter()
-
-                        # Hacky solution. If result loss is set, 'Incomplete' message is removed later
-                        if result.structure_loss is None:
-                            new_node.failure_message = None
+                        new_node.failure_message = None
 
                         if self.store_ds:
                             with open(os.path.join(self.workdir, f'{new_node.id}.pkl'), 'wb') as f:
@@ -633,7 +629,6 @@ class MCTS(BaseStructureGenerator):
                 n_children += 1
                 self._backpropagate([key for key, values in new_node.steps], result.structure_loss)
                 if result.structure_loss < util.worst_score(ds.metric)[-1]:
-                    new_node.failure_message = None
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
                     result.config = FlexiblePipeline(new_node.steps).configuration_space.get_default_configuration()
