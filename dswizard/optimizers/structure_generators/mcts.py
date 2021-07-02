@@ -101,11 +101,14 @@ class Node:
             del components['noop']
         return components
 
-    def enter(self):
+    def enter(self, cid: CandidateId):
         self.reward += util.worst_score(self.ds.metric)[-1]
+        self.explanations[cid.external_name]['selected'] = True
 
-    def exit(self):
+    def exit(self, cid: Optional[CandidateId] = None):
         self.reward -= util.worst_score(self.ds.metric)[-1]
+        if cid:
+            self.explanations[cid.external_name]['selected'] = False
 
     def update(self, reward: float) -> 'Node':
         self.visits += 1
@@ -114,11 +117,11 @@ class Node:
 
     def record_explanation(self, cid: CandidateId, policy: Dict):
         self.explanations[cid.external_name] = {
-            'label': self.label,
             'failure_message': self.failure_message,
             'visits': self.visits,
             'reward': self.reward,
-            **policy
+            'selected': False,
+            'policy': policy
         }
 
     def __hash__(self) -> int:
@@ -257,7 +260,7 @@ class Policy(ABC):
             n.failure_message = None
 
             uct = self.uct(n, node, worst_score=worst_score, decompose=True)
-            estimated_scores[name] = uct['adjusted_score']
+            estimated_scores[name] = uct['adj_score']
 
             n.visits -= 1
             n.reward -= score
@@ -296,12 +299,12 @@ class Policy(ABC):
 
         if decompose:
             return {
-                'exploitation': exploitation,
-                'exploration': exploration,
-                'overfitting': overfitting,
-                'adjusted_exploration': adjusted_exploration,
+                'exploit': exploitation,
+                'explore': exploration,
+                'overfit': overfitting,
+                'adj_explore': adjusted_exploration,
                 'score': score,
-                'adjusted_score': adjusted_score
+                'adj_score': adjusted_score
             }
         else:
             return adjusted_score
@@ -445,7 +448,7 @@ class MCTS(BaseStructureGenerator):
             return cs
 
         # traverse from root to a leaf node
-        path, expand = self._select(force=retries == 0)
+        path, expand = self._select(cid=cs.cid, force=retries == 0)
 
         result = None
         if expand or not path[-1].is_terminal():
@@ -478,7 +481,7 @@ class MCTS(BaseStructureGenerator):
         if failed:
             with self.lock:
                 for node in path:
-                    self.tree.get_node(node.id).exit()
+                    self.tree.get_node(node.id).exit(cs.cid)
             return self.fill_candidate(cs, ds, worker=worker, retries=retries - 1)
 
         # A simulation is not necessary. Simulated results are already incorporated in the policy
@@ -497,7 +500,7 @@ class MCTS(BaseStructureGenerator):
             cs.add_result(result)
         return cs
 
-    def _select(self, force: bool = False) -> Tuple[List[Node], bool]:
+    def _select(self, cid: CandidateId, force: bool = False) -> Tuple[List[Node], bool]:
         """Find an unexplored descendent of ROOT"""
 
         path: List[Node] = []
@@ -510,7 +513,7 @@ class MCTS(BaseStructureGenerator):
                     'Selected node has no dataset, meta-features or partial configurations. This should not happen')
 
             with self.lock:
-                node.enter()
+                node.enter(cid)
                 path.append(node)
 
                 # Failsafe mechanism to enforce structure selection
@@ -611,7 +614,7 @@ class MCTS(BaseStructureGenerator):
                     else:
                         self.store.add(ds.meta_features)
                         # Enter node as enter was not called during tree traversal yet
-                        node.enter()
+                        new_node.enter(cid)
                         new_node.failure_message = None
 
                         if self.store_ds:
@@ -646,8 +649,11 @@ class MCTS(BaseStructureGenerator):
     def _record_explanations(self, cid: CandidateId):
         root = self.tree.get_node(self.tree.ROOT)
         worst_score = util.worst_score(root.ds.metric)[-1]
-        for node_id in self.tree.G.successors(root):
+        for node_id in self.tree.G.nodes:
             node = self.tree.get_node(node_id)
+            if node.visits == 0:
+                # Exclude unvisited nodes from tree traversal
+                continue
             try:
                 parent = next(self.tree.G.predecessors(node_id))
             except StopIteration:
@@ -670,9 +676,8 @@ class MCTS(BaseStructureGenerator):
     # noinspection PyMethodMayBeStatic
     def _backpropagate(self, path: List[str], reward: float, exit: bool = False) -> None:
         """Send the reward back up to the ancestors of the leaf"""
-        # Also update root node
-
         ls = list(path)
+        # Also update root node
         ls.append('0')
         with self.lock:
             for node_id in ls:
@@ -683,6 +688,9 @@ class MCTS(BaseStructureGenerator):
 
     def explain(self) -> Dict[str, Any]:
         with self.lock:
+            # Create artificial explanation of final search graph
+            self._record_explanations(CandidateId(100, 0))
+
             nodes = {}
             edges = nx.dfs_successors(self.tree.G, source=Tree.ROOT)
 
@@ -690,23 +698,22 @@ class MCTS(BaseStructureGenerator):
                 node = self.tree.get_node(node_id)
                 nodes[node_id] = {
                     'label': node.label,
-                    'failure_message': node.failure_message,
-                    'visits': node.visits,
-                    'reward': node.reward,
-                    'policy': node.explanations
+                    'details': node.explanations
                 }
 
             def transform_node(node_id: int):
+                children = []
                 element = {
                     'id': node_id,
-                    'data': nodes[node_id],
-                    'children': []
+                    **nodes[node_id]
                 }
                 try:
                     for child in edges[node_id]:
-                        element['children'].append(transform_node(child))
+                        children.append(transform_node(child))
                 except KeyError:
                     pass
+                if len(children) > 0:
+                    element['children'] = children
                 return element
 
             hierarchy = transform_node(Tree.ROOT)
