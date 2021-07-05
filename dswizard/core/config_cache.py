@@ -74,9 +74,9 @@ class ConfigCache:
             return ConfigKey(hash_key, idx)
 
         entry = self.cache[hash_key]
-        distance, idx = entry.store.get_similar(mf)
-        if distance[0][0] <= max_distance:
-            return ConfigKey(hash_key, int(idx[0][0]))
+        distance, idx, _ = entry.store.get_similar(mf)
+        if distance <= max_distance:
+            return ConfigKey(hash_key, int(idx))
         else:
             cg = self.clazz(configspace, **{**self.init_kwargs, **kwargs})
             idx = self.cache[hash_key].add(mf, cg)

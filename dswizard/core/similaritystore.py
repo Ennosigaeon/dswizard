@@ -21,19 +21,22 @@ class SimilarityStore:
             self.model = None
             self.weight = np.ones(SimilarityStore.N_MF)
         self.neighbours = NearestNeighbors(metric='wminkowski', p=2, metric_params={'w': self.weight})
+        self.data = []
 
-    def add(self, mf: MetaFeatures):
+    def add(self, mf: MetaFeatures, data=None):
         mf_normal = self._normalize(mf)
         if self.mfs is None:
             self.mfs = mf_normal.reshape(1, -1)
         else:
             self.mfs = np.append(self.mfs, mf_normal, axis=0)
         self.neighbours.fit(self.mfs)
+        self.data.append(data)
 
     def get_similar(self, mf: MetaFeatures):
         X = self._normalize(mf)
 
-        return self.neighbours.kneighbors(X, n_neighbors=1)
+        distance, idx = self.neighbours.kneighbors(X, n_neighbors=1)
+        return distance[0][0], idx[0][0], self.data[idx[0][0]]
 
     def _normalize(self, X):
         # remove unused MF

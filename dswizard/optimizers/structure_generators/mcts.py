@@ -439,7 +439,7 @@ class MCTS(BaseStructureGenerator):
         with self.lock:
             if self.tree is None:
                 self.tree = Tree(ds)
-                self.store.add(ds.meta_features)
+                self.store.add(ds.meta_features, data=Tree.ROOT)
 
             self._record_explanations(cs.cid)
 
@@ -599,20 +599,20 @@ class MCTS(BaseStructureGenerator):
                     failure_count += 1
                 else:
                     # Check if any node in the tree is similar to the new dataset
-                    distance, idx = self.store.get_similar(ds.meta_features)
+                    distance, _, idx = self.store.get_similar(ds.meta_features)
                     if np.allclose(node.ds.meta_features, ds.meta_features, equal_nan=True):
                         self.logger.debug(f'\t{component.name()} did not modify dataset')
                         result.status = StatusType.INEFFECTIVE
                         result.structure_loss = util.worst_score(ds.metric)[-1]
                         new_node.failure_message = 'Ineffective'
-                    elif distance[0][0] <= max_distance:
+                    elif distance <= max_distance:
                         # TODO: currently always the existing node is selected. This node could represent simpler model
-                        self.logger.debug(f'\t{component.name()} produced a dataset similar to {idx[0][0]}')
+                        self.logger.debug(f'\t{component.name()} produced a dataset similar to {idx}')
                         result.status = StatusType.DUPLICATE
                         result.structure_loss = util.worst_score(ds.metric)[-1]
-                        new_node.failure_message = f'Duplicate {idx[0][0]}'
+                        new_node.failure_message = f'Duplicate {idx}'
                     else:
-                        self.store.add(ds.meta_features)
+                        self.store.add(ds.meta_features, data=new_node.id)
                         # Enter node as enter was not called during tree traversal yet
                         new_node.enter(cid)
                         new_node.failure_message = None
