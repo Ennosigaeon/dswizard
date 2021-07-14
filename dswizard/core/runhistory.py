@@ -3,7 +3,7 @@ from typing import List, Dict, Optional, Tuple, Any
 
 from sklearn import clone
 
-from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType
+from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType, MetaInformation
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.util.util import model_file
 
@@ -17,11 +17,10 @@ class RunHistory:
 
     def __init__(self,
                  data: Dict[CandidateId, CandidateStructure],
-                 meta_config: dict,
+                 meta_information: MetaInformation,
+                 iterations: Dict,
                  workdir: str,
                  structure_xai: Dict[str, Any]):
-        self.meta_config = meta_config
-
         # Collapse data to merge identical structures
         reverse = {}
         self.data: Dict[CandidateId, CandidateStructure] = {}
@@ -49,7 +48,15 @@ class RunHistory:
             structure = s.as_dict()
             del structure['cfg_keys']
             structures[sid] = structure
+
+        # Fill in missing meta-information
+        meta_information.n_configs = sum([len(c) for c in configs.values()])
+        meta_information.n_structures = len(structures)
+        meta_information.iterations = iterations
+        self.meta_information = meta_information
+
         self.complete_data = {
+            'meta': meta_information.as_dict(),
             'structures': structures,
             'configs': configs,
             'xai': {

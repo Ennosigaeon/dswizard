@@ -31,9 +31,6 @@ def setup_logging(log_file: str = None):
 
 
 def score(y, y_prob, y_pred, metric: str):
-    # Always compute minimization problem
-    sign = -1
-
     if metric == 'accuracy':
         s = accuracy_score(y, y_pred)
     elif metric == 'precision':
@@ -43,7 +40,6 @@ def score(y, y_prob, y_pred, metric: str):
     elif metric == 'f1':
         s = f1_score(y, y_pred, average='weighted')
     elif metric == 'logloss':
-        sign = 1
         s = log_loss(y, y_prob)
     elif metric == 'rocauc':
         y_type = type_of_target(y)
@@ -53,7 +49,14 @@ def score(y, y_prob, y_pred, metric: str):
     else:
         raise ValueError(f'Unknown metric {metric}')
 
-    return sign * s
+    return metric_sign(metric) * s
+
+
+def metric_sign(metric: str) -> int:
+    # Always compute minimization problem
+    if metric == 'logloss':
+        return 1
+    return -1
 
 
 def worst_score(metric: str):

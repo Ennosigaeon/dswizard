@@ -37,6 +37,41 @@ class StatusType(Enum):
 ConfigKey = namedtuple('ConfigKey', 'hash idx')
 
 
+class MetaInformation:
+
+    def __init__(self,
+                 start_time: float,
+                 metric: str,
+                 cutoff: float,
+                 wallclock_limit: float
+                 ):
+        # Information available before optimization
+        self.start_time = start_time
+        self.metric = metric
+        self.metric_sign = util.metric_sign(self.metric)
+        self.cutoff = cutoff
+        self.wallclock_limit = wallclock_limit
+
+        # Information available after optimization
+        self.end_time: Optional[float] = None
+        self.n_structures: Optional[int] = None
+        self.n_configs: Optional[int] = None
+        self.iterations: Optional[dict] = None
+
+    def as_dict(self):
+        return {
+            'start_time': self.start_time,
+            'metric': self.metric,
+            'metric_sign': self.metric_sign,
+            'cutoff': self.cutoff,
+            'wallclock_limit': self.wallclock_limit,
+            'end_time': self.end_time,
+            'n_structures': self.n_structures,
+            'n_configs': self.n_configs,
+            'iterations': self.iterations
+        }
+
+
 class CandidateId:
     """
     a triplet of ints that uniquely identifies a configuration. the convention is id = (iteration, budget index,

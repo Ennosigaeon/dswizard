@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import math
 import multiprocessing
 import os
 import random
@@ -21,7 +20,7 @@ from dswizard.core.config_cache import ConfigCache
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.ensemble import EnsembleBuilder
 from dswizard.core.logger import JsonResultLogger
-from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId
+from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId, MetaInformation
 from dswizard.core.renderer import NotebookRenderer
 from dswizard.core.runhistory import RunHistory
 from dswizard.optimizers.bandit_learners import PseudoBandit
@@ -93,7 +92,9 @@ class Master:
             result_logger = JsonResultLogger(self.working_directory)
         self.result_logger = result_logger
         self.jobs = []
-        self.meta_data = {}
+
+        # noinspection PyTypeChecker
+        self.meta_information: MetaInformation = None
 
         self.ds = ds
         self.ds.cutoff = cutoff
@@ -171,8 +172,10 @@ class Master:
         """
 
         start = timeit.default_timer()
-        self.meta_data['start'] = start
-        self.logger.info(f'starting run at {datetime.datetime.now():%Y-%m-%d %H:%M:%S}. Configuration:\n'
+        start_time = datetime.datetime.now()
+        self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric, cutoff=self.cutoff,
+                                                wallclock_limit=self.wallclock_limit)
+        self.logger.info(f'starting run at {start_time:%Y-%m-%d %H:%M:%S}. Configuration:\n'
                          f'\twallclock_limit: {self.wallclock_limit}\n'
                          f'\tcutoff: {self.cutoff}\n'
                          f'\tpre_sample: {self.pre_sample}')
@@ -281,12 +284,12 @@ class Master:
         finally:
             self.shutdown()
 
-        self.meta_data['end'] = time.time()
-        self.logger.info(f'Finished run after {math.ceil(timeit.default_timer() - start)} seconds')
+        self.meta_information.end_time = time.time()
+        self.logger.info(f'Finished run after {(datetime.datetime.now() - start_time).seconds} seconds')
 
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
-        self.rh_ = RunHistory(iterations, {**self.meta_data, **self.bandit_learner.meta_data}, self.temp_dir.name,
+        self.rh_ = RunHistory(iterations, self.meta_information, self.bandit_learner.meta_data, self.temp_dir.name,
                               self.structure_generator.explain())
         self.result_logger.log_run_history(self.rh_)
 
