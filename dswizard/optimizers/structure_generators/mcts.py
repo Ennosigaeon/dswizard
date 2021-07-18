@@ -243,31 +243,31 @@ class Policy(ABC):
         if len(actions) == 0:
             return None
 
-        estimated_scores = dict(zip(actions, self.estimate_performance(actions, node.ds)))
-        worst_score = util.worst_score(node.ds.metric)[-1]
+        estimated_performances = dict(zip(actions, self.estimate_performance(actions, node.ds)))
+        worst_performance = util.worst_score(node.ds.metric)[-1]
         for n in children:
             if not n.unvisited:
                 continue
 
             name = n.component.component_name_
-            score = worst_score
-            if name in estimated_scores:
-                score = -estimated_scores[name]
+            performance = worst_performance
+            if name in estimated_performances:
+                performance = -estimated_performances[name]
 
             assert n.failure_message == Node.UNVISITED
             n.visits += 1
-            n.reward += score
+            n.reward += performance
             n.failure_message = None
 
-            uct_score, uct = self.uct(n, node, worst_score=worst_score, decompose=True)
-            estimated_scores[name] = uct_score
+            score, uct = self.uct(n, node, worst_score=worst_performance, decompose=True)
+            estimated_performances[name] = score
 
             n.visits -= 1
-            n.reward -= score
+            n.reward -= performance
             n.failure_message = Node.UNVISITED
             n.record_explanation(cid, uct)
 
-        return available_actions[min(estimated_scores.items(), key=operator.itemgetter(1))[0]]
+        return available_actions[min(estimated_performances.items(), key=operator.itemgetter(1))[0]]
 
     def estimate_performance(self, actions: List[str], ds: Dataset, depth: int = 1) -> np.ndarray:
         pass
