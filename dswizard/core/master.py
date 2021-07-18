@@ -282,6 +282,7 @@ class Master:
         except KeyboardInterrupt:
             self.logger.info('Aborting optimization due to user interrupt')
         finally:
+            explanations = self.structure_generator.explain()
             self.shutdown()
 
         self.meta_information.end_time = time.time()
@@ -290,7 +291,7 @@ class Master:
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
         self.rh_ = RunHistory(iterations, self.meta_information, self.bandit_learner.meta_data, self.temp_dir.name,
-                              self.structure_generator.explain())
+                              explanations)
         self.result_logger.log_run_history(self.rh_)
 
         pipeline, _ = self.rh_.get_incumbent()

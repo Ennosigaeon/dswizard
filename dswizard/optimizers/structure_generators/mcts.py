@@ -259,8 +259,8 @@ class Policy(ABC):
             n.reward += score
             n.failure_message = None
 
-            uct = self.uct(n, node, worst_score=worst_score, decompose=True)
-            estimated_scores[name] = uct['adj_score']
+            uct_score, uct = self.uct(n, node, worst_score=worst_score, decompose=True)
+            estimated_scores[name] = uct_score
 
             n.visits -= 1
             n.reward -= score
@@ -273,7 +273,7 @@ class Policy(ABC):
         pass
 
     def uct(self, n: Node, parent: Optional[Node], force: bool = False, worst_score: float = math.inf,
-            decompose: bool = False) -> Union[float, Dict[str, float]]:
+            decompose: bool = False) -> Union[float, Tuple[float, Dict[str, float]]]:
         """Upper confidence bound for trees"""
 
         # Always pick terminal node if forced
@@ -288,23 +288,20 @@ class Policy(ABC):
 
         if n.failed or n.visits == 0:
             exploitation = worst_score
-            exploration = worst_score
+            exploration = self._exploration_weight * worst_score
         else:
             exploitation = n.reward / n.visits
-            exploration = -math.sqrt(log_N_vertex / n.visits)
-        adjusted_exploration = self._exploration_weight * exploration
+            exploration = self._exploration_weight * -math.sqrt(log_N_vertex / n.visits)
         overfitting = 1 - (scale ** len(n.steps)) / (scale ** 10)
-        score = exploitation + adjusted_exploration
+        score = exploitation + exploration
         adjusted_score = score * overfitting
 
         if decompose:
-            return {
+            return adjusted_score, {
                 'exploit': exploitation,
                 'explore': exploration,
                 'overfit': overfitting,
-                'adj_explore': adjusted_exploration,
-                'score': score,
-                'adj_score': adjusted_score
+                'score': adjusted_score
             }
         else:
             return adjusted_score
@@ -658,7 +655,7 @@ class MCTS(BaseStructureGenerator):
                 parent = next(self.tree.G.predecessors(node_id))
             except StopIteration:
                 parent = None
-            policy = self.policy.uct(node, parent, worst_score=worst_score, decompose=True)
+            _, policy = self.policy.uct(node, parent, worst_score=worst_score, decompose=True)
             node.record_explanation(cid, policy)
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,

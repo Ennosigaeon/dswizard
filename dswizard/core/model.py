@@ -105,9 +105,9 @@ class CandidateId:
     @property
     def external_name(self):
         if self.config is None:
-            return f'{self.iteration}:{self.structure}'
+            return f'{self.iteration:02d}:{self.structure:02d}'
         else:
-            return f'{self.iteration}:{self.structure}:{self.config}'
+            return f'{self.iteration:02d}:{self.structure:02d}:{self.config:02d}'
 
     def __repr__(self):
         return str(self)
