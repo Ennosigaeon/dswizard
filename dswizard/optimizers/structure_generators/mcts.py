@@ -284,16 +284,17 @@ class Policy(ABC):
             log_N_vertex = 0
         else:
             log_N_vertex = math.log(parent.visits)
-        scale = 2.
+        scale = 1.5
 
         if n.failed or n.visits == 0:
             exploitation = worst_score
-            exploration = self._exploration_weight * worst_score
+            exploration = worst_score
         else:
             exploitation = n.reward / n.visits
-            exploration = self._exploration_weight * -math.sqrt(log_N_vertex / n.visits)
-        overfitting = 1 - (scale ** len(n.steps)) / (scale ** 10)
-        score = exploitation + exploration
+            exploration = -math.sqrt(log_N_vertex / n.visits)
+        score = exploitation + self._exploration_weight * exploration
+
+        overfitting = 1 - (scale ** len(n.steps)) / (scale ** 6)
         adjusted_score = score * overfitting
 
         if decompose:
@@ -301,6 +302,7 @@ class Policy(ABC):
                 'exploit': exploitation,
                 'explore': exploration,
                 'overfit': overfitting,
+                'weight': self._exploration_weight,
                 'score': adjusted_score
             }
         else:
@@ -327,12 +329,15 @@ class Policy(ABC):
             children = current_children
 
         if self.wallclock_limit is not None:
-            self._exploration_weight = max(0.0, self.exploration_weight * (
-                    math.exp((self.wallclock_limit + self.start - timeit.default_timer()) / self.wallclock_limit) - 1))
+            max_time = self.wallclock_limit
+            passed_time = timeit.default_timer() - self.start
+            self._exploration_weight = max(0.1, self.exploration_weight * (
+                    (math.exp((max_time - passed_time) / max_time) - math.exp(0)) / (math.exp(1) - math.exp(0))
+            ))
 
         worst_score = util.worst_score(node.ds.metric)[-1]
         scores = [self.uct(n, node, worst_score=worst_score) for n in children]
-        idx = int(np.argmax(scores))
+        idx = int(np.argmin(scores))
 
         # Selected non-existing child. Mark as "failed" to force abortion of select
         if idx >= len(current_children):
@@ -529,9 +534,9 @@ class MCTS(BaseStructureGenerator):
                 # Current node is better than children or selected node failed
                 if candidate.failed:
                     return path, not node.is_terminal()
-                elif candidate_score <= score and node.is_terminal():
+                elif candidate_score >= score and node.is_terminal():
                     return path, False
-                elif candidate_score <= score and not fully_expanded:
+                elif candidate_score >= score and not fully_expanded:
                     return path, True
                 else:
                     node, score = candidate, candidate_score
