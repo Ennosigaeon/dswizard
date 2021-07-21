@@ -43,7 +43,8 @@ class MetaInformation:
                  start_time: float,
                  metric: str,
                  cutoff: float,
-                 wallclock_limit: float
+                 wallclock_limit: float,
+                 model_dir: str
                  ):
         # Information available before optimization
         self.start_time = start_time
@@ -51,6 +52,7 @@ class MetaInformation:
         self.metric_sign = util.metric_sign(self.metric)
         self.cutoff = cutoff
         self.wallclock_limit = wallclock_limit
+        self.model_dir = model_dir
 
         # Information available after optimization
         self.end_time: Optional[float] = None
@@ -68,7 +70,8 @@ class MetaInformation:
             'end_time': self.end_time,
             'n_structures': self.n_structures,
             'n_configs': self.n_configs,
-            'iterations': self.iterations
+            'iterations': self.iterations,
+            'model_dir': self.model_dir
         }
 
 

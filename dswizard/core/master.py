@@ -17,9 +17,10 @@ from ConfigSpace.configuration_space import ConfigurationSpace
 
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.config_cache import ConfigCache
+from dswizard.core.constants import MODEL_DIR
 from dswizard.core.dispatcher import Dispatcher
 from dswizard.core.ensemble import EnsembleBuilder
-from dswizard.core.logger import JsonResultLogger
+from dswizard.core.logger import ResultLogger
 from dswizard.core.model import StructureJob, Dataset, EvaluationJob, CandidateStructure, CandidateId, MetaInformation
 from dswizard.core.renderer import NotebookRenderer
 from dswizard.core.runhistory import RunHistory
@@ -42,7 +43,7 @@ class Master:
                  working_directory: str = '.',
                  model: str = None,
                  logger: logging.Logger = None,
-                 result_logger: JsonResultLogger = None,
+                 result_logger: ResultLogger = None,
 
                  wallclock_limit: int = 60,
                  cutoff: int = None,
@@ -78,7 +79,6 @@ class Master:
             structure_generator_kwargs = {}
 
         self.working_directory = working_directory
-        os.makedirs(self.working_directory, exist_ok=True)
         self.temp_dir = tempfile.TemporaryDirectory()
         if 'working_directory' not in config_generator_kwargs:
             config_generator_kwargs['working_directory'] = self.temp_dir.name
@@ -89,7 +89,7 @@ class Master:
             self.logger = logger
 
         if result_logger is None:
-            result_logger = JsonResultLogger(self.working_directory)
+            result_logger = ResultLogger(self.working_directory, self.temp_dir.name)
         self.result_logger = result_logger
         self.jobs = []
 
@@ -174,7 +174,8 @@ class Master:
         start = timeit.default_timer()
         start_time = datetime.datetime.now()
         self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric, cutoff=self.cutoff,
-                                                wallclock_limit=self.wallclock_limit)
+                                                wallclock_limit=self.wallclock_limit,
+                                                model_dir=os.path.join(self.working_directory, MODEL_DIR))
         self.logger.info(f'starting run at {start_time:%Y-%m-%d %H:%M:%S}. Configuration:\n'
                          f'\twallclock_limit: {self.wallclock_limit}\n'
                          f'\tcutoff: {self.cutoff}\n'
@@ -311,8 +312,8 @@ class Master:
             return pipeline, self.rh_
 
     def build_ensemble(self, ds: Dataset = None, store: bool = True) -> PrefitVotingClassifier:
-        builder = EnsembleBuilder(self.temp_dir.name, self.result_logger.structure_fn)
-        ensemble = builder.fit(self.ds if ds is None else ds, self.rh_).get_ensemble()
+        builder = EnsembleBuilder(self.working_directory, self.result_logger.structure_fn)
+        ensemble = builder.fit(self.ds if ds is None else ds).get_ensemble()
         if store:
             joblib.dump(ensemble, os.path.join(self.working_directory, 'final_ensemble.pkl'))
         return ensemble
@@ -338,7 +339,7 @@ class Master:
                         f'Encountered job without a configuration: {job.cid}. Using empty config as fallback')
                     job.config = ConfigurationSpace().get_default_configuration()
 
-                self.result_logger.log_evaluated_config(job.cid, job.result)
+                self.result_logger.log_evaluated_config(job.cs, job.cid, job.result)
                 cs = self.bandit_learner.register_result(job.cs, job.result)
                 self.structure_generator.register_result(job.cs, job.result)
                 self.cfg_cache.register_result(job)

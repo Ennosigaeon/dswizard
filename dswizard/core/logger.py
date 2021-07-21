@@ -4,43 +4,35 @@ import json
 import logging
 import os
 import pickle
-from typing import TYPE_CHECKING, List, Tuple, Dict
+import shutil
+from typing import List, Tuple, Dict
 
+import joblib
 import networkx as nx
 from ConfigSpace import Configuration
 
 from dswizard.components.util import prefixed_name
-from dswizard.core.model import CandidateStructure, CandidateId, Result
+from dswizard.core.constants import MODEL_DIR
+from dswizard.core.model import CandidateStructure, CandidateId, Result, StatusType
 from dswizard.core.model import PartialConfig
 from dswizard.core.runhistory import RunHistory
+from dswizard.pipeline.pipeline import FlexiblePipeline
+from dswizard.util import util
 
-if TYPE_CHECKING:
-    from dswizard.pipeline.pipeline import FlexiblePipeline
 
-
-class JsonResultLogger:
-    def __init__(self, directory: str):
-        """
-        convenience logger for 'semi-live-results'
-
-        Logger that writes job results into two files (configs.json and results.json). Both files contain proper json
-        objects in each line.  This version opens and closes the files for each result. This might be very slow if
-        individual runs are fast and the filesystem is rather slow (e.g. a NFS).
-        :param directory: the directory where the two files 'configs.json' and 'results.json' are stored
-        """
+class ResultLogger:
+    def __init__(self, directory: str, tmp_dir: str):
+        # Remove old results
+        shutil.rmtree(directory)
 
         os.makedirs(directory, exist_ok=True)
+        os.makedirs(os.path.join(directory, MODEL_DIR), exist_ok=True)
 
         self.directory = directory
+        self.tmp_dir = tmp_dir
         self.structure_fn = os.path.join(directory, 'structures.json')
         self.results_fn = os.path.join(directory, 'results.json')
         self.structure_ids = set()
-
-        # Delete old results
-        with open(self.structure_fn, 'w'):
-            pass
-        with open(self.results_fn, 'w'):
-            pass
 
     def new_structure(self, structure: CandidateStructure, draw_structure: bool = False) -> None:
         if structure.cid.without_config() not in self.structure_ids:
@@ -51,14 +43,14 @@ class JsonResultLogger:
 
             # Results may already be created during structure creation
             for idx, result in enumerate(structure.results):
-                self.log_evaluated_config(structure.cid.with_config(idx), result)
+                self.log_evaluated_config(structure, structure.cid.with_config(idx), result)
 
             if draw_structure:
                 g = structure.pipeline.to_networkx()
                 h = nx.nx_agraph.to_agraph(g)
                 h.draw(f'{self.directory}/{structure.cid}.png', prog='dot')
 
-    def log_evaluated_config(self, cid: CandidateId, result: Result) -> None:
+    def log_evaluated_config(self, structure: CandidateStructure, cid: CandidateId, result: Result) -> None:
         if cid.without_config() not in self.structure_ids:
             # should never happen!
             raise ValueError(f'Unknown structure {cid.without_config()}')
@@ -67,6 +59,30 @@ class JsonResultLogger:
                 json.dumps([cid.as_tuple(), result.as_dict() if result is not None else None])
             )
             fh.write("\n")
+
+        if result.status == StatusType.SUCCESS:
+            self._store_fitted_model(structure, cid)
+
+    def _store_fitted_model(self, structure: CandidateStructure, cid: CandidateId) -> None:
+        try:
+            file = os.path.join(self.tmp_dir, util.model_file(cid))
+            with open(file, 'rb') as f:
+                pipeline = joblib.load(f)[0]
+        except FileNotFoundError:
+            # Load partial models with default hyperparameters
+            steps = []
+            for name, _ in structure.steps:
+                with open(os.path.join(self.tmp_dir, f'step_-{name}.pkl'), 'rb') as f:
+                    model = joblib.load(f)[0]
+                    steps.append((name, model))
+
+            pipeline = FlexiblePipeline(steps=steps)
+            pipeline.configuration = pipeline.get_hyperparameter_search_space(
+                None).get_default_configuration()
+
+        file = os.path.join(self.directory, MODEL_DIR, util.model_file(cid))
+        with open(file, 'wb') as f:
+            joblib.dump(pipeline, f)
 
     def log_run_history(self, runhistory: RunHistory) -> None:
         with open(os.path.join(self.directory, 'runhistory.json'), 'w') as fh:

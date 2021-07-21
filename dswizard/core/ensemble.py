@@ -1,5 +1,4 @@
 import glob
-import itertools
 import logging
 import os
 import timeit
@@ -10,12 +9,11 @@ import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.utils import check_random_state
 
-from dswizard.core.model import Dataset, StatusType
-from dswizard.core.runhistory import RunHistory
+from dswizard.core.constants import MODEL_DIR
+from dswizard.core.model import Dataset
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.pipeline.voting_ensemble import PrefitVotingClassifier
 from dswizard.util import util
-from dswizard.util.util import model_file
 
 
 class EnsembleBuilder:
@@ -51,7 +49,7 @@ class EnsembleBuilder:
         self._n_classes = 0
         self.start = None
 
-    def fit(self, ds: Dataset, rh: RunHistory, fraction: float = 0.2):
+    def fit(self, ds: Dataset, fraction: float = 0.2):
         self.start = timeit.default_timer()
         self._n_classes = len(np.unique(ds.y))
 
@@ -59,7 +57,7 @@ class EnsembleBuilder:
         train_idx, test_idx = next(rs.split(ds.X, ds.y))
         ds2 = Dataset(ds.X[test_idx], ds.y[test_idx], ds.metric)
 
-        self._load(ds2, rh)
+        self._load(ds2)
 
         if self.n_bags > 0:
             self._build_bagged_ensemble(ds2)
@@ -69,35 +67,13 @@ class EnsembleBuilder:
         self.logger.debug('Ensemble constructed')
         return self
 
-    def _load(self, ds: Dataset, rh: RunHistory):
+    def _load(self, ds: Dataset):
         self.logger.debug('Loading models')
-        steps = {}
         models = []
 
-        # Load partial models with default hyperparameters
-        for file in glob.glob(os.path.join(self.workdir, 'step_*.pkl')):
+        for file in glob.glob(os.path.join(self.workdir, MODEL_DIR, '*.pkl')):
             with open(file, 'rb') as f:
-                ls = joblib.load(f)
-            steps[file.split('-')[1][:-4]] = ls
-
-        runs = sorted(rh.get_all_runs(), key=lambda x: x[1].loss)
-        n_models = min(self.max_models, max(int(len(runs) * (1.0 - self.prune_fraction)), self.min_models))
-        runs = runs[:n_models]
-
-        # Load models with tuned hyperparameters
-        for cid, result in runs:
-            file = os.path.join(self.workdir, model_file(cid))
-            if result.status == StatusType.SUCCESS:
-                try:
-                    with open(file, 'rb') as f:
-                        models += joblib.load(f)
-                except FileNotFoundError:
-                    partial = [steps[name] for name, _ in rh[cid.without_config()].steps]
-                    for t in itertools.product(*partial):
-                        pipeline = FlexiblePipeline(steps=[(str(idx), comp) for idx, comp in enumerate(t)])
-                        pipeline.configuration = pipeline.get_hyperparameter_search_space(
-                            None).get_default_configuration()
-                        models.append(pipeline)
+                models.append(joblib.load(f))
 
         n_failed = 0
         for model in models:
