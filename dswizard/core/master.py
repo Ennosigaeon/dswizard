@@ -173,9 +173,15 @@ class Master:
 
         start = timeit.default_timer()
         start_time = datetime.datetime.now()
+
+        data_file = os.path.join(self.working_directory, 'dataset.pkl')
+        joblib.dump((self.ds.X, self.ds.y), data_file)
+
         self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric, cutoff=self.cutoff,
+                                                openml_task=self.ds.task, openml_fold=self.ds.fold,
                                                 wallclock_limit=self.wallclock_limit,
-                                                model_dir=os.path.join(self.working_directory, MODEL_DIR))
+                                                model_dir=os.path.join(self.working_directory, MODEL_DIR),
+                                                data_file=data_file)
         self.logger.info(f'starting run at {start_time:%Y-%m-%d %H:%M:%S}. Configuration:\n'
                          f'\twallclock_limit: {self.wallclock_limit}\n'
                          f'\tcutoff: {self.cutoff}\n'
@@ -303,8 +309,6 @@ class Master:
             self.render(pipeline)
         if store and fit:
             joblib.dump(pipeline, os.path.join(self.working_directory, 'incumbent.pkl'))
-        if store:
-            joblib.dump(self.ds, os.path.join(self.working_directory, 'dataset.pkl'))
         if ensemble:
             ensemble = self.build_ensemble(store=store)
             return pipeline, self.rh_, ensemble
@@ -339,7 +343,7 @@ class Master:
                         f'Encountered job without a configuration: {job.cid}. Using empty config as fallback')
                     job.config = ConfigurationSpace().get_default_configuration()
 
-                self.result_logger.log_evaluated_config(job.cs, job.cid, job.result)
+                self.result_logger.log_evaluated_config(job.cs, job.result)
                 cs = self.bandit_learner.register_result(job.cs, job.result)
                 self.structure_generator.register_result(job.cs, job.result)
                 self.cfg_cache.register_result(job)

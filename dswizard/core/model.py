@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections import namedtuple
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING, Tuple, Union
@@ -43,16 +44,22 @@ class MetaInformation:
                  start_time: float,
                  metric: str,
                  cutoff: float,
+                 openml_task: int,
+                 openml_fold: int,
                  wallclock_limit: float,
-                 model_dir: str
+                 model_dir: str,
+                 data_file: str
                  ):
         # Information available before optimization
         self.start_time = start_time
         self.metric = metric
         self.metric_sign = util.metric_sign(self.metric)
         self.cutoff = cutoff
+        self.openml_task = openml_task
+        self.openml_fold = openml_fold
         self.wallclock_limit = wallclock_limit
-        self.model_dir = model_dir
+        self.model_dir = os.path.join(os.getcwd(), model_dir)
+        self.data_file = os.path.join(os.getcwd(), data_file)
 
         # Information available after optimization
         self.end_time: Optional[float] = None
@@ -66,12 +73,15 @@ class MetaInformation:
             'metric': self.metric,
             'metric_sign': self.metric_sign,
             'cutoff': self.cutoff,
+            'openml_task': self.openml_task,
+            'openml_fold': self.openml_fold,
             'wallclock_limit': self.wallclock_limit,
             'end_time': self.end_time,
             'n_structures': self.n_structures,
             'n_configs': self.n_configs,
             'iterations': self.iterations,
-            'model_dir': self.model_dir
+            'model_dir': self.model_dir,
+            'data_file': self.data_file
         }
 
 
@@ -127,6 +137,11 @@ class CandidateId:
     def __lt__(self, other):
         return self.as_tuple() < other.as_tuple()
 
+    @staticmethod
+    def parse(cid: str) -> CandidateId:
+        tokens = list(map(lambda x: int(x), cid.split(':')))
+        return CandidateId(*tokens)
+
 
 class Runtime:
 
@@ -150,12 +165,14 @@ class Runtime:
 class Result:
 
     def __init__(self,
+                 cid: CandidateId,
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
                  loss: Optional[List[float]] = None,
                  runtime: Runtime = None,
                  partial_configs: Optional[List[PartialConfig]] = None,
                  transformed_X: np.ndarray = None):
+        self.cid = cid
         self.status = status
         self.config = config
 
@@ -174,6 +191,7 @@ class Result:
 
     def as_dict(self):
         return {
+            'id': self.cid.external_name,
             'status': self.status.name,
             'loss': [self.loss, self.structure_loss],
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
@@ -182,8 +200,8 @@ class Result:
 
     @staticmethod
     def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
-        return Result(StatusType[raw['status']], Configuration(cs, raw['config']), raw['loss'],
-                      Runtime.from_dict(raw['runtime']))
+        return Result(CandidateId.parse(raw['id']), StatusType[raw['status']], Configuration(cs, raw['config']),
+                      raw['loss'], Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:

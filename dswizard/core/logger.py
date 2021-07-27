@@ -43,14 +43,16 @@ class ResultLogger:
 
             # Results may already be created during structure creation
             for idx, result in enumerate(structure.results):
-                self.log_evaluated_config(structure, structure.cid.with_config(idx), result)
+                result.cid = result.cid.with_config(idx)
+                self.log_evaluated_config(structure, result)
 
             if draw_structure:
                 g = structure.pipeline.to_networkx()
                 h = nx.nx_agraph.to_agraph(g)
                 h.draw(f'{self.directory}/{structure.cid}.png', prog='dot')
 
-    def log_evaluated_config(self, structure: CandidateStructure, cid: CandidateId, result: Result) -> None:
+    def log_evaluated_config(self, structure: CandidateStructure, result: Result) -> None:
+        cid = result.cid
         if cid.without_config() not in self.structure_ids:
             # should never happen!
             raise ValueError(f'Unknown structure {cid.without_config()}')

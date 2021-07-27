@@ -47,6 +47,7 @@ class RunHistory:
             configs[sid] = [r.as_dict() for r in s.results]
             structure = s.as_dict()
             del structure['cfg_keys']
+            del structure['cid']
             structures[sid] = structure
 
         # Fill in missing meta-information
