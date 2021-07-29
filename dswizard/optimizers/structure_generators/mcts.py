@@ -522,7 +522,8 @@ class MCTS(BaseStructureGenerator):
                 if force and node.is_terminal():
                     return path, False
 
-                fully_expanded = self.tree.fully_expanded(node)
+                # We never expand if force is given
+                fully_expanded = self.tree.fully_expanded(node) or force
                 if not fully_expanded:
                     return path, True
 
