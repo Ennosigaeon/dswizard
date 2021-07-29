@@ -244,7 +244,7 @@ class CandidateStructure:
 
     def as_dict(self):
         return {
-            'cid': self.cid.without_config().as_tuple(),
+            'cid': self.cid.without_config().external_name,
             'pipeline': self.pipeline.as_list(),
             'cfg_keys': [(key.hash, key.idx) for key in self.cfg_keys],
             'budget': self.budget,
@@ -261,7 +261,7 @@ class CandidateStructure:
 
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
-        cs.cid = CandidateId(*raw['cid'])
+        cs.cid = CandidateId.parse(raw['cid'])
         cs.pipeline = FlexiblePipeline.from_list(raw['pipeline'])
         cs.cfg_keys = [ConfigKey(*t) for t in raw['cfg_keys']]
         return cs

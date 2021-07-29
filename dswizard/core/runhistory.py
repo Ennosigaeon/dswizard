@@ -22,36 +22,36 @@ class RunHistory:
                  workdir: str,
                  structure_xai: Dict[str, Any]):
         # Collapse data to merge identical structures
-        reverse = {}
+        reverse: Dict[CandidateStructure, CandidateId] = {}
         self.data: Dict[CandidateId, CandidateStructure] = {}
         for cid, structure in data.items():
             if structure not in reverse:
                 reverse[structure] = cid
                 self.data[cid] = structure
             else:
-                old_cid = reverse[structure]
-                prev = self.data[old_cid]
-                offset = len(prev.results)
+                new_structure = self.data[reverse[structure]]
+                offset = len(new_structure.results)
 
-                for i, r in enumerate(structure.results):
-                    prev.results.append(r)
-                    if r.status == StatusType.SUCCESS:
+                for idx, res in enumerate(structure.results):
+                    # Change config id and add to new structure
+                    res.cid = new_structure.cid.with_config(offset + idx)
+                    new_structure.add_result(res)
+
+                    if res.status == StatusType.SUCCESS:
                         # Rename model files so that they can be found during ensemble construction
-                        os.rename(os.path.join(workdir, model_file(cid.with_config(i))),
-                                  os.path.join(workdir, model_file(old_cid.with_config(offset + i))))
+                        os.rename(os.path.join(workdir, model_file(cid.with_config(idx))),
+                                  os.path.join(workdir, model_file(res.cid)))
 
-        configs = {}
-        structures = {}
+        # Map structures to JSON structure
+        structures = []
         for s in self.data.values():
-            sid = s.cid.external_name
-            configs[sid] = [r.as_dict() for r in s.results]
             structure = s.as_dict()
+            structure['configs'] = [r.as_dict() for r in s.results]
             del structure['cfg_keys']
-            del structure['cid']
-            structures[sid] = structure
+            structures.append(structure)
 
         # Fill in missing meta-information
-        meta_information.n_configs = sum([len(c) for c in configs.values()])
+        meta_information.n_configs = sum([len(c['configs']) for c in structures])
         meta_information.n_structures = len(structures)
         meta_information.iterations = iterations
         self.meta_information = meta_information
@@ -59,7 +59,6 @@ class RunHistory:
         self.complete_data = {
             'meta': meta_information.as_dict(),
             'structures': structures,
-            'configs': configs,
             'xai': {
                 'structures': structure_xai
             }
