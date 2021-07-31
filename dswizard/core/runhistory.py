@@ -46,7 +46,10 @@ class RunHistory:
         structures = []
         for s in self.data.values():
             structure = s.as_dict()
-            structure['configs'] = [r.as_dict() for r in s.results]
+            # Store budget in each configuration instead of only in structure. Only necessary for compatability with
+            # other AutoML frameworks
+            structure['configs'] = [r.as_dict(s.budget) for r in s.results]
+            del structure['budget']
             del structure['cfg_keys']
             structures.append(structure)
 
@@ -59,7 +62,7 @@ class RunHistory:
         self.complete_data = {
             'meta': meta_information.as_dict(),
             'structures': structures,
-            'xai': {
+            'explanations': {
                 'structures': structure_xai
             }
         }

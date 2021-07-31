@@ -189,14 +189,17 @@ class Result:
             partial_configs = []
         self.partial_configs: List[PartialConfig] = partial_configs
 
-    def as_dict(self):
-        return {
+    def as_dict(self, budget: float = None):
+        d = {
             'id': self.cid.external_name,
             'status': self.status.name,
             'loss': [self.loss, self.structure_loss],
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
         }
+        if budget is not None:
+            d['budget'] = budget
+        return d
 
     @staticmethod
     def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
