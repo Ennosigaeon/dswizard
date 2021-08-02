@@ -10,7 +10,7 @@ import openml
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
-from openml import OpenMLSupervisedTask
+from openml import OpenMLClassificationTask
 from sklearn.base import BaseEstimator
 
 from dswizard.components.base import EstimatorComponent
@@ -326,7 +326,8 @@ class Dataset:
                  metric: str = 'f1',
                  cutoff: int = 120,
                  task: int = None,
-                 fold: int = None):
+                 fold: int = None,
+                 feature_labels: list[str] = None):
         self.X = X
         self.y = y
 
@@ -340,10 +341,12 @@ class Dataset:
         self.task = task
         self.fold = fold
 
+        self.feature_labels = feature_labels
+
     @staticmethod
     def from_openml(task: int, fold: int, metric: str):
         # noinspection PyTypeChecker
-        task: OpenMLSupervisedTask = openml.tasks.get_task(task)
+        task: OpenMLClassificationTask = openml.tasks.get_task(task)
         train_indices, test_indices = task.get_train_test_split_indices(fold=fold)
 
         X, y = task.get_X_and_y()
@@ -352,8 +355,9 @@ class Dataset:
         X_test = X[test_indices, :]
         y_test = y[test_indices]
 
-        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold)
-        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold)
+        feature_labels = list(map(lambda x: x.name, task.get_dataset().features.values()))[:-1]
+        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels,)
+        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels,)
         return ds, ds_test
 
 
