@@ -43,45 +43,38 @@ class MetaInformation:
     def __init__(self,
                  start_time: float,
                  metric: str,
-                 cutoff: float,
                  openml_task: int,
                  openml_fold: int,
-                 wallclock_limit: float,
-                 model_dir: str,
-                 data_file: str
+                 config: dict[str, any]
                  ):
         # Information available before optimization
         self.start_time = start_time
         self.metric = metric
         self.metric_sign = util.metric_sign(self.metric)
-        self.cutoff = cutoff
         self.openml_task = openml_task
         self.openml_fold = openml_fold
-        self.wallclock_limit = wallclock_limit
-        self.model_dir = os.path.join(os.getcwd(), model_dir)
-        self.data_file = os.path.join(os.getcwd(), data_file)
+        self.config = config
 
         # Information available after optimization
         self.end_time: Optional[float] = None
         self.n_structures: Optional[int] = None
         self.n_configs: Optional[int] = None
         self.iterations: Optional[dict] = None
+        self.incumbent: Optional[float] = None
 
     def as_dict(self):
         return {
             'start_time': self.start_time,
             'metric': self.metric,
             'metric_sign': self.metric_sign,
-            'cutoff': self.cutoff,
             'openml_task': self.openml_task,
             'openml_fold': self.openml_fold,
-            'wallclock_limit': self.wallclock_limit,
             'end_time': self.end_time,
             'n_structures': self.n_structures,
             'n_configs': self.n_configs,
             'iterations': self.iterations,
-            'model_dir': self.model_dir,
-            'data_file': self.data_file
+            'incumbent': self.incumbent,
+            'config': self.config
         }
 
 

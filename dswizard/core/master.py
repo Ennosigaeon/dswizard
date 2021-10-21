@@ -4,6 +4,7 @@ import datetime
 import logging
 import multiprocessing
 import os
+import os.path
 import random
 import tempfile
 import threading
@@ -177,11 +178,14 @@ class Master:
         data_file = os.path.join(self.working_directory, 'dataset.pkl')
         joblib.dump((self.ds.X, self.ds.y, self.ds.feature_labels), data_file)
 
-        self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric, cutoff=self.cutoff,
+        self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric,
                                                 openml_task=self.ds.task, openml_fold=self.ds.fold,
-                                                wallclock_limit=self.wallclock_limit,
-                                                model_dir=os.path.join(self.working_directory, MODEL_DIR),
-                                                data_file=data_file)
+                                                config={
+                                                    'cutoff': self.cutoff,
+                                                    'wallclock_limit': self.wallclock_limit,
+                                                    'model_dir': os.path.abspath(MODEL_DIR),
+                                                    'data_file': os.path.abspath(data_file)
+                                                })
         self.logger.info(f'starting run at {start_time:%Y-%m-%d %H:%M:%S}. Configuration:\n'
                          f'\twallclock_limit: {self.wallclock_limit}\n'
                          f'\tcutoff: {self.cutoff}\n'

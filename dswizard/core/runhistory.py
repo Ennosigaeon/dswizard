@@ -57,6 +57,9 @@ class RunHistory:
         meta_information.n_configs = sum([len(c['configs']) for c in structures])
         meta_information.n_structures = len(structures)
         meta_information.iterations = iterations
+        meta_information.incumbent = min(
+            [s.get_incumbent().loss for s in self.data.values() if s.get_incumbent() is not None]
+        )
         self.meta_information = meta_information
 
         self.complete_data = {
