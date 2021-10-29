@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections import namedtuple
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING, Tuple, Union
@@ -45,6 +44,8 @@ class MetaInformation:
                  metric: str,
                  openml_task: int,
                  openml_fold: int,
+                 model_dir: str,
+                 data_file: str,
                  config: dict[str, any]
                  ):
         # Information available before optimization
@@ -53,6 +54,8 @@ class MetaInformation:
         self.metric_sign = util.metric_sign(self.metric)
         self.openml_task = openml_task
         self.openml_fold = openml_fold
+        self.model_dir = model_dir
+        self.data_file = data_file
         self.config = config
 
         # Information available after optimization
@@ -73,6 +76,8 @@ class MetaInformation:
             'n_structures': self.n_structures,
             'n_configs': self.n_configs,
             'iterations': self.iterations,
+            'model_dir': self.model_dir,
+            'data_file': self.data_file,
             'incumbent': self.incumbent,
             'config': self.config
         }
@@ -138,13 +143,13 @@ class CandidateId:
 
 class Runtime:
 
-    def __init__(self, total: float, timestamp: float):
-        self.total = total
+    def __init__(self, training_time: float, timestamp: float):
+        self.training_time = training_time
         self.timestamp = timestamp
 
     def as_dict(self):
         return {
-            'total': self.total,
+            'training_time': self.training_time,
             'timestamp': self.timestamp,
         }
 
