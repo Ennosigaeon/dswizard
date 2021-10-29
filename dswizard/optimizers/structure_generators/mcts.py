@@ -21,7 +21,7 @@ from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateId, PartialConfig, StatusType, CandidateStructure, Dataset, Result, \
-    EvaluationJob
+    EvaluationJob, Runtime
 from dswizard.core.similaritystore import SimilarityStore
 from dswizard.core.worker import Worker
 from dswizard.pipeline.pipeline import FlexiblePipeline
@@ -49,6 +49,7 @@ class Node:
         self.id = node_id
         self.ds = ds
         self.partial_config = partial_config
+        self.runtime: Optional[Runtime] = None
 
         self.failure_message: Optional[str] = None
         self.expanded = False
@@ -141,7 +142,8 @@ class Tree:
     def __init__(self, ds: Dataset):
         self.G = nx.DiGraph()
         self.id_count = -1
-        self.add_node(ds=ds)
+        root = self.add_node(ds=ds)
+        root.runtime = Runtime(0, 0)
 
         self.coef_progressive_widening = 0.7
 
@@ -593,6 +595,10 @@ class MCTS(BaseStructureGenerator):
                 ds = Dataset(result.transformed_X, ds.y, ds.metric, ds.cutoff)
                 new_node.partial_config = PartialConfig(key, config, str(new_node.id), ds.meta_features)
                 new_node.ds = ds
+
+                # Add trainings time of all previous nodes to new node
+                result.runtime.training_time += sum([n.runtime.training_time for n in nodes])
+                new_node.runtime = result.runtime
 
                 if ds.meta_features is None:
                     result.status = StatusType.CRASHED
