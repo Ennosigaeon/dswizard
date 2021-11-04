@@ -116,11 +116,10 @@ class Node:
         self.reward += reward
         return self
 
-    def record_explanation(self, cid: CandidateId, policy: Dict):
+    def record_explanation(self, cid: CandidateId, score: float, policy: Dict):
         self.explanations[cid.external_name] = {
             'failure_message': self.failure_message,
-            'visits': self.visits,
-            'reward': self.reward,
+            'score': score,
             'selected': False,
             'policy': policy
         }
@@ -261,13 +260,13 @@ class Policy(ABC):
             n.reward += performance
             n.failure_message = None
 
-            score, uct = self.uct(n, node, worst_score=worst_performance, decompose=True)
+            score, policy = self.uct(n, node, worst_score=worst_performance, decompose=True)
             estimated_performances[name] = score
 
             n.visits -= 1
             n.reward -= performance
             n.failure_message = Node.UNVISITED
-            n.record_explanation(cid, uct)
+            n.record_explanation(cid, score, policy)
 
         return available_actions[min(estimated_performances.items(), key=operator.itemgetter(1))[0]]
 
@@ -303,9 +302,9 @@ class Policy(ABC):
             return adjusted_score, {
                 'exploit': exploitation,
                 'explore': exploration,
+                'visits': n.visits - 1,  # node visits is always off by 1 to prevent division by 0
                 'overfit': overfitting,
-                'weight': self._exploration_weight,
-                'score': adjusted_score
+                'explore_weight': self._exploration_weight
             }
         else:
             return adjusted_score
@@ -667,8 +666,8 @@ class MCTS(BaseStructureGenerator):
                 parent = next(self.tree.G.predecessors(node_id))
             except StopIteration:
                 parent = None
-            _, policy = self.policy.uct(node, parent, worst_score=worst_score, decompose=True)
-            node.record_explanation(cid, policy)
+            score, policy = self.policy.uct(node, parent, worst_score=worst_score, decompose=True)
+            node.record_explanation(cid, score, policy)
 
     def register_result(self, candidate: CandidateStructure, result: Result, update_model: bool = True,
                         **kwargs) -> None:
