@@ -5,12 +5,13 @@ from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
 
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
-from sklearn.base import BaseEstimator, clone
+from sklearn.base import clone
 from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
 from dswizard.components.base import ComponentChoice, EstimatorComponent
-from dswizard.components.util import prefixed_name
+from dswizard.components.util import prefixed_name, HANDLES_MULTICLASS, HANDLES_NUMERIC, HANDLES_NOMINAL, \
+    HANDLES_MISSING, HANDLES_NOMINAL_CLASS
 from dswizard.core.model import PartialConfig
 from dswizard.util import util
 
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from dswizard.components.meta_features import MetaFeatures, MetaFeaturesDict
 
 
-class FlexiblePipeline(Pipeline, BaseEstimator):
+class FlexiblePipeline(Pipeline, EstimatorComponent):
 
     def __init__(self,
                  steps: List[Tuple[str, EstimatorComponent]],
@@ -43,6 +44,17 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
 
         if configuration is not None:
             self.set_hyperparameters(configuration)
+
+    @staticmethod
+    def get_properties() -> dict:
+        return {'shortname': 'pipeline',
+                'name': 'Flexible Pipeline',
+                HANDLES_MULTICLASS: True,
+                HANDLES_NUMERIC: True,
+                HANDLES_NOMINAL: True,
+                HANDLES_MISSING: True,
+                HANDLES_NOMINAL_CLASS: True
+                }
 
     def to_networkx(self, prefix: str = None):
         import networkx as nx
@@ -102,19 +114,8 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         if len(self.steps) == 0:
             raise TypeError('Pipeline has to contain at least 1 step')
         super()._validate_steps()
-        if not hasattr(self.steps[-1][1], 'predict'):
-            raise TypeError('Last step of Pipeline should implement predict.')
 
-    def _fit(self,
-             X: np.ndarray,
-             y: np.ndarray = None,
-             logger: ProcessLogger = None,
-             prefix: str = None,
-             **fit_params: dict):
-        # shallow copy of steps - this should really be steps_
-        self.steps = list(self.steps)
-        self._validate_steps()
-
+    def _check_fit_params(self, **fit_params):
         fit_params_steps = {name: {} for name, step in self.steps
                             if step is not None}
         for pname, pval in fit_params.items():
@@ -127,6 +128,18 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                     "=sample_weight)`.".format(pname))
             step, param = pname.split('__', 1)
             fit_params_steps[step][param] = pval
+        return fit_params_steps
+
+    def _fit(self,
+             X: np.ndarray,
+             y: np.ndarray = None,
+             logger: ProcessLogger = None,
+             prefix: str = None,
+             **fit_params_steps: dict):
+        # shallow copy of steps - this should really be steps_
+        self.steps = list(self.steps)
+        self._validate_steps()
+
         Xt = X
         for (step_idx,
              name,
@@ -175,9 +188,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             # transformer. This is necessary when loading the transformer
             # from the cache.
             self.steps[step_idx] = (name, fitted_transformer)
-        if self._final_estimator == 'passthrough':
-            return Xt, {}
-        return Xt, fit_params_steps[self.steps[-1][0]]
+        return Xt
 
     def fit(self,
             X: np.ndarray,
@@ -189,7 +200,8 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
             raise ValueError(
                 'Pipeline is not configured yet. Either call set_hyperparameters or provide a ConfigGenerator')
 
-        Xt, fit_params = self._fit(X, y, logger=logger, prefix=prefix, **fit_params)
+        fit_params_steps = self._check_fit_params(**fit_params)
+        Xt = self._fit(X, y, logger=logger, prefix=prefix, **fit_params_steps)
         with _print_elapsed_time('Pipeline',
                                  self._log_message(len(self.steps) - 1)):
             if self._final_estimator != 'passthrough':
@@ -199,7 +211,8 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
                     config = self._get_config_for_step(len(self.steps) - 1, prefix, self.steps[-1][0], logger)
                     self._final_estimator.set_hyperparameters(configuration=config.get_dictionary())
 
-                self._final_estimator.fit(Xt, y, **fit_params)
+                fit_params_last_step = fit_params_steps[self.steps[-1][0]]
+                self._final_estimator.fit(Xt, y, **fit_params_last_step)
             else:
                 raise NotImplementedError('passthrough pipelines are currently not supported')
         return self
@@ -221,7 +234,7 @@ class FlexiblePipeline(Pipeline, BaseEstimator):
         self.config_time += timeit.default_timer() - start
         return config
 
-    def set_hyperparameters(self, configuration: dict, init_params=None):
+    def set_hyperparameters(self, configuration: dict = None, init_params=None):
         self.configuration = configuration
 
         for node_idx, (node_name, node) in enumerate(self.steps):
