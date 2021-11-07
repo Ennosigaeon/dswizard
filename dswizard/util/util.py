@@ -1,4 +1,3 @@
-import importlib
 import logging
 import os
 
@@ -90,22 +89,6 @@ def openml_mapping(task: int = None, ds: int = None, name: str = None):
         return datasets[ds]
     except KeyError:
         return -1
-
-
-def get_type(clazz: str) -> type:
-    module_name = clazz.rpartition(".")[0]
-    class_name = clazz.split(".")[-1]
-
-    module = importlib.import_module(module_name)
-    class_ = getattr(module, class_name)
-    return class_
-
-
-def get_object(clazz: str, kwargs=None):
-    if kwargs is None:
-        kwargs = {}
-
-    return get_type(clazz)(**kwargs)
 
 
 def model_file(cid) -> str:

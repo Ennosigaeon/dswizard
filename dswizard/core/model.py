@@ -12,6 +12,7 @@ from ConfigSpace.read_and_write import json as config_json
 from openml import OpenMLClassificationTask
 from sklearn.base import BaseEstimator
 
+import dswizard.components.util as comp_util
 from dswizard.components.base import EstimatorComponent
 from dswizard.components.meta_features import MetaFeatureFactory
 from dswizard.util import util
@@ -246,7 +247,7 @@ class CandidateStructure:
     def as_dict(self):
         return {
             'cid': self.cid.without_config().external_name,
-            'pipeline': self.pipeline.as_list(),
+            'pipeline': self.pipeline.serialize(),
             'cfg_keys': [(key.hash, key.idx) for key in self.cfg_keys],
             'budget': self.budget,
             'configspace': config_json.write(self.configspace),
@@ -257,13 +258,10 @@ class CandidateStructure:
 
     @staticmethod
     def from_dict(raw: dict) -> 'CandidateStructure':
-        # local import due to circular imports
-        from dswizard.pipeline.pipeline import FlexiblePipeline
-
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId.parse(raw['cid'])
-        cs.pipeline = FlexiblePipeline.from_list(raw['pipeline'])
+        cs.pipeline = comp_util.deserialize(**raw['pipeline'])
         cs.cfg_keys = [ConfigKey(*t) for t in raw['cfg_keys']]
         return cs
 
@@ -354,8 +352,8 @@ class Dataset:
         y_test = y[test_indices]
 
         feature_labels = list(map(lambda x: x.name, task.get_dataset().features.values()))[:-1]
-        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels,)
-        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels,)
+        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels)
+        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels)
         return ds, ds_test
 
 

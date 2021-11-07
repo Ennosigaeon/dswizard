@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import timeit
-from typing import Dict, List, Tuple, Union, TYPE_CHECKING, Optional
+from typing import Dict, List, Tuple, TYPE_CHECKING, Optional, Any
 
 import numpy as np
 from ConfigSpace.configuration_space import Configuration, ConfigurationSpace
@@ -9,11 +9,11 @@ from sklearn.base import clone
 from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
+from dswizard.components import util
 from dswizard.components.base import ComponentChoice, EstimatorComponent
 from dswizard.components.util import prefixed_name, HANDLES_MULTICLASS, HANDLES_NUMERIC, HANDLES_NOMINAL, \
     HANDLES_MISSING, HANDLES_NOMINAL_CLASS
 from dswizard.core.model import PartialConfig
-from dswizard.util import util
 
 if TYPE_CHECKING:
     from dswizard.core.logger import ProcessLogger
@@ -29,6 +29,8 @@ class FlexiblePipeline(Pipeline, EstimatorComponent):
                  configuration: Optional[dict] = None,
                  cfg_cache: Optional[ConfigCache] = None,
                  cfg_keys: Optional[List[ConfigKey]] = None):
+        self.args = {'steps': [(label, comp.serialize()) for label, comp in steps], 'configuration': configuration}
+
         self.configuration = None
         self.cfg_keys = cfg_keys
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
@@ -276,31 +278,12 @@ class FlexiblePipeline(Pipeline, EstimatorComponent):
     def items(self):
         return self.steps_.items()
 
-    def as_list(self) -> List[Tuple[str, Union[str, List]]]:
-        steps = []
-        for name, step in self.steps:
-            steps.append((name, step.serialize()))
-        return steps
-
     @staticmethod
-    def from_list(steps: List[Tuple[str, Union[str, List]]]) -> 'FlexiblePipeline':
-        def __load(sub_steps: List[Tuple[str, Union[str, List]]]) -> List[Tuple[str, EstimatorComponent]]:
-            d = []
-            for name, value in sub_steps:
-                if type(value) == str:
-                    # TODO kwargs for __init__ not loaded
-                    d.append((name, util.get_object(value)))
-                elif type(value) == list:
-                    ls = []
-                    for sub_name, sub_value in value:
-                        ls.append(__load(sub_value))
-                    d.append((name, SubPipeline(ls)))
-                else:
-                    raise ValueError(f'Unable to handle type {type(value)}')
-            return d
-
-        ds = __load(steps)
-        return FlexiblePipeline(ds)
+    def deserialize(steps: List[str, Dict[str, Any]], **kwargs) -> 'FlexiblePipeline':
+        steps_ = []
+        for name, value in steps:
+            steps_.append((name, util.deserialize(**value)))
+        return FlexiblePipeline(steps_, **kwargs)
 
     def __lt__(self, other: 'FlexiblePipeline'):
         s1 = tuple(e.name() for e in self.steps_.values())
@@ -369,7 +352,7 @@ class SubPipeline(EstimatorComponent):
     def serialize(self):
         pipelines = []
         for name, p in self.pipelines.items():
-            pipelines.append((name, p.as_list()))
+            pipelines.append((name, p.serialize()))
 
         return pipelines
 

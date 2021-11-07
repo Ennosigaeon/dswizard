@@ -712,7 +712,7 @@ class MCTS(BaseStructureGenerator):
             def transform_node(node_id: int):
                 children = []
                 element = {
-                    'id': node_id,
+                    'id': str(node_id),
                     **nodes[node_id]
                 }
                 try:
