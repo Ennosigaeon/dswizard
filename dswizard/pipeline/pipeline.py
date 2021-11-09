@@ -10,7 +10,7 @@ from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
 from dswizard.components import util
-from dswizard.components.base import ComponentChoice, EstimatorComponent
+from dswizard.components.base import ComponentChoice, EstimatorComponent, HasChildComponents
 from dswizard.components.util import prefixed_name, HANDLES_MULTICLASS, HANDLES_NUMERIC, HANDLES_NOMINAL, \
     HANDLES_MISSING, HANDLES_NOMINAL_CLASS
 from dswizard.core.model import PartialConfig
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from dswizard.components.meta_features import MetaFeatures, MetaFeaturesDict
 
 
-class FlexiblePipeline(Pipeline, EstimatorComponent):
+class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
 
     def __init__(self,
                  steps: List[Tuple[str, EstimatorComponent]],
@@ -238,42 +238,11 @@ class FlexiblePipeline(Pipeline, EstimatorComponent):
 
     def set_hyperparameters(self, configuration: dict = None, init_params=None):
         self.configuration = configuration
-
-        for node_idx, (node_name, node) in enumerate(self.steps):
-            sub_configuration_space = node.get_hyperparameter_search_space()
-            sub_config_dict = {}
-            for param in configuration:
-                if param.startswith(f'{node_name}:'):
-                    value = configuration[param]
-                    new_name = param.replace(f'{node_name}:', '', 1)
-                    sub_config_dict[new_name] = value
-
-            sub_configuration = Configuration(sub_configuration_space, values=sub_config_dict)
-
-            if init_params is not None:
-                sub_init_params_dict = {}
-                for param in init_params:
-                    if param.startswith(f'{node_name}:'):
-                        value = init_params[param]
-                        new_name = param.replace(f'{node_name}:', '', 1)
-                        sub_init_params_dict[new_name] = value
-            else:
-                sub_init_params_dict = None
-
-            if isinstance(node, (ComponentChoice, EstimatorComponent)):
-                node.set_hyperparameters(configuration=sub_configuration.get_dictionary(),
-                                         init_params=sub_init_params_dict)
-            else:
-                raise NotImplementedError('Not supported yet!')
-
+        self.set_child_hyperparameters(self.steps, configuration, init_params)
         return self
 
     def get_hyperparameter_search_space(self, mf: Optional[MetaFeaturesDict] = None) -> ConfigurationSpace:
-        cs = ConfigurationSpace()
-        for name, step in self.steps:
-            step_configuration_space = step.get_hyperparameter_search_space(mf=mf)
-            cs.add_configuration_space(name, step_configuration_space)
-        return cs
+        return self.get_child_hyperparameter_search_space(self.steps, mf)
 
     def items(self):
         return self.steps_.items()
