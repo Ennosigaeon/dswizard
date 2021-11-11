@@ -345,13 +345,13 @@ class Dataset:
         task: OpenMLClassificationTask = openml.tasks.get_task(task)
         train_indices, test_indices = task.get_train_test_split_indices(fold=fold)
 
-        X, y = task.get_X_and_y()
-        X_train = X[train_indices, :]
-        y_train = y[train_indices]
-        X_test = X[test_indices, :]
-        y_test = y[test_indices]
+        X, y = task.get_X_and_y(dataset_format='dataframe')
+        X_train = X.values[train_indices, :]
+        y_train = y.values[train_indices]
+        X_test = X.values[test_indices, :]
+        y_test = y.values[test_indices]
 
-        feature_labels = list(map(lambda x: x.name, task.get_dataset().features.values()))[:-1]
+        feature_labels = X.columns.tolist()
         ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels)
         ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels)
         return ds, ds_test
