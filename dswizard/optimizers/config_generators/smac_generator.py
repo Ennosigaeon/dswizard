@@ -23,7 +23,7 @@ class SplitSMBO(SMBO):
         super().__init__(*args, **kwargs)
         self.run_infos: typing.Dict[Configuration, typing.Tuple[RunInfo, float]] = {}
 
-    def sample_config(self) -> Configuration:
+    def sample_config(self, recursion_depth: int = 5) -> Configuration:
         # sample next configuration for intensification
         # Initial design runs are also included in the BO loop now.
         intent, run_info = self.intensifier.get_next_run(
@@ -39,7 +39,13 @@ class SplitSMBO(SMBO):
         self.initial_design_configs = [c for c in self.initial_design_configs if c != run_info.config]
 
         if intent == RunInfoIntent.SKIP:
-            return self.sample_config()
+            if recursion_depth > 0:
+                return self.sample_config(recursion_depth - 1)
+            else:
+                self.logger.warning('Repeatedly failed to sample configuration. Using random configuration instead.')
+                run_info = RunInfo(self.config_space.sample_configuration(), run_info.instance,
+                                   run_info.instance_specific, run_info.seed, run_info.cutoff, run_info.capped,
+                                   run_info.budget, run_info.source_id)
 
         self.runhistory.add(
             config=run_info.config,
