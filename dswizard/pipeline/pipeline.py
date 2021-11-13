@@ -10,7 +10,7 @@ from sklearn.pipeline import Pipeline, _fit_transform_one
 from sklearn.utils import _print_elapsed_time
 
 from dswizard.components import util
-from dswizard.components.base import ComponentChoice, EstimatorComponent, HasChildComponents
+from dswizard.components.base import EstimatorComponent, HasChildComponents
 from dswizard.components.util import prefixed_name, HANDLES_MULTICLASS, HANDLES_NUMERIC, HANDLES_NOMINAL, \
     HANDLES_MISSING, HANDLES_NOMINAL_CLASS
 from dswizard.core.model import PartialConfig
@@ -204,10 +204,8 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
 
         fit_params_steps = self._check_fit_params(**fit_params)
         Xt = self._fit(X, y, logger=logger, prefix=prefix, **fit_params_steps)
-        with _print_elapsed_time('Pipeline',
-                                 self._log_message(len(self.steps) - 1)):
-            if self._final_estimator != 'passthrough':
-
+        with _print_elapsed_time("Pipeline", self._log_message(len(self.steps) - 1)):
+            if self._final_estimator != "passthrough":
                 # Configure estimator on the fly if necessary
                 if self.configuration is None:
                     config = self._get_config_for_step(len(self.steps) - 1, prefix, self.steps[-1][0], logger)
@@ -215,8 +213,7 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
 
                 fit_params_last_step = fit_params_steps[self.steps[-1][0]]
                 self._final_estimator.fit(Xt, y, **fit_params_last_step)
-            else:
-                raise NotImplementedError('passthrough pipelines are currently not supported')
+
         return self
 
     def _get_config_for_step(self, idx: int, prefix: str, name: str,
@@ -246,6 +243,20 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
 
     def items(self):
         return self.steps_.items()
+
+    def get_feature_names_out(self, input_features=None):
+        feature_names_out = input_features
+        for _, name, transform in self._iter():
+            if not hasattr(transform, "get_feature_names_out"):
+                raise AttributeError(
+                    "Estimator {} does not provide get_feature_names_out. "
+                    "Did you mean to call pipeline[:-1].get_feature_names_out"
+                    "()?".format(name)
+                )
+            feature_names_out = transform.get_feature_names_out(feature_names_out)
+            if hasattr(transform, "predict"):
+                feature_names_out = [f"{name}__{f}" for f in feature_names_out]
+        return feature_names_out
 
     @staticmethod
     def deserialize(steps: List[str, Dict[str, Any]], **kwargs) -> 'FlexiblePipeline':

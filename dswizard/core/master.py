@@ -176,7 +176,7 @@ class Master:
         start_time = datetime.datetime.now()
 
         data_file = os.path.join(self.working_directory, 'dataset.pkl')
-        joblib.dump((self.ds.X, self.ds.y, self.ds.feature_labels), data_file)
+        joblib.dump((self.ds.X, self.ds.y, self.ds.feature_names), data_file)
 
         self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric,
                                                 openml_task=self.ds.task, openml_fold=self.ds.fold,

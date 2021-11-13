@@ -323,7 +323,7 @@ class Dataset:
                  cutoff: int = 120,
                  task: int = None,
                  fold: int = None,
-                 feature_labels: list[str] = None):
+                 feature_names: list[str] = None):
         self.X = X
         self.y = y
 
@@ -337,7 +337,7 @@ class Dataset:
         self.task = task
         self.fold = fold
 
-        self.feature_labels = feature_labels
+        self.feature_names = feature_names
 
     @staticmethod
     def from_openml(task: int, fold: int, metric: str):
@@ -351,9 +351,9 @@ class Dataset:
         X_test = X.values[test_indices, :]
         y_test = y.values[test_indices]
 
-        feature_labels = X.columns.tolist()
-        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels)
-        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold, feature_labels=feature_labels)
+        feature_names = X.columns.tolist()
+        ds = Dataset(X_train, y_train, metric=metric, task=task.task_id, fold=fold, feature_names=feature_names)
+        ds_test = Dataset(X_test, y_test, metric=metric, task=task.task_id, fold=fold, feature_names=feature_names)
         return ds, ds_test
 
 
