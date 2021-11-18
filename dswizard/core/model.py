@@ -167,7 +167,8 @@ class Result:
                  cid: CandidateId,
                  status: Optional[StatusType] = None,
                  config: Configuration = None,
-                 loss: Optional[List[float]] = None,
+                 loss: Optional[float] = None,
+                 structure_loss: Optional[float] = None,
                  runtime: Runtime = None,
                  partial_configs: Optional[List[PartialConfig]] = None,
                  transformed_X: np.ndarray = None):
@@ -176,10 +177,10 @@ class Result:
         self.config = config
 
         # structure_loss can be used if a dedicated loss for structure search is necessary
-        if loss is None:
-            loss = [None]
-        self.loss = loss[0]
-        self.structure_loss = loss[-1]
+        if structure_loss is None:
+            structure_loss = loss
+        self.loss = loss
+        self.structure_loss = structure_loss
 
         self.runtime = runtime
         self.transformed_X = transformed_X
@@ -192,7 +193,8 @@ class Result:
         d = {
             'id': self.cid.external_name,
             'status': self.status.name,
-            'loss': [self.loss, self.structure_loss],
+            'loss': self.loss,
+            'structure_loss': self.structure_loss,
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
         }
@@ -203,7 +205,7 @@ class Result:
     @staticmethod
     def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
         return Result(CandidateId.parse(raw['id']), StatusType[raw['status']], Configuration(cs, raw['config']),
-                      raw['loss'], Runtime.from_dict(raw['runtime']))
+                      raw['loss'], raw['structure_loss'], Runtime.from_dict(raw['runtime']))
 
 
 class CandidateStructure:

@@ -87,7 +87,7 @@ class Worker(abc.ABC):
 
             # job.component has to be always a FlexiblePipeline
             steps = [(name, comp.name()) for name, comp in job.component.steps]
-            result = Result(job.cid, status, config, cost, runtime, partial_configs)
+            result = Result(job.cid, status, config, cost[0], cost[1], runtime, partial_configs)
         except KeyboardInterrupt:
             raise
         except Exception as ex:
@@ -95,7 +95,7 @@ class Worker(abc.ABC):
             self.logger.exception(f'Unexpected error during computation: \'{ex}\'')
             # noinspection PyUnboundLocalVariable
             result = Result(job.cid, StatusType.CRASHED, config if 'config' in locals() else job.config,
-                            util.worst_score(job.ds.metric), None,
+                            util.worst_score(job.ds.metric)[0], util.worst_score(job.ds.metric)[0], None,
                             partial_configs if 'partial_configs' in locals() else None)
         return result
 
@@ -143,14 +143,15 @@ class Worker(abc.ABC):
                 status = StatusType.CRASHED
                 self.logger.debug(f'Worker failed with {c[0] if isinstance(c, Tuple) else c}')
                 score = util.worst_score(job.ds.metric)
-            result = Result(job.cid, status=status, loss=score, transformed_X=X,
+            result = Result(job.cid, status=status, loss=score[0], structure_loss=score[1], transformed_X=X,
                             runtime=Runtime(wrapper.wall_clock_time, timeit.default_timer() - self.start_time))
         except KeyboardInterrupt:
             raise
         except Exception as ex:
             # Should never occur, just a safety net
             self.logger.exception(f'Unexpected error during computation: \'{ex}\'')
-            result = Result(job.cid, status=StatusType.CRASHED, loss=util.worst_score(job.ds.metric))
+            result = Result(job.cid, status=StatusType.CRASHED, loss=util.worst_score(job.ds.metric)[0],
+                            structure_loss=util.worst_score(job.ds.metric)[1])
         return result
 
     @abc.abstractmethod

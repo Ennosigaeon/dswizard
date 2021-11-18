@@ -58,13 +58,13 @@ def metric_sign(metric: str) -> int:
     return -1
 
 
-def worst_score(metric: str):
+def worst_score(metric: str) -> tuple[float, float]:
     if metric in ('accuracy', 'precision', 'recall', 'f1', 'rocauc'):
-        return [0, 0]
+        return 0, 0
     else:
         # TODO replace with -log(1 / n_classes)
         # logloss is only used in combination with rocauc
-        return [100, 0]
+        return 100, 0
 
 
 def openml_mapping(task: int = None, ds: int = None, name: str = None):
