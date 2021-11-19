@@ -5,7 +5,7 @@ from sklearn import clone
 
 from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType, MetaInformation
 from dswizard.pipeline.pipeline import FlexiblePipeline
-from dswizard.util.util import model_file
+from dswizard.util.util import model_file, metric_sign
 
 
 class RunHistory:
@@ -48,7 +48,8 @@ class RunHistory:
             structure = s.as_dict()
             # Store budget in each configuration instead of only in structure. Only necessary for compatability with
             # other AutoML frameworks
-            structure['configs'] = [r.as_dict(s.budget) for r in s.results]
+            structure['configs'] = [r.as_dict(s.budget, loss_sign=metric_sign(meta_information.metric))
+                                    for r in s.results]
             del structure['budget']
             del structure['cfg_keys']
             structures.append(structure)

@@ -52,7 +52,7 @@ class MetaInformation:
         # Information available before optimization
         self.start_time = start_time
         self.metric = metric
-        self.metric_sign = util.metric_sign(self.metric)
+        self.is_minimization = util.metric_sign(self.metric) == 1
         self.openml_task = openml_task
         self.openml_fold = openml_fold
         self.model_dir = model_dir
@@ -70,7 +70,7 @@ class MetaInformation:
         return {
             'start_time': self.start_time,
             'metric': self.metric,
-            'metric_sign': self.metric_sign,
+            'is_minimization': self.is_minimization,
             'openml_task': self.openml_task,
             'openml_fold': self.openml_fold,
             'end_time': self.end_time,
@@ -189,12 +189,12 @@ class Result:
             partial_configs = []
         self.partial_configs: List[PartialConfig] = partial_configs
 
-    def as_dict(self, budget: float = None):
+    def as_dict(self, budget: float = None, loss_sign: float = 1):
         d = {
             'id': self.cid.external_name,
             'status': self.status.name,
-            'loss': self.loss,
-            'structure_loss': self.structure_loss,
+            'loss': self.loss * loss_sign,
+            'structure_loss': self.structure_loss,  # by definition always a min. problem, no need to adjust sign
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
         }
