@@ -21,9 +21,11 @@ class SplitSMBO(SMBO):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.run_infos: typing.Dict[Configuration, typing.Tuple[RunInfo, float]] = {}
+        self.run_infos: typing.Dict[str, typing.Tuple[RunInfo, float]] = {}
 
     def sample_config(self, recursion_depth: int = 5) -> Configuration:
+        # TODO even though initial_incumbent is set to DEFAULT, the first configuration is random
+
         # sample next configuration for intensification
         # Initial design runs are also included in the BO loop now.
         intent, run_info = self.intensifier.get_next_run(
@@ -60,15 +62,16 @@ class SplitSMBO(SMBO):
         run_info.config.config_id = self.runhistory.config_ids[run_info.config]
         self.stats.submitted_ta_runs += 1
 
-        self.run_infos[run_info.config] = (run_info, time.time())
+        self.run_infos[str(run_info.config)] = (run_info, time.time())
         return run_info.config
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
                         **kwargs) -> None:
         try:
-            info, start_time = self.run_infos[config]
+            key = str(config)
+            info, start_time = self.run_infos[key]
             end_time = time.time()
-            del self.run_infos[config]
+            del self.run_infos[key]
             result = RunValue(loss, end_time - start_time, SmacStatus(status.value), start_time, end_time, {})
             if update_model:
                 self._incorporate_run_results(info, result, 10)
