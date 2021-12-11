@@ -45,7 +45,6 @@ class MetaInformation:
                  metric: str,
                  openml_task: int,
                  openml_fold: int,
-                 model_dir: str,
                  data_file: str,
                  config: dict[str, any]
                  ):
@@ -55,7 +54,6 @@ class MetaInformation:
         self.is_minimization = util.metric_sign(self.metric) == 1
         self.openml_task = openml_task
         self.openml_fold = openml_fold
-        self.model_dir = model_dir
         self.data_file = data_file
         self.config = config
 
@@ -77,7 +75,6 @@ class MetaInformation:
             'n_structures': self.n_structures,
             'n_configs': self.n_configs,
             'iterations': self.iterations,
-            'model_dir': self.model_dir,
             'data_file': self.data_file,
             'incumbent': self.incumbent,
             'config': self.config
@@ -189,8 +186,11 @@ class Result:
             partial_configs = []
         self.partial_configs: List[PartialConfig] = partial_configs
 
+        self.model_file: Optional[str] = None
+
     def as_dict(self, budget: float = None, loss_sign: float = 1):
         d = {
+            'model_file': self.model_file,
             'id': self.cid.external_name,
             'status': self.status.name,
             'loss': self.loss * loss_sign,

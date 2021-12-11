@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List, Dict, Optional, Tuple, Any
 
 from sklearn import clone
@@ -45,6 +46,9 @@ class RunHistory:
         # Map structures to JSON structure
         structures = []
         for s in self.data.values():
+            for res in s.results:
+                res.model_file = os.path.abspath(os.path.join(workdir, model_file(res.cid)))
+
             structure = s.as_dict()
             # Store budget in each configuration instead of only in structure. Only necessary for compatability with
             # other AutoML frameworks
@@ -55,6 +59,7 @@ class RunHistory:
             structures.append(structure)
 
         # Fill in missing meta-information
+        meta_information.end_time = time.time()
         meta_information.n_configs = sum([len(c['configs']) for c in structures])
         meta_information.n_structures = len(structures)
         meta_information.iterations = iterations

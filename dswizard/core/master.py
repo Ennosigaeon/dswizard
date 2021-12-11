@@ -180,8 +180,6 @@ class Master:
 
         self.meta_information = MetaInformation(start_time=time.time(), metric=self.ds.metric,
                                                 openml_task=self.ds.task, openml_fold=self.ds.fold,
-                                                model_dir=os.path.abspath(
-                                                    os.path.join(self.working_directory, MODEL_DIR)),
                                                 data_file=os.path.abspath(data_file),
                                                 config={
                                                     'cutoff': self.cutoff,
@@ -297,7 +295,6 @@ class Master:
             explanations = self.structure_generator.explain()
             self.shutdown()
 
-        self.meta_information.end_time = time.time()
         self.logger.info(f'Finished run after {(datetime.datetime.now() - start_time).seconds} seconds')
 
         iterations = self.result_logger.load()

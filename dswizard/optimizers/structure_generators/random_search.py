@@ -53,7 +53,6 @@ class RandomStructureGenerator(BaseStructureGenerator):
                 config_space, steps = self._generate_pipeline(depth)
 
                 pipeline = FlexiblePipeline(steps)
-                print(steps)
                 self.logger.debug(f'Created valid pipeline after {attempts} tries')
 
                 cfg_keys = []
