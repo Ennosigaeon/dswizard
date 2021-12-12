@@ -4,6 +4,7 @@ from collections import namedtuple
 from enum import Enum
 from typing import Optional, List, TYPE_CHECKING, Tuple, Union
 
+import joblib
 import numpy as np
 import openml
 from ConfigSpace import ConfigurationSpace
@@ -211,7 +212,7 @@ class Result:
 class CandidateStructure:
 
     def __init__(self,
-                 configspace: ConfigurationSpace,
+                 configspace: Optional[ConfigurationSpace],
                  pipeline: FlexiblePipeline,
                  cfg_keys: List[ConfigKey],
                  budget: float = 1):
@@ -249,10 +250,10 @@ class CandidateStructure:
     def as_dict(self):
         return {
             'cid': self.cid.without_config().external_name,
-            'pipeline': self.pipeline.serialize(),
+            'pipeline': comp_util.serialize(self.pipeline),
             'cfg_keys': [(key.hash, key.idx) for key in self.cfg_keys],
             'budget': self.budget,
-            'configspace': config_json.write(self.configspace),
+            'configspace': config_json.write(self.configspace) if self.configspace is not None else None,
         }
 
     def is_proxy(self):
@@ -340,6 +341,9 @@ class Dataset:
         self.fold = fold
 
         self.feature_names = feature_names
+
+    def store(self, file_name: str):
+        joblib.dump((self.X, self.y, self.feature_names), file_name)
 
     @staticmethod
     def from_openml(task: int, fold: int, metric: str):

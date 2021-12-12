@@ -29,7 +29,7 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
                  configuration: Optional[dict] = None,
                  cfg_cache: Optional[ConfigCache] = None,
                  cfg_keys: Optional[List[ConfigKey]] = None):
-        self.args = {'steps': [(label, comp.serialize()) for label, comp in steps], 'configuration': configuration}
+        self.args = {'steps': [(label, util.serialize(comp)) for label, comp in steps], 'configuration': configuration}
 
         self.configuration = None
         self.cfg_keys = cfg_keys
@@ -332,7 +332,7 @@ class SubPipeline(EstimatorComponent):
     def serialize(self):
         pipelines = []
         for name, p in self.pipelines.items():
-            pipelines.append((name, p.serialize()))
+            pipelines.append((name, util.serialize(p)))
 
         return pipelines
 

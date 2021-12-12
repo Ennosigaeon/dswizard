@@ -86,10 +86,10 @@ class ResultLogger:
         with open(file, 'wb') as f:
             joblib.dump(pipeline, f)
 
-    def log_run_history(self, runhistory: RunHistory) -> None:
-        with open(os.path.join(self.directory, 'runhistory.json'), 'w') as fh:
+    def log_run_history(self, runhistory: RunHistory, suffix: str = 'None') -> None:
+        with open(os.path.join(self.directory, f'runhistory_{suffix}.json'), 'w') as fh:
             fh.write(json.dumps(runhistory.complete_data))
-        with open(os.path.join(self.directory, 'runhistory.pkl'), 'wb') as fh:
+        with open(os.path.join(self.directory, f'runhistory_{suffix}.pkl'), 'wb') as fh:
             pickle.dump(runhistory, fh)
 
     def load(self) -> Dict[CandidateId, CandidateStructure]:

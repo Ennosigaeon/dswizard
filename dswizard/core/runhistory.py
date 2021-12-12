@@ -2,6 +2,8 @@ import os
 import time
 from typing import List, Dict, Optional, Tuple, Any
 
+from ConfigSpace import ConfigurationSpace
+from ConfigSpace.read_and_write import json as config_json
 from sklearn import clone
 
 from dswizard.core.model import CandidateId, CandidateStructure, Result, StatusType, MetaInformation
@@ -19,18 +21,48 @@ class RunHistory:
     def __init__(self,
                  data: Dict[CandidateId, CandidateStructure],
                  meta_information: MetaInformation,
-                 iterations: Dict,
-                 workdir: str,
-                 structure_xai: Dict[str, Any]):
+                 structure_xai: Dict[str, Any],
+                 default_configspace: Optional[ConfigurationSpace] = None):
+        # Map structures to JSON structure
+        structures = []
+        for s in data.values():
+            structure = s.as_dict()
+            # Store budget in each configuration instead of only in structure. Only necessary for compatability with
+            # other AutoML frameworks
+            structure['configs'] = [r.as_dict(s.budget, loss_sign=metric_sign(meta_information.metric))
+                                    for r in s.results]
+            del structure['budget']
+            del structure['cfg_keys']
+
+            structures.append(structure)
+
+        self.data = data
+        self.meta_information = meta_information
+        self.complete_data = {
+            'meta': meta_information.as_dict(),
+            'default_configspace': config_json.write(default_configspace) if default_configspace is not None else None,
+            'structures': structures,
+            'explanations': {
+                'structures': structure_xai
+            }
+        }
+
+    @staticmethod
+    def create(data: Dict[CandidateId, CandidateStructure],
+               meta_information: MetaInformation,
+               iterations: Dict,
+               workdir: str,
+               structure_xai: Dict[str, Any]
+               ):
         # Collapse data to merge identical structures
         reverse: Dict[CandidateStructure, CandidateId] = {}
-        self.data: Dict[CandidateId, CandidateStructure] = {}
+        collapsed_data: Dict[CandidateId, CandidateStructure] = {}
         for cid, structure in data.items():
             if structure not in reverse:
                 reverse[structure] = cid
-                self.data[cid] = structure
+                collapsed_data[cid] = structure
             else:
-                new_structure = self.data[reverse[structure]]
+                new_structure = collapsed_data[reverse[structure]]
                 offset = len(new_structure.results)
 
                 for idx, res in enumerate(structure.results):
@@ -43,38 +75,20 @@ class RunHistory:
                         os.rename(os.path.join(workdir, model_file(cid.with_config(idx))),
                                   os.path.join(workdir, model_file(res.cid)))
 
-        # Map structures to JSON structure
-        structures = []
-        for s in self.data.values():
+        for s in data.values():
             for res in s.results:
                 res.model_file = os.path.abspath(os.path.join(workdir, model_file(res.cid)))
 
-            structure = s.as_dict()
-            # Store budget in each configuration instead of only in structure. Only necessary for compatability with
-            # other AutoML frameworks
-            structure['configs'] = [r.as_dict(s.budget, loss_sign=metric_sign(meta_information.metric))
-                                    for r in s.results]
-            del structure['budget']
-            del structure['cfg_keys']
-            structures.append(structure)
-
         # Fill in missing meta-information
         meta_information.end_time = time.time()
-        meta_information.n_configs = sum([len(c['configs']) for c in structures])
-        meta_information.n_structures = len(structures)
+        meta_information.n_configs = sum([len(c.results) for c in data.values()])
+        meta_information.n_structures = len(data)
         meta_information.iterations = iterations
         meta_information.incumbent = min(
-            [s.get_incumbent().loss for s in self.data.values() if s.get_incumbent() is not None]
+            [s.get_incumbent().loss for s in collapsed_data.values() if s.get_incumbent() is not None]
         )
-        self.meta_information = meta_information
 
-        self.complete_data = {
-            'meta': meta_information.as_dict(),
-            'structures': structures,
-            'explanations': {
-                'structures': structure_xai
-            }
-        }
+        return RunHistory(data, meta_information, structure_xai)
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]
