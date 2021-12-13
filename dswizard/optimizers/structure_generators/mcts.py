@@ -386,6 +386,10 @@ class TransferLearning(Policy):
         # remove land-marking mf
         X = np.delete(X, slice(42, 50), axis=1)
 
+        # meta-learning base does not contain ordinal_encoder yet. Retrain meta-learning base with new components
+        con = X[:, 42] == 'ordinal_encoder'
+        X[con, 42] = 'one_hot_encoding'
+
         mean = self.mean.predict(X)
         var = self.var.predict(X)
         var = np.maximum(var, 0.01 * np.ones(var.shape))

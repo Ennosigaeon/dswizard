@@ -50,7 +50,7 @@ class SplitSMBO(SMBO):
                                    run_info.budget, run_info.source_id)
 
         self.runhistory.add(
-            config=run_info.config,
+            config=run_info.config if run_info.config is not None else self.config_space.sample_configuration(),
             cost=float(MAXINT),
             time=0.0,
             status=SmacStatus.RUNNING,

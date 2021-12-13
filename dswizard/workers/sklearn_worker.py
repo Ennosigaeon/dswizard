@@ -62,7 +62,7 @@ class SklearnWorker(Worker):
         else:
             models = [component.fit(ds.X, ds.y)]
             X = models[0].transform(ds.X)
-            score = None
+            score = [None, None]
         self._store_models(cid, models)
         return X, score
 
