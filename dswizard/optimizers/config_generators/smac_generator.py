@@ -49,8 +49,10 @@ class SplitSMBO(SMBO):
                                    run_info.instance_specific, run_info.seed, run_info.cutoff, run_info.capped,
                                    run_info.budget, run_info.source_id)
 
+        config = run_info.config if run_info.config is not None else self.config_space.sample_configuration()
+
         self.runhistory.add(
-            config=run_info.config if run_info.config is not None else self.config_space.sample_configuration(),
+            config=config,
             cost=float(MAXINT),
             time=0.0,
             status=SmacStatus.RUNNING,
@@ -59,11 +61,10 @@ class SplitSMBO(SMBO):
             budget=run_info.budget,
         )
 
-        run_info.config.config_id = self.runhistory.config_ids[run_info.config]
         self.stats.submitted_ta_runs += 1
 
-        self.run_infos[str(run_info.config)] = (run_info, time.time())
-        return run_info.config
+        self.run_infos[str(config)] = (run_info, time.time())
+        return config
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
                         **kwargs) -> None:
