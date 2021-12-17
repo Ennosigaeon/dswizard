@@ -45,11 +45,17 @@ class SplitSMBO(SMBO):
                 return self.sample_config(recursion_depth - 1)
             else:
                 self.logger.warning('Repeatedly failed to sample configuration. Using random configuration instead.')
-                run_info = RunInfo(self.config_space.sample_configuration(), run_info.instance,
+                config = self.config_space.sample_configuration()
+                config.origin = 'Random Search'
+                run_info = RunInfo(config, run_info.instance,
                                    run_info.instance_specific, run_info.seed, run_info.cutoff, run_info.capped,
                                    run_info.budget, run_info.source_id)
 
-        config = run_info.config if run_info.config is not None else self.config_space.sample_configuration()
+        if run_info.config is None:
+            config = self.config_space.sample_configuration()
+            config.origin = 'Random Search'
+        else:
+            config = run_info.config
 
         self.runhistory.add(
             config=config,
@@ -114,9 +120,12 @@ class SmacGenerator(BaseConfigGenerator):
 
     def sample_config(self, default: bool = False) -> Configuration:
         if default:
-            return self.configspace.get_default_configuration()
+            config = self.configspace.get_default_configuration()
+            config.origin = 'Default'
+            return config
 
-        return self.smbo.sample_config()
+        config = self.smbo.sample_config()
+        return config
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
                         **kwargs) -> None:

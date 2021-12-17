@@ -646,7 +646,9 @@ class MCTS(BaseStructureGenerator):
                 if result.structure_loss < util.worst_score(ds.metric)[-1]:
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
-                    result.config = FlexiblePipeline(new_node.steps).configuration_space.get_default_configuration()
+                    config = FlexiblePipeline(new_node.steps).configuration_space.get_default_configuration()
+                    config.origin = 'Default'
+                    result.config = config
 
                     job.result = result
                     self.cfg_cache.register_result(job)

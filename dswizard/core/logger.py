@@ -5,6 +5,7 @@ import logging
 import os
 import pickle
 import shutil
+from collections import Counter
 from typing import List, Tuple, Dict
 
 import joblib
@@ -79,8 +80,9 @@ class ResultLogger:
                     steps.append((name, model))
 
             pipeline = FlexiblePipeline(steps=steps)
-            pipeline.configuration = pipeline.get_hyperparameter_search_space(
-                None).get_default_configuration()
+            config = pipeline.get_hyperparameter_search_space().get_default_configuration()
+            config.origin = 'Default'
+            pipeline.configuration = config
 
         file = os.path.join(self.directory, MODEL_DIR, util.model_file(cid))
         with open(file, 'wb') as f:
@@ -130,7 +132,7 @@ class ProcessLogger:
     def new_step(self, name: str, config: PartialConfig) -> None:
         self.partial_configs.append(config)
         with open(self.file, 'a') as fh:
-            fh.write(json.dumps([name, config.as_dict()]))
+            fh.write(json.dumps([name, config.as_dict(), config.config.origin]))
             fh.write('\n')
 
     def get_config(self, pipeline: FlexiblePipeline) -> Configuration:
@@ -141,8 +143,8 @@ class ProcessLogger:
 
         with open(self.file) as fh:
             for line in fh:
-                name, partial_config = json.loads(line)
-                partial_config = PartialConfig.from_dict(partial_config)
+                name, partial_config, origin = json.loads(line)
+                partial_config = PartialConfig.from_dict(partial_config, origin)
 
                 partial_configs.append(partial_config)
 
@@ -165,6 +167,7 @@ class ProcessLogger:
         for name in missing_steps:
             config = pipeline.get_step(name).get_hyperparameter_search_space(mf=latest_mf) \
                 .sample_configuration()
+            config.origin = 'Random Search'
             # noinspection PyTypeChecker
             partial_configs.append(PartialConfig(None, config, name, latest_mf))
         return partial_configs
@@ -178,6 +181,7 @@ class ProcessLogger:
 
         try:
             config = Configuration(pipeline.configuration_space, complete)
+            config.origin = Counter([p.config.origin for p in partial_configs]).most_common(1)[0][0]
             return config
         except ValueError as ex:
             self.logger.error('Failed to reconstruct global config.\n'

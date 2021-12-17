@@ -141,11 +141,16 @@ def load_auto_sklearn_runhistory(automl: AutoSklearnEstimator,
             else:
                 structure = structures[struct_key]
 
+            if key.config_id > 1:
+                config = automl.automl_.runhistory_.ids_config.get(key.config_id - 1)
+            else:
+                config = cs.get_default_configuration()
+                config.origin = 'Default'
+
             result = Result(
                 structure.cid.with_config(key.config_id),
                 StatusType.SUCCESS if value.status.name == 'SUCCESS' else StatusType.CRASHED,
-                automl.automl_.runhistory_.ids_config.get(key.config_id - 1)
-                if key.config_id > 1 else cs.get_default_configuration(),
+                config,
                 value.cost if metric._sign != 1.0 else -metric._optimum + value.cost,
                 None,
                 Runtime(value.endtime - value.starttime, value.starttime - meta_information.start_time)

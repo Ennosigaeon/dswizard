@@ -224,6 +224,7 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
         cfg_key = self.cfg_keys[idx]
         if isinstance(estimator, SubPipeline):
             config, cfg_key = ConfigurationSpace().get_default_configuration(), (0, 0)
+            config.origin = 'Default'
         else:
             config, cfg_key = self.cfg_cache.sample_configuration(cfg_key=cfg_key)
 

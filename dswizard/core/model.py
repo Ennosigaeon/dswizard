@@ -198,6 +198,7 @@ class Result:
             'structure_loss': self.structure_loss,  # by definition always a min. problem, no need to adjust sign
             'runtime': self.runtime.as_dict() if self.runtime is not None else None,
             'config': self.config.get_dictionary(),
+            'origin': self.config.origin if self.config is not None else None,
         }
         if budget is not None:
             d['budget'] = budget
@@ -205,7 +206,9 @@ class Result:
 
     @staticmethod
     def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
-        return Result(CandidateId.parse(raw['id']), StatusType[raw['status']], Configuration(cs, raw['config']),
+        config = Configuration(cs, raw['config'])
+        config.origin = raw['origin']
+        return Result(CandidateId.parse(raw['id']), StatusType[raw['status']], config,
                       raw['loss'], raw['structure_loss'], Runtime.from_dict(raw['runtime']))
 
 
@@ -393,9 +396,10 @@ class PartialConfig:
         }
 
     @staticmethod
-    def from_dict(raw: dict) -> 'PartialConfig':
+    def from_dict(raw: dict, origin: str) -> 'PartialConfig':
         # meta data are deserialized via pickle
         config = Configuration(config_json.read(raw['configspace']), vector=np.array(raw['config']))
+        config.origin = origin
         # noinspection PyTypeChecker
         return PartialConfig(raw['cfg_key'], config, raw['name'], np.array(raw['mf']))
 

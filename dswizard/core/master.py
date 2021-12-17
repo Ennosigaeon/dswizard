@@ -343,7 +343,9 @@ class Master:
                 if job.config is None:
                     self.logger.error(
                         f'Encountered job without a configuration: {job.cid}. Using empty config as fallback')
-                    job.config = ConfigurationSpace().get_default_configuration()
+                    config = ConfigurationSpace().get_default_configuration()
+                    config.origin = 'Default'
+                    job.config = config
 
                 self.result_logger.log_evaluated_config(job.cs, job.result)
                 cs = self.bandit_learner.register_result(job.cs, job.result)

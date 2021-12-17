@@ -77,18 +77,21 @@ class Hyperopt(BaseConfigGenerator):
 
     def sample_config(self, default: bool = False) -> Configuration:
         try:
-            sample = None
+            config = None
             if len(self.kde.losses) == 0 or default:
-                sample = self.configspace.get_default_configuration()
+                config = self.configspace.get_default_configuration()
+                config.origin = 'Default'
             elif self.kde.is_trained():
-                sample = self._draw_sample()
+                config = self._draw_sample()
 
-            if sample is None:
-                sample = self.configspace.sample_configuration()
+            if config is None:
+                config = self.configspace.sample_configuration()
+                config.origin = 'Random Search'
         except Exception:
-            sample = self.configspace.sample_configuration()
+            config = self.configspace.sample_configuration()
+            config.origin = 'Random Search'
 
-        return sample
+        return config
 
     def _draw_sample(self) -> Optional[Configuration]:
         best_ei = np.inf
@@ -148,10 +151,13 @@ class Hyperopt(BaseConfigGenerator):
         config = ConfigSpace.Configuration(self.configspace, vector=best_vector)
         try:
             config.is_valid_configuration()
+            config.origin = 'Hyperopt'
             return config
         except ValueError:
             self.register_result(config, self.worst_score, StatusType.CRASHED)
-            return self.configspace.sample_configuration()
+            config = self.configspace.sample_configuration()
+            config.origin = 'Random Search'
+            return config
 
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:

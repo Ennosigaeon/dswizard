@@ -13,5 +13,9 @@ class RandomSampling(BaseConfigGenerator):
             raise ValueError('No configuration space provided. Call set_config_space(ConfigurationSpace) first.')
 
         if default:
-            return self.configspace.get_default_configuration()
-        return self.configspace.sample_configuration()
+            config = self.configspace.get_default_configuration()
+            config.origin = 'Default'
+            return config
+        config = self.configspace.sample_configuration()
+        config.origin = 'Random Search'
+        return config
