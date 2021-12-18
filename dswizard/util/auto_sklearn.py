@@ -1,7 +1,9 @@
 import os
 from collections import OrderedDict
+from typing import Union
 
 import numpy as np
+import pandas as pd
 from ConfigSpace import ConfigurationSpace
 from autosklearn.estimators import AutoSklearnEstimator
 from autosklearn.pipeline.components.data_preprocessing import DataPreprocessorChoice
@@ -17,8 +19,8 @@ from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 def load_auto_sklearn_runhistory(automl: AutoSklearnEstimator,
-                                 X: np.ndarray,
-                                 y: np.ndarray,
+                                 X: Union[np.ndarray, pd.DataFrame],
+                                 y: Union[np.ndarray, pd.DataFrame],
                                  feature_names: list[str],
                                  dir: str = None):
     def build_meta_information() -> MetaInformation:
@@ -176,6 +178,7 @@ def load_auto_sklearn_runhistory(automl: AutoSklearnEstimator,
 
     # auto-sklearn does not store trainings data
     data_file = os.path.join(automl.tmp_folder, 'dataset.pkl')
+    _, y = automl.automl_.InputValidator.transform(X, y)
     Dataset(X, y, feature_names=feature_names).store(data_file)
 
     meta_information = build_meta_information()
