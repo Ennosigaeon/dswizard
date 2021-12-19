@@ -105,6 +105,8 @@ class Master:
         self.pre_sample = pre_sample
         self.abort = False
 
+        self.n_structures = 0
+
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
         self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = {}
@@ -216,6 +218,8 @@ class Master:
                 if self.abort:
                     self.logger.info('Aborting optimization')
                     self.dispatcher.finish_work(self.cutoff)
+                    return True
+                if self.n_structures > 200:
                     return True
 
                 job = None
@@ -387,6 +391,8 @@ class Master:
                 self.bandit_learner.iterations[-1].replace_proxy(cs)
 
                 self.incomplete_structures[cs.cid] = cs, int(cs.budget), 0
+
+                self.n_structures = self.n_structures + 1
             except KeyboardInterrupt:
                 raise
             except (BrokenPipeError, EOFError) as ex:
