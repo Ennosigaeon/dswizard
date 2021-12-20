@@ -81,14 +81,14 @@ class RunHistory:
 
         # Fill in missing meta-information
         meta_information.end_time = time.time()
-        meta_information.n_configs = sum([len(c.results) for c in data.values()])
-        meta_information.n_structures = len(data)
+        meta_information.n_configs = sum([len(c.results) for c in collapsed_data.values()])
+        meta_information.n_structures = len(collapsed_data)
         meta_information.iterations = iterations
         meta_information.incumbent = min(
             [s.get_incumbent().loss for s in collapsed_data.values() if s.get_incumbent() is not None]
         )
 
-        return RunHistory(data, meta_information, structure_xai)
+        return RunHistory(collapsed_data, meta_information, structure_xai)
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]
