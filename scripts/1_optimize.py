@@ -39,7 +39,7 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 # Load dataset
 # Tasks: 18, 53, 9983, 146822, 168912
 logger.info(f'Processing task {args.task}')
-ds, ds_test = Dataset.from_openml(args.task, args.fold, 'rocauc')
+ds, ds_test = Dataset.from_openml(args.task, args.fold, 'roc_auc')
 
 # 168746
 # steps = [

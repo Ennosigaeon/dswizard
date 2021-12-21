@@ -5,7 +5,7 @@ import multiprocessing_logging
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, log_loss
 from sklearn.utils.multiclass import type_of_target
 
-valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'rocauc'}
+valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'roc_auc'}
 
 
 def setup_logging(log_file: str = None):
@@ -40,7 +40,7 @@ def score(y, y_prob, y_pred, metric: str):
         s = f1_score(y, y_pred, average='weighted')
     elif metric == 'logloss':
         s = log_loss(y, y_prob)
-    elif metric == 'rocauc':
+    elif metric == 'roc_auc':
         y_type = type_of_target(y)
         if y_type == "binary" and y_prob.ndim > 1:
             y_prob = y_prob[:, 1]
@@ -59,7 +59,7 @@ def metric_sign(metric: str) -> int:
 
 
 def worst_score(metric: str) -> tuple[float, float]:
-    if metric in ('accuracy', 'precision', 'recall', 'f1', 'rocauc'):
+    if metric in ('accuracy', 'precision', 'recall', 'f1', 'roc_auc'):
         return 0, 0
     else:
         # TODO replace with -log(1 / n_classes)

@@ -119,7 +119,7 @@ class NotebookRenderer:
             self._write('score = metrics.f1_score(y_test, y_pred, average="weighted")')
         elif metric == 'logloss':
             self._write('score = metrics.log_loss(y_test, y_prob)')
-        elif metric == 'rocauc':
+        elif metric == 'roc_auc':
             self._write('''
             y_type = type_of_target(y_test)
             if y_type == "binary" and y_prob.ndim > 1:
