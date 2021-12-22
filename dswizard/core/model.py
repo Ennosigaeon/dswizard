@@ -88,7 +88,7 @@ class CandidateId:
     running index)
     """
 
-    def __init__(self, iteration: int, structure: int, config: int = None):
+    def __init__(self, iteration: int, structure: int, config: Union[int, str] = None):
         """
         :param iteration:the iteration of the optimization algorithms. E.g, for Hyperband that is one round of
             Successive Halving
@@ -106,7 +106,7 @@ class CandidateId:
     def as_tuple(self):
         return self.iteration, self.structure, self.config
 
-    def with_config(self, config: int) -> 'CandidateId':
+    def with_config(self, config: Union[int, str]) -> 'CandidateId':
         return CandidateId(self.iteration, self.structure, config)
 
     def without_config(self) -> 'CandidateId':

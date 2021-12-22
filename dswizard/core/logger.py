@@ -75,7 +75,7 @@ class ResultLogger:
             # Load partial models with default hyperparameters
             steps = []
             for name, _ in structure.steps:
-                with open(os.path.join(self.tmp_dir, f'step_-{name}.pkl'), 'rb') as f:
+                with open(os.path.join(self.tmp_dir, f'step_{name}.pkl'), 'rb') as f:
                     model = joblib.load(f)[0]
                     steps.append((name, model))
 

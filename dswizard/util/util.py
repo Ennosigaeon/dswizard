@@ -91,8 +91,9 @@ def openml_mapping(task: int = None, ds: int = None, name: str = None):
         return -1
 
 
+# No typehint due to circular import with model.py
 def model_file(cid) -> str:
-    if cid.config < 0:
+    if isinstance(cid.config, str):
         return f'step_{cid.config}.pkl'
     else:
         return 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())

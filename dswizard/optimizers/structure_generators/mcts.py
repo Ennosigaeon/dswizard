@@ -7,7 +7,7 @@ import threading
 import timeit
 from abc import ABC
 from copy import deepcopy
-from typing import List, Optional, Tuple, Type, Dict, Union, Any
+from typing import List, Optional, Tuple, Type, Dict, Union, Any, Iterator
 
 import joblib
 import networkx as nx
@@ -59,17 +59,13 @@ class Node:
             self.component = None
         else:
             self.component = component()
-            label = self.component.name(short=True)
-            if label.endswith('Component'):
-                label = label[:-9]
-            self.label = label
+            self.label = self.component.name(short=True)
 
         if pipeline_prefix is None:
             pipeline_prefix = []
         else:
             pipeline_prefix = deepcopy(pipeline_prefix)
-            # TODO check if also add if pipeline_prefix is None
-            pipeline_prefix.append((str(node_id), self.component))
+            pipeline_prefix.append((f'{len(pipeline_prefix)}_{self.label}', self.component))
         self.steps: List[Tuple[str, EstimatorComponent]] = pipeline_prefix
 
         self.visits = 0
@@ -192,6 +188,9 @@ class Tree:
         current_children = len(self.get_children(node.id))
 
         return possible_children == 0 or (current_children != 0 and current_children >= max_children)
+
+    def predecessors(self, node: Node) -> Iterator:
+        return self.G.predecessors(node.id)
 
     def plot(self, file: str):
         h = self.G.copy()
@@ -416,6 +415,7 @@ class MCTS(BaseStructureGenerator):
         self.tree: Optional[Tree] = None
         self.store_ds = store_ds
         self.lock = threading.Lock()
+        self.cid_to_node = {}
 
         if policy is None:
             if model is None:
@@ -494,6 +494,7 @@ class MCTS(BaseStructureGenerator):
         # A simulation is not necessary. Simulated results are already incorporated in the policy
 
         node = path[-1]
+        self.cid_to_node[cs.cid] = node
         self.logger.debug(f'Sampled pipeline structure: {node.steps}')
         pipeline = FlexiblePipeline(node.steps)
 
@@ -590,8 +591,8 @@ class MCTS(BaseStructureGenerator):
                 mf=ds.meta_features,
                 default=True)
 
-            job = EvaluationJob(ds, cid.with_config(-new_node.id), cs=component, cutoff=self.cutoff, config=config,
-                                cfg_keys=[key])
+            job = EvaluationJob(ds, cid.with_config(f'{len(node.steps)}_{component.name(short=True)}'),
+                                cs=component, cutoff=self.cutoff, config=config, cfg_keys=[key])
             result = worker.start_transform_dataset(job)
 
             if result.status.value == StatusType.SUCCESS.value:
@@ -642,7 +643,7 @@ class MCTS(BaseStructureGenerator):
 
             if result.structure_loss is not None:
                 n_children += 1
-                self._backpropagate([key for key, values in new_node.steps], result.structure_loss)
+                self._backpropagate(new_node, result.structure_loss)
                 if result.structure_loss < util.worst_score(ds.metric)[-1]:
                     result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
                     result.partial_configs.append(new_node.partial_config)
@@ -683,19 +684,21 @@ class MCTS(BaseStructureGenerator):
             reward = util.worst_score(self.tree.get_node(self.tree.ROOT).ds.metric)[-1]
 
         try:
-            self._backpropagate(candidate.pipeline.steps_.keys(), reward, exit=True)
+            node = self.cid_to_node[candidate.cid]
+            self._backpropagate(node, reward, exit=True)
         except (IndexError, ValueError, AttributeError) as ex:
             self.logger.warning(f'Unable to backpropagate results: {ex}')
 
     # noinspection PyMethodMayBeStatic
-    def _backpropagate(self, path: List[str], reward: float, exit: bool = False) -> None:
+    def _backpropagate(self, node: Node, reward: float, exit: bool = False) -> None:
         """Send the reward back up to the ancestors of the leaf"""
-        ls = list(path)
-        # Also update root node
-        ls.append('0')
         with self.lock:
-            for node_id in ls:
-                node = self.tree.get_node(int(node_id))
+            node.update(reward)
+            if exit:
+                node.exit()
+
+            for node_id in self.tree.predecessors(node):
+                node = self.tree.get_node(node_id)
                 node.update(reward)
                 if exit:
                     node.exit()
