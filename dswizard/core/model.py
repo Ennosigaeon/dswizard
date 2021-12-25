@@ -129,7 +129,12 @@ class CandidateId:
         return hash(self.as_tuple())
 
     def __eq__(self, other):
-        return self.as_tuple() == other.as_tuple()
+        if isinstance(other, CandidateId):
+            return self.as_tuple() == other.as_tuple()
+        elif isinstance(other, tuple):
+            return self.as_tuple() == other
+        else:
+            return False
 
     def __lt__(self, other):
         return self.as_tuple() < other.as_tuple()
