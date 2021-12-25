@@ -693,15 +693,12 @@ class MCTS(BaseStructureGenerator):
     def _backpropagate(self, node: Node, reward: float, exit: bool = False) -> None:
         """Send the reward back up to the ancestors of the leaf"""
         with self.lock:
-            node.update(reward)
-            if exit:
-                node.exit()
+            nodes = [node] + list(self.tree.predecessors(node)) + [self.tree.get_node(self.tree.ROOT)]
 
-            for node_id in self.tree.predecessors(node):
-                node = self.tree.get_node(node_id)
-                node.update(reward)
+            for pred in nodes:
+                pred.update(reward)
                 if exit:
-                    node.exit()
+                    pred.exit()
 
     def explain(self) -> Dict[str, Any]:
         with self.lock:
