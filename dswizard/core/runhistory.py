@@ -143,17 +143,3 @@ class RunHistory:
                     pipeline.set_hyperparameters(result.config.get_dictionary())
                     all_pipelines.append(pipeline)
         return all_pipelines
-
-    def _repr_mimebundle_(self, include, exclude):
-        return {
-            'application/xautoml+json': self.complete_data
-        }
-
-    def explain(self):
-        try:
-            # noinspection PyPackageRequirements
-            from IPython.core.display import display
-            # noinspection PyTypeChecker
-            return display(self)
-        except ImportError:
-            return str(self)
