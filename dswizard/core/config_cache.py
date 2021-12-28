@@ -10,7 +10,7 @@ from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from sklearn.pipeline import Pipeline
 
-from dswizard.core.model import ConfigKey
+from dswizard.core.model import ConfigKey, CandidateId
 from dswizard.core.similaritystore import SimilarityStore
 from dswizard.util import autoproxy
 
@@ -27,7 +27,7 @@ class ConfigCache:
 
         def __init__(self, model: Pipeline):
             self.store = SimilarityStore(model)
-            self.generators = []
+            self.generators: list[BaseConfigGenerator] = []
 
         def add(self, mf, cg):
             self.store.add(mf)
@@ -83,7 +83,9 @@ class ConfigCache:
             return ConfigKey(hash_key, idx)
 
     def sample_configuration(self,
+                             cid: CandidateId = None,
                              cfg_key: ConfigKey = None,
+                             name: str = None,
                              configspace: ConfigurationSpace = None,
                              mf: np.ndarray = None,
                              max_distance: float = 1,
@@ -91,8 +93,15 @@ class ConfigCache:
         if cfg_key is None:
             cfg_key = self.get_config_key(configspace, mf, max_distance, **kwargs)
         cg = self.cache[cfg_key.hash].generators[cfg_key.idx]
-        config = cg.sample_config(default=default)
+        config = cg.sample_config(cid=cid, cfg_key=cfg_key, name=name, default=default)
         return config, cfg_key
+
+    def explain(self):
+        res = {}
+        for hash_, entry in self.cache.items():
+            for idx, gen in enumerate(entry.generators):
+                res[ConfigKey(hash_, idx)] = gen.explain()
+        return res
 
     # noinspection PyUnresolvedReferences
     def register_result(self, job: Job) -> None:

@@ -233,6 +233,7 @@ class Master:
                         config_id = candidate.cid.with_config(len(candidate.results) + running)
                         if self.pre_sample:
                             config, cfg_key = self.cfg_cache.sample_configuration(
+                                cid=config_id,
                                 configspace=candidate.pipeline.configuration_space,
                                 mf=self.ds.meta_features)
                             cfg_keys = [cfg_key]
@@ -296,7 +297,8 @@ class Master:
         except KeyboardInterrupt:
             self.logger.info('Aborting optimization due to user interrupt')
         finally:
-            explanations = self.structure_generator.explain()
+            structure_explanations = self.structure_generator.explain()
+            config_explanations = self.cfg_cache.explain()
             self.shutdown()
 
         self.logger.info(f'Finished run after {(datetime.datetime.now() - start_time).seconds} seconds')
@@ -304,7 +306,8 @@ class Master:
         iterations = self.result_logger.load()
         # noinspection PyAttributeOutsideInit
         self.rh_ = RunHistory.create(iterations, self.meta_information, self.bandit_learner.meta_data,
-                                     os.path.join(self.working_directory, MODEL_DIR), explanations)
+                                     os.path.join(self.working_directory, MODEL_DIR),
+                                     structure_explanations, config_explanations)
         self.result_logger.log_run_history(self.rh_, str(self.meta_information.openml_task))
 
         pipeline, _ = self.rh_.get_incumbent()

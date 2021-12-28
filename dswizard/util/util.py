@@ -1,9 +1,13 @@
 import logging
 import os
+from collections import Counter
 
 import multiprocessing_logging
+from ConfigSpace import Configuration, ConfigurationSpace
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, log_loss
 from sklearn.utils.multiclass import type_of_target
+
+from dswizard.components.util import prefixed_name
 
 valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'roc_auc'}
 
@@ -97,3 +101,16 @@ def model_file(cid) -> str:
         return f'step_{cid.config}.pkl'
     else:
         return 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())
+
+
+def merge_configurations(partial_configs,  # type: list[PartialConfig]
+                         cs: ConfigurationSpace) -> Configuration:
+    complete = {}
+    for partial_config in partial_configs:
+        for param, value in partial_config.config.get_dictionary().items():
+            param = prefixed_name(partial_config.name, param)
+            complete[param] = value
+
+    config = Configuration(cs, complete)
+    config.origin = Counter([p.config.origin for p in partial_configs]).most_common(1)[0][0]
+    return config

@@ -37,6 +37,7 @@ class SklearnWorker(Worker):
         if config is None:
             # Derive configuration on complete data set. Test performance via CV
             cloned_pipeline = clone(pipeline)
+            cloned_pipeline.cid = cid
             cloned_pipeline.cfg_cache = cfg_cache
             cloned_pipeline.cfg_keys = cfg_keys
             cloned_pipeline.fit(ds.X, ds.y, logger=process_logger)
@@ -66,7 +67,7 @@ class SklearnWorker(Worker):
         self._store_models(cid, models)
         return X, score
 
-    def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], use_cv: bool = False)\
+    def _score(self, ds: Dataset, estimator: Union[EstimatorComponent, FlexiblePipeline], use_cv: bool = False) \
             -> Tuple[List[float], np.ndarray, np.ndarray, List[FlexiblePipeline]]:
         # TODO improve handling of holdout or cross-val prediction
         if use_cv:
@@ -79,7 +80,7 @@ class SklearnWorker(Worker):
         return score, y_pred, y_prob, models
 
     @staticmethod
-    def _holdout_predict(pipeline, X, y=None, test_size=0.2)\
+    def _holdout_predict(pipeline, X, y=None, test_size=0.2) \
             -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[FlexiblePipeline]]:
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
         cloned_pipeline: FlexiblePipeline = clone(pipeline)
@@ -88,9 +89,8 @@ class SklearnWorker(Worker):
         y_prob = cloned_pipeline.predict_proba(X_test)
         return y_test, y_pred, y_prob, [cloned_pipeline]
 
-
     @staticmethod
-    def _cross_val_predict(pipeline, X, y=None, cv=None)\
+    def _cross_val_predict(pipeline, X, y=None, cv=None) \
             -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[FlexiblePipeline]]:
         X, y, groups = indexable(X, y, None)
         cv = check_cv(cv, y, classifier=is_classifier(pipeline))
@@ -123,7 +123,7 @@ class SklearnWorker(Worker):
 
         if isinstance(predictions, list):
             return y, [p[inv_test_indices] for p in predictions], [p[inv_test_indices] for p in
-                                                                probabilities], fitted_pipelines
+                                                                   probabilities], fitted_pipelines
         else:
             return y, predictions[inv_test_indices], probabilities[inv_test_indices], fitted_pipelines
 

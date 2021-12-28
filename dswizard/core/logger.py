@@ -173,17 +173,9 @@ class ProcessLogger:
         return partial_configs
 
     def _merge_configs(self, partial_configs: List[PartialConfig], pipeline: FlexiblePipeline) -> Configuration:
-        complete = {}
-        for partial_config in partial_configs:
-            for param, value in partial_config.config.get_dictionary().items():
-                param = prefixed_name(partial_config.name, param)
-                complete[param] = value
-
         try:
-            config = Configuration(pipeline.configuration_space, complete)
-            config.origin = Counter([p.config.origin for p in partial_configs]).most_common(1)[0][0]
-            return config
+            return util.merge_configurations(partial_configs, pipeline.configuration_space)
         except ValueError as ex:
             self.logger.error('Failed to reconstruct global config.\n'
-                              f'Config: {complete}\nConfigSpace: {pipeline.configuration_space}')
+                              f'Exception: {ex}\nConfigSpace: {pipeline.configuration_space}')
             raise ex

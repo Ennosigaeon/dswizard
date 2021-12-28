@@ -13,7 +13,7 @@ from dswizard.components import util
 from dswizard.components.base import EstimatorComponent, HasChildComponents
 from dswizard.components.util import prefixed_name, HANDLES_MULTICLASS, HANDLES_NUMERIC, HANDLES_NOMINAL, \
     HANDLES_MISSING, HANDLES_NOMINAL_CLASS
-from dswizard.core.model import PartialConfig
+from dswizard.core.model import PartialConfig, CandidateId
 
 if TYPE_CHECKING:
     from dswizard.core.logger import ProcessLogger
@@ -34,6 +34,7 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
         self.configuration = None
         self.cfg_keys = cfg_keys
         self.cfg_cache: Optional[ConfigCache] = cfg_cache
+        self.cid: Optional[CandidateId] = None
 
         # super.__init__ has to be called after initializing all properties provided in constructor
         super().__init__(steps, verbose=False)
@@ -226,7 +227,7 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
             config, cfg_key = ConfigurationSpace().get_default_configuration(), (0, 0)
             config.origin = 'Default'
         else:
-            config, cfg_key = self.cfg_cache.sample_configuration(cfg_key=cfg_key)
+            config, cfg_key = self.cfg_cache.sample_configuration(cid=self.cid, name=name, cfg_key=cfg_key)
 
         intermediate = PartialConfig(cfg_key, config, name, None)
         logger.new_step(prefixed_name(prefix, name), intermediate)

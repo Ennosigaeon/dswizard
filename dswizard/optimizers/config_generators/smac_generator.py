@@ -118,7 +118,7 @@ class SmacGenerator(BaseConfigGenerator):
         self.smbo.logger = smac_logger
         self.smbo.start()
 
-    def sample_config(self, default: bool = False) -> Configuration:
+    def sample_config(self, default: bool = False, **kwargs) -> Configuration:
         if default:
             config = self.configspace.get_default_configuration()
             config.origin = 'Default'

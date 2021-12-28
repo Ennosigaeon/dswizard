@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+from typing import Dict, Any
 
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
 
@@ -29,7 +30,7 @@ class BaseConfigGenerator(abc.ABC):
         self.expected_size = self.configspace.get_default_configuration().get_array().size
 
     @abc.abstractmethod
-    def sample_config(self, default: bool = False) -> Configuration:
+    def sample_config(self, default: bool = False, **kwargs) -> Configuration:
         pass
 
     def register_result(self, config: Configuration, loss: float, status: StatusType, update_model: bool = True,
@@ -47,3 +48,6 @@ class BaseConfigGenerator(abc.ABC):
         :return:
         """
         pass
+
+    def explain(self) -> Dict[str, Any]:
+        return {}

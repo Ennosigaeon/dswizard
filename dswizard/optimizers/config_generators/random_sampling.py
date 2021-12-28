@@ -8,7 +8,7 @@ class RandomSampling(BaseConfigGenerator):
     class to implement random sampling from a ConfigSpace
     """
 
-    def sample_config(self, default: bool = False) -> Configuration:
+    def sample_config(self, default: bool = False, **kwargs) -> Configuration:
         if self.configspace is None:
             raise ValueError('No configuration space provided. Call set_config_space(ConfigurationSpace) first.')
 

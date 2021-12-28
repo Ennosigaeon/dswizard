@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional
-
+from typing import Dict, List, Optional, Any
+import math
 import ConfigSpace
 import ConfigSpace.hyperparameters
 import ConfigSpace.util
 import numpy as np
 import scipy.stats as sps
 import statsmodels.api as sm
+from ConfigSpace import CategoricalHyperparameter
 from ConfigSpace.configuration_space import ConfigurationSpace, Configuration
+from ConfigSpace.hyperparameters import NumericalHyperparameter
 
 from dswizard.core.base_config_generator import BaseConfigGenerator
-from dswizard.core.model import StatusType
+from dswizard.core.model import PartialConfig, ConfigKey, CandidateId, StatusType
 
 
 class KdeWrapper:
@@ -73,16 +75,23 @@ class Hyperopt(BaseConfigGenerator):
         self.num_samples = num_samples
         self.random_fraction = random_fraction
 
+        self.explanations = {}
+
         self.kde: KdeWrapper = self._build_kde_wrapper(self.configspace)
 
-    def sample_config(self, default: bool = False) -> Configuration:
+    def sample_config(self, cid: Optional[CandidateId] = None, cfg_key: Optional[ConfigKey] = None,
+                      name: Optional[str] = None, default: bool = False) -> Configuration:
         try:
             config = None
             if len(self.kde.losses) == 0 or default:
                 config = self.configspace.get_default_configuration()
                 config.origin = 'Default'
             elif self.kde.is_trained():
-                config = self._draw_sample()
+                candidates, candidates_ei = self._sample_candidates()
+
+                if len(candidates) > 0:
+                    config = candidates[np.argmax(candidates_ei)]
+                    self._record_explanation(cid, cfg_key, name, candidates, candidates_ei)
 
             if config is None:
                 config = self.configspace.sample_configuration()
@@ -93,16 +102,16 @@ class Hyperopt(BaseConfigGenerator):
 
         return config
 
-    def _draw_sample(self) -> Optional[Configuration]:
-        best_ei = np.inf
-        best_vector = None
+    def _sample_candidates(self) -> tuple[list[Configuration], list[float]]:
+        candidates_ei = []
+        candidates = []
 
         l = self.kde.good_kde().pdf
         g = self.kde.bad_kde().pdf
 
         kde_good = self.kde.good_kde()
 
-        for i in range(self.num_samples):
+        while len(candidates) < self.num_samples:
             idx = np.random.randint(0, len(kde_good.data))
             datum = kde_good.data[idx]
             vector = []
@@ -127,37 +136,59 @@ class Hyperopt(BaseConfigGenerator):
                 # Calculate expected improvement
                 ei = max(1e-32, g(vector)) / max(l(vector), 1e-32)
 
-                if not np.isfinite(ei):
-                    # right now, this happens because a KDE does not contain all values for a categorical
-                    # parameter this cannot be fixed with the statsmodels KDE, so for now, we are just going to
-                    # evaluate this one if the good_kde has a finite value, i.e. there is no config with that
-                    # value in the bad kde, so it shouldn't be terrible.
-                    if np.isfinite(l(vector)):
-                        best_vector = vector
-                        break
+            config = ConfigSpace.Configuration(self.configspace, vector=vector)
+            try:
+                config.is_valid_configuration()
+                config.origin = 'Hyperopt'
+                candidates.append(config)
+                candidates_ei.append(float(ei))
+            except ValueError:
+                self.register_result(config, self.worst_score, StatusType.CRASHED)
 
-            if ei < best_ei:
-                best_ei = ei
-                best_vector = vector
+        return candidates, candidates_ei
 
-        if best_vector is None:
-            return None
+    def _record_explanation(self, cid: CandidateId, cfg_key: ConfigKey, name: str,
+                            candidates: list[Configuration], loss: list[float]):
+        self.explanations[cid.external_name] = {
+            'candidates': [PartialConfig(cfg_key, c, name, None) for c in candidates],
+            'loss': loss,
+            'marginalization': self._compute_marginalization()
+        }
 
-        for i, hp_value in enumerate(best_vector):
-            if isinstance(self.configspace.get_hyperparameter(self.configspace.get_hyperparameter_by_idx(i)),
-                          ConfigSpace.hyperparameters.CategoricalHyperparameter):
-                best_vector[i] = int(np.rint(best_vector[i]))
-        # noinspection PyTypeChecker
-        config = ConfigSpace.Configuration(self.configspace, vector=best_vector)
-        try:
-            config.is_valid_configuration()
-            config.origin = 'Hyperopt'
-            return config
-        except ValueError:
-            self.register_result(config, self.worst_score, StatusType.CRASHED)
-            config = self.configspace.sample_configuration()
-            config.origin = 'Random Search'
-            return config
+    def _compute_marginalization(self):
+        support = []
+
+        for h in self.configspace.get_hyperparameters():
+            if isinstance(h, CategoricalHyperparameter):
+                support.append(np.arange(0, len(h.choices)))
+            elif isinstance(h, NumericalHyperparameter):
+                if h.log:
+                    support.append(np.geomspace(h.lower, h.upper, num=10))
+                else:
+                    support.append(np.linspace(h.lower, h.upper, num=10))
+
+        grid = np.meshgrid(*support)
+        dimensions = [np.ravel(a) for a in grid]
+        points = np.vstack(dimensions).T
+
+        with warnings.catch_warnings():
+            good = self.kde.good_kde().pdf(points)
+
+        res = {}
+        for hp, d in zip(self.configspace.get_hyperparameters(), dimensions):
+            mar_good = []
+            unique = np.unique(d)
+            for v in np.sort(unique):
+                avg_good = np.nanmean(good[d == v])
+                if not np.isnan(avg_good):
+                    mar_good.append((float(v), float(avg_good) if avg_good != math.inf else 1))
+            res[hp.name] = {'good': mar_good}
+            # If necessary, 'bad' can be recorded accordingly
+
+        return res
+
+    def explain(self) -> Dict[str, Any]:
+        return self.explanations
 
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:
@@ -171,6 +202,7 @@ class Hyperopt(BaseConfigGenerator):
             loss = self.worst_score
 
         self.kde.losses.append(loss)
+        # noinspection PyTypeChecker
         self.kde.configs.append(config.get_array())
 
         min_points_in_model = max(len(self.configspace.get_hyperparameters()) + 1, self.min_points_in_model)
