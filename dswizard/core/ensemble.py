@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.utils import check_random_state
 
 from dswizard.core.constants import MODEL_DIR
-from dswizard.core.model import Dataset
+from dswizard.core.model import CandidateId, Dataset
 from dswizard.pipeline.pipeline import FlexiblePipeline
 from dswizard.pipeline.voting_ensemble import PrefitVotingClassifier
 from dswizard.util import util
@@ -45,7 +45,7 @@ class EnsembleBuilder:
         else:
             self.logger = logger
 
-        self._data: List[Tuple[float, FlexiblePipeline, np.ndarray]] = []
+        self._data: List[Tuple[float, CandidateId, FlexiblePipeline, np.ndarray]] = []
         self._n_classes = 0
         self.start = None
 
@@ -69,19 +69,19 @@ class EnsembleBuilder:
 
     def _load(self, ds: Dataset):
         self.logger.debug('Loading models')
-        models = []
+        models = {}
 
         for file in glob.glob(os.path.join(self.workdir, MODEL_DIR, '*.pkl')):
             with open(file, 'rb') as f:
-                models.append(joblib.load(f))
+                models[CandidateId.from_model_file(file)] = joblib.load(f)
 
         n_failed = 0
-        for model in models:
+        for cid, model in models.items():
             try:
                 y_prob = model.predict_proba(ds.X)
                 y_pred = model.predict(ds.X)
                 score = util.score(ds.y, y_prob, y_pred, ds.metric)
-                self._data.append((score, model, y_prob))
+                self._data.append((score, cid, model, y_prob))
             except Exception:
                 n_failed += 1
         self._data.sort(key=lambda x: x[0])
@@ -142,7 +142,7 @@ class EnsembleBuilder:
         idx = np.random.choice(np.where(scores == np.min(scores))[0])
         score, weights = cand_ensembles[idx]
         return score, PrefitVotingClassifier(
-            [(str(i), clf[1]) for i, clf in enumerate(candidates) if weights[i] > 0],
+            [(clf[1].external_name, clf[2]) for i, clf in enumerate(candidates) if weights[i] > 0],
             weights=weights[weights > 0], voting='soft').fit(X, y)
 
     def _get_ensemble_score(self, y, metric, candidates, weights):
@@ -150,7 +150,7 @@ class EnsembleBuilder:
         y_probs = np.zeros((len(y), self._n_classes))
 
         for i in range(len(candidates)):
-            y_probs += candidates[i][2] * weights[i]
+            y_probs += candidates[i][3] * weights[i]
 
         if n_models > 0:
             y_probs /= n_models
@@ -162,7 +162,7 @@ class EnsembleBuilder:
     @staticmethod
     def _score_with_model(y, metric, probs, n_models, candidate):
         n_models = float(n_models)
-        new_probs = candidate[2]
+        new_probs = candidate[3]
         new_probs = (probs * n_models + new_probs) / (n_models + 1.0)
 
         score = util.score(y, new_probs, np.argmax(new_probs, axis=1), metric=metric)

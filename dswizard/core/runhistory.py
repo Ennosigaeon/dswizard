@@ -66,7 +66,7 @@ class RunHistory:
                     }
                 except ValueError as ex:
                     logging.error('Failed to reconstruct global config.\n'
-                                  f'Exception: {ex}\nConfigSpace: {structure.configuration_space}')
+                                  f'Exception: {ex}\nConfigSpace: {structure}')
 
             del structure['budget']
             del structure['cfg_keys']

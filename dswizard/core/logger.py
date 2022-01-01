@@ -5,14 +5,13 @@ import logging
 import os
 import pickle
 import shutil
-from collections import Counter
 from typing import List, Tuple, Dict
 
 import joblib
 import networkx as nx
 from ConfigSpace import Configuration
+from sklearn.ensemble import VotingClassifier
 
-from dswizard.components.util import prefixed_name
 from dswizard.core.constants import MODEL_DIR
 from dswizard.core.model import CandidateStructure, CandidateId, Result, StatusType
 from dswizard.core.model import PartialConfig
@@ -93,6 +92,10 @@ class ResultLogger:
             fh.write(json.dumps(runhistory.complete_data))
         with open(os.path.join(self.directory, f'runhistory_{suffix}.pkl'), 'wb') as fh:
             pickle.dump(runhistory, fh)
+
+    def log_ensemble(self, ensemble: VotingClassifier, suffix: str = 'None') -> None:
+        with open(os.path.join(self.directory, f'ensemble_{suffix}.pkl'), 'wb') as fh:
+            pickle.dump(ensemble, fh)
 
     def load(self) -> Dict[CandidateId, CandidateStructure]:
         structures = {}

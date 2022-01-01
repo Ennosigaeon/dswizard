@@ -328,7 +328,7 @@ class Master:
         builder = EnsembleBuilder(self.working_directory, self.result_logger.structure_fn)
         ensemble = builder.fit(self.ds if ds is None else ds).get_ensemble()
         if store:
-            joblib.dump(ensemble, os.path.join(self.working_directory, 'final_ensemble.pkl'))
+            self.result_logger.log_ensemble(ensemble, str(self.meta_information.openml_task))
         return ensemble
 
     def render(self, incumbent: FlexiblePipeline, ds: Dataset = None):

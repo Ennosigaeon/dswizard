@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from collections import namedtuple
 from enum import Enum
-from typing import Optional, List, TYPE_CHECKING, Tuple, Union
+from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Any
 
 import joblib
 import numpy as np
@@ -47,7 +48,7 @@ class MetaInformation:
                  openml_task: int,
                  openml_fold: int,
                  data_file: str,
-                 config: dict[str, any]
+                 config: dict[str, Any]
                  ):
         # Information available before optimization
         self.start_time = start_time
@@ -143,6 +144,11 @@ class CandidateId:
     def parse(cid: str) -> CandidateId:
         tokens = list(map(lambda x: int(x), cid.split(':')))
         return CandidateId(*tokens)
+
+    @staticmethod
+    def from_model_file(name: str) -> CandidateId:
+        sub_string = re.search(r'(\d+-\d+-\d+)', name).group(1)
+        return CandidateId(*map(int, sub_string.split('-')))
 
 
 class Runtime:
