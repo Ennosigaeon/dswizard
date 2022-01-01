@@ -12,7 +12,7 @@ from dswizard.components.data_preprocessing import DataPreprocessorChoice
 from dswizard.components.feature_preprocessing import FeaturePreprocessorChoice
 from dswizard.core.base_structure_generator import BaseStructureGenerator
 from dswizard.core.model import CandidateStructure, Dataset
-from dswizard.pipeline.pipeline import FlexiblePipeline, SubPipeline
+from dswizard.pipeline.pipeline import FlexiblePipeline
 
 
 class RandomStructureGenerator(BaseStructureGenerator):
@@ -29,8 +29,7 @@ class RandomStructureGenerator(BaseStructureGenerator):
         self.candidates = {
             ClassifierChoice.name(),
             DataPreprocessorChoice.name(),
-            FeaturePreprocessorChoice.name(),
-            SubPipeline.name()
+            FeaturePreprocessorChoice.name()
         }
 
         if include_basic_estimators:
@@ -77,36 +76,9 @@ class RandomStructureGenerator(BaseStructureGenerator):
         while i < depth:
             name = f'step_{i}'
             clazz = random.sample(self.candidates, 1)[0]
-
-            if clazz == SubPipeline.name():
-                max_depth = depth - i - 1
-                instance, n = self._generate_subpipelines(max_depth)
-
-                # Do not add SubPipeline without any sub-steps
-                if n == 0:
-                    i += 1
-                    continue
-                else:
-                    i += n
-            else:
-                instance = clazz()
-
+            instance = clazz()
             steps.append((name, instance))
             cs.add_configuration_space(name, instance.get_hyperparameter_search_space())
 
             i += 1
         return cs, steps
-
-    def _generate_subpipelines(self, max_depth: int) -> Tuple[SubPipeline, int]:
-        n_pipelines = random.choice([2, 3, 4])
-
-        depths = []
-        pipelines = []
-        for i in range(n_pipelines):
-            d = self._determine_depth(0, max_depth)
-            depths.append(d)
-
-            cs, steps = self._generate_pipeline(d)
-            pipelines.append(steps)
-        pipelines = list(filter(lambda dep: len(dep) > 0, pipelines))
-        return SubPipeline(pipelines), max(depths)

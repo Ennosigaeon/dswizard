@@ -88,29 +88,13 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
         return g
 
     def get_step(self, name: str):
-        tokens = name.split(':')
-        step_name = tokens[0]
+        step_name = name.split(':')[0]
+        return self.steps_[step_name]
 
-        estimator = self.steps_[step_name]
-        if isinstance(estimator, SubPipeline) and len(tokens) > 1:
-            pipeline_name = tokens[1]
-
-            n_prefix = len(step_name) + 1 + len(pipeline_name) + 1
-            return estimator.pipelines[pipeline_name].get_step(name[n_prefix:])
-        return estimator
-
-    def all_names(self, prefix: str = None, exclude_parents: bool = False) -> List[str]:
+    def all_names(self, prefix: str = None) -> List[str]:
         res = []
         for name, component in self.steps_.items():
-            n = prefixed_name(prefix, name)
-            if isinstance(component, SubPipeline):
-                if not exclude_parents:
-                    res.append(n)
-
-                for p_name, p in component.pipelines.items():
-                    res.extend(p.all_names(prefixed_name(name, p_name), exclude_parents))
-            else:
-                res.append(n)
+            res.append(prefixed_name(prefix, name))
         return res
 
     def _validate_steps(self):
@@ -160,32 +144,15 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
                 config: Configuration = self._get_config_for_step(step_idx, prefix, name, logger)
                 cloned_transformer.set_hyperparameters(configuration=config.get_dictionary())
 
-            # Fit or load from cache the current transformer
-            if isinstance(cloned_transformer, SubPipeline):
-                Xt, fitted_transformer = _fit_transform_one(
-                    cloned_transformer, Xt, y, None,
-                    message_clsname='Pipeline',
-                    message=self._log_message(step_idx),
-                    logger=logger,
-                    prefix=name,
-                    cfg_cache=self.cfg_cache,
-                    **fit_params_steps[name])
+            start = timeit.default_timer()
 
-                # Extract time measurements from all sub-pipelines
-                for p in cloned_transformer.pipelines.values():
-                    self.fit_time += p.fit_time
-                    self.config_time += p.config_time
+            Xt, fitted_transformer = _fit_transform_one(
+                cloned_transformer, Xt, y, None,
+                message_clsname='Pipeline',
+                message=self._log_message(step_idx),
+                **fit_params_steps[name])
 
-            else:
-                start = timeit.default_timer()
-
-                Xt, fitted_transformer = _fit_transform_one(
-                    cloned_transformer, Xt, y, None,
-                    message_clsname='Pipeline',
-                    message=self._log_message(step_idx),
-                    **fit_params_steps[name])
-
-                self.fit_time += timeit.default_timer() - start
+            self.fit_time += timeit.default_timer() - start
 
             # Replace the transformer of the step with the fitted
             # transformer. This is necessary when loading the transformer
@@ -221,13 +188,8 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
                              logger: ProcessLogger) -> Configuration:
         start = timeit.default_timer()
 
-        estimator = self.get_step(name)
         cfg_key = self.cfg_keys[idx]
-        if isinstance(estimator, SubPipeline):
-            config, cfg_key = ConfigurationSpace().get_default_configuration(), (0, 0)
-            config.origin = 'Default'
-        else:
-            config, cfg_key = self.cfg_cache.sample_configuration(cid=self.cid, name=name, cfg_key=cfg_key)
+        config, cfg_key = self.cfg_cache.sample_configuration(cid=self.cid, name=name, cfg_key=cfg_key)
 
         intermediate = PartialConfig(cfg_key, config, name, None)
         logger.new_step(prefixed_name(prefix, name), intermediate)
@@ -274,70 +236,3 @@ class FlexiblePipeline(Pipeline, EstimatorComponent, HasChildComponents):
 
     def __copy__(self):
         return FlexiblePipeline(clone(self.steps, safe=False), self.configuration, self.cfg_cache, self.cfg_keys)
-
-
-class SubPipeline(EstimatorComponent):
-
-    def __init__(self, sub_wfs: List[List[Tuple[str, EstimatorComponent]]]):
-        super().__init__()
-        self.pipelines: Dict[str, FlexiblePipeline] = {}
-
-        # TODO cfg_keys missing
-        ls = list(map(lambda sw: FlexiblePipeline(sw), sub_wfs))
-        for idx, wf in enumerate(sorted(ls)):
-            self.pipelines[f'pipeline_{idx}'] = wf
-
-    def fit(self, X, y=None, cfg_cache: ConfigCache = None, logger: ProcessLogger = None, prefix: str = None,
-            **fit_params):
-        for p_name, pipeline in self.pipelines.items():
-            if cfg_cache is not None:
-                pipeline.cfg_cache = cfg_cache
-
-            p_prefix = prefixed_name(prefix, p_name)
-            # noinspection PyTypeChecker
-            pipeline.fit(X, y, prefix=p_prefix, **fit_params)
-        return self
-
-    # noinspection PyPep8Naming
-    def transform(self, X: np.ndarray):
-        X_transformed = X
-        for name, pipeline in self.pipelines.items():
-            y_pred = pipeline.predict(X)
-            X_transformed = np.hstack((X_transformed, np.reshape(y_pred, (-1, 1))))
-
-        return X_transformed
-
-    def set_hyperparameters(self, configuration: dict = None, init_params=None):
-        if configuration is None or len(configuration.keys()) == 0:
-            return
-
-        for node_name, pipeline in self.pipelines.items():
-            sub_config_dict = {}
-            for param in configuration:
-                if param.startswith(f'{node_name}:'):
-                    value = configuration[param]
-                    new_name = param.replace(f'{node_name}:', '', 1)
-                    sub_config_dict[new_name] = value
-            pipeline.set_hyperparameters(sub_config_dict, init_params)
-
-    def get_hyperparameter_search_space(self, mf: Optional[MetaFeatures] = None):
-        cs = ConfigurationSpace()
-        for pipeline_name, pipeline in self.pipelines.items():
-            pipeline_cs = ConfigurationSpace()
-
-            for task_name, task in pipeline.steps:
-                step_configuration_space = task.get_hyperparameter_search_space(mf=mf)
-                pipeline_cs.add_configuration_space(task_name, step_configuration_space)
-            cs.add_configuration_space(pipeline_name, pipeline_cs)
-        return cs
-
-    def serialize(self):
-        pipelines = []
-        for name, p in self.pipelines.items():
-            pipelines.append((name, util.serialize(p)))
-
-        return pipelines
-
-    @staticmethod
-    def get_properties():
-        return {}
