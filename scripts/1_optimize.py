@@ -7,6 +7,9 @@ import argparse
 import logging
 import os
 
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
 from dswizard.components.classification.decision_tree import DecisionTree
 from dswizard.components.data_preprocessing.imputation import ImputationComponent
 from dswizard.components.data_preprocessing.minmax import MinMaxScalerComponent
@@ -25,8 +28,8 @@ from optimizers.config_generators import Hyperopt
 from optimizers.structure_generators.mcts import MCTS, TransferLearning
 
 parser = argparse.ArgumentParser(description='Example 1 - dswizard optimization.')
-parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=300)
-parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=-1)
+parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=600)
+parser.add_argument('--cutoff', type=float, help='Maximum cutoff time for a single evaluation in seconds', default=10)
 parser.add_argument('--log_dir', type=str, help='Directory used for logging', default='run/')
 parser.add_argument('--fold', type=int, help='Fold of OpenML task to optimize', default=0)
 parser.add_argument('task', type=int, help='OpenML task id')
@@ -39,17 +42,33 @@ logging.getLogger('matplotlib').setLevel(logging.WARNING)
 # Load dataset
 # Tasks: 18, 53, 9983, 146822, 168912
 logger.info(f'Processing task {args.task}')
-ds, ds_test = Dataset.from_openml(args.task, args.fold, 'roc_auc')
+# ds, ds_test = Dataset.from_openml(args.task, args.fold, 'roc_auc')
+
+
+data = pd.read_csv('/home/marc/phd/code/xautoml/xautoml/tests/res/autosklearn_hearts/dataset.csv')
+X = data.loc[:, data.columns[:-1]]
+y = data.loc[:, data.columns[-1]]
+
+X.loc[:, 'Sex'] = X.Sex.astype('category')
+X.loc[:, 'ChestPainType'] = X.ChestPainType.astype('category')
+X.loc[:, 'RestingECG'] = X.RestingECG.astype('category')
+X.loc[:, 'ExerciseAngina'] = X.ExerciseAngina.astype('category')
+X.loc[:, 'ST_Slope'] = X.ST_Slope.astype('category')
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=1)
+ds = Dataset(X_train.values, y_train.values, metric='roc_auc', feature_names=X_train.columns)
+ds_test = Dataset(X_test.values, y_test.values, metric='roc_auc', feature_names=X_test.columns)
 
 # 168746
 # steps = [
 #     ('data_preprocessing', ColumnTransformerComponent([
 #         ("imputation", ImputationComponent(), [0, 3, 4, 5, 7, 11]),
-#         ("categorical", FlexiblePipeline([('encoding', OrdinalEncoderComponent()), ('imputation', ImputationComponent())]),
+#         ("categorical",
+#          FlexiblePipeline([('ordinal_encoder', OrdinalEncoderComponent()), ('imputation', ImputationComponent())]),
 #          [1, 2, 6, 8, 9, 10, 12]),
 #     ])),
-#     ('parallel', FeatureUnionComponent([('pca', PCAComponent()), ('scaling', MinMaxScalerComponent())])),
-#     ('classifier', DecisionTree())
+#     ('parallel', FeatureUnionComponent([('pca', PCAComponent()), ('minmax_scaler', MinMaxScalerComponent())])),
+#     ('decision_tree', DecisionTree())
 # ]
 
 # pip = FlexiblePipeline(steps)
@@ -80,7 +99,6 @@ master = Master(
 
     structure_generator_class=MCTS,
     structure_generator_kwargs={'policy': TransferLearning},
-
     # structure_generator_class=FixedStructure,
     # structure_generator_kwargs={'steps': steps},
 

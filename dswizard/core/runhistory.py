@@ -47,7 +47,10 @@ class RunHistory:
                     marginalization = {}
                     for explanations_for_step in explanations_for_steps:
                         pcs = explanations_for_step[cid]['candidates']
-                        prefix = pcs[0].name if len(pcs) > 0 else None
+                        if len(pcs) == 0:
+                            continue
+
+                        prefix = pcs[0].name
                         partial_configs.append(pcs)
                         loss.append(explanations_for_step[cid]['loss'])
                         marginalization = {**marginalization, **{
@@ -55,15 +58,16 @@ class RunHistory:
                             explanations_for_step[cid]['marginalization'].items()
                         }}
 
-                    loss = np.array(loss).T.mean(axis=1)
-                    configs = [merge_configurations(pc.tolist(), s.configspace).get_dictionary()
-                               for pc in np.array(partial_configs).T]
+                    if len(loss) > 0:
+                        loss = np.array(loss).T.mean(axis=1)
+                        configs = [merge_configurations(pc.tolist(), s.configspace).get_dictionary()
+                                   for pc in np.array(partial_configs).T]
 
-                    config_explanations[cid] = {
-                        'loss': np.clip(loss, -1000, 100).tolist(),
-                        'candidates': configs,
-                        'marginalization': marginalization
-                    }
+                        config_explanations[cid] = {
+                            'loss': np.clip(loss, -1000, 100).tolist(),
+                            'candidates': configs,
+                            'marginalization': marginalization
+                        }
                 except ValueError as ex:
                     logging.error('Failed to reconstruct global config.\n'
                                   f'Exception: {ex}\nConfigSpace: {structure}')
