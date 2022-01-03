@@ -112,5 +112,5 @@ def merge_configurations(partial_configs,  # type: list[PartialConfig]
             complete[param] = value
 
     config = Configuration(cs, complete)
-    config.origin = Counter([p.config.origin for p in partial_configs]).most_common(1)[0][0]
+    config.origin = Counter([p.config.origin for p in partial_configs if not p.is_empty()]).most_common(1)[0][0]
     return config

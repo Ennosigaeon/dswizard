@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional, Any
-import math
+from typing import Dict, List, Optional
+
 import ConfigSpace
 import ConfigSpace.hyperparameters
 import ConfigSpace.util
@@ -44,7 +44,7 @@ class Hyperopt(BaseConfigGenerator):
                  top_n_percent: int = 15,
                  num_samples: int = 64,
                  random_fraction: float = 1 / 3,
-                 bandwidth_factor: float = 3,
+                 bandwidth_factor: float = 2,
                  min_bandwidth: float = 1e-3,
                  worst_score: float = np.inf,
                  **kwargs):
@@ -75,12 +75,12 @@ class Hyperopt(BaseConfigGenerator):
         self.num_samples = num_samples
         self.random_fraction = random_fraction
 
-        self.explanations = {}
-
         self.kde: KdeWrapper = self._build_kde_wrapper(self.configspace)
 
     def sample_config(self, cid: Optional[CandidateId] = None, cfg_key: Optional[ConfigKey] = None,
                       name: Optional[str] = None, default: bool = False) -> Configuration:
+        candidates = []
+        candidates_ei = []
         try:
             config = None
             if len(self.kde.losses) == 0 or default:
@@ -91,8 +91,6 @@ class Hyperopt(BaseConfigGenerator):
 
                 if len(candidates) > 0:
                     config = candidates[np.argmax(candidates_ei)]
-                    self._record_explanation(cid, cfg_key, name, candidates, candidates_ei)
-
             if config is None:
                 config = self.configspace.sample_configuration()
                 config.origin = 'Random Search'
@@ -100,14 +98,15 @@ class Hyperopt(BaseConfigGenerator):
             config = self.configspace.sample_configuration()
             config.origin = 'Random Search'
 
+        self._record_explanation(cid, cfg_key, name, candidates, candidates_ei)
         return config
 
     def _sample_candidates(self) -> tuple[list[Configuration], list[float]]:
         candidates_ei = []
         candidates = []
 
-        l = self.kde.good_kde().pdf
-        g = self.kde.bad_kde().pdf
+        good = self.kde.good_kde().pdf
+        bad = self.kde.bad_kde().pdf
 
         kde_good = self.kde.good_kde()
 
@@ -116,12 +115,13 @@ class Hyperopt(BaseConfigGenerator):
             datum = kde_good.data[idx]
             vector = []
 
-            for m, bw, t in zip(datum, kde_good.bw, self.kde.vartypes):
+            for m, bw, t, hp in zip(datum, kde_good.bw, self.kde.vartypes, self.configspace.get_hyperparameters()):
                 bw = max(bw, self.min_bandwidth)
                 if t == 0:
                     bw = self.bw_factor * bw
                     try:
-                        vector.append(sps.truncnorm.rvs(-m / bw, (1 - m) / bw, loc=m, scale=bw))
+                        lower, upper = hp._inverse_transform(hp.lower), hp._inverse_transform(hp.upper)
+                        vector.append(sps.truncnorm.rvs((lower - m) / bw, (upper - m) / bw, loc=m, scale=bw))
                     except Exception:
                         pass
                 else:
@@ -134,11 +134,17 @@ class Hyperopt(BaseConfigGenerator):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 # Calculate expected improvement
-                ei = max(1e-32, g(vector)) / max(l(vector), 1e-32)
+                ei = max(1e-32, good(vector)) / max(bad(vector), 1e-32)
 
-            config = ConfigSpace.Configuration(self.configspace, vector=vector)
+            config = ConfigSpace.Configuration(self.configspace, vector=vector, allow_inactive_with_values=True)
             try:
                 config.is_valid_configuration()
+
+                # Remove inactive hyperparameters
+                active_hp = self.configspace.get_active_hyperparameters(config)
+                d = {key: value for key, value in config.get_dictionary().items() if key in active_hp}
+                config = ConfigSpace.Configuration(self.configspace, d)
+
                 config.origin = 'Hyperopt'
                 candidates.append(config)
                 candidates_ei.append(float(ei))
@@ -156,16 +162,20 @@ class Hyperopt(BaseConfigGenerator):
         }
 
     def _compute_marginalization(self):
+        if len(self.configspace.get_hyperparameters()) == 0 or not self.kde.is_trained():
+            return {}
+
         support = []
 
-        for h in self.configspace.get_hyperparameters():
-            if isinstance(h, CategoricalHyperparameter):
-                support.append(np.arange(0, len(h.choices)))
-            elif isinstance(h, NumericalHyperparameter):
-                if h.log:
-                    support.append(np.geomspace(h.lower, h.upper, num=10))
+        for hp in self.configspace.get_hyperparameters():
+            if isinstance(hp, CategoricalHyperparameter):
+                support.append(np.arange(0, len(hp.choices)))
+            elif isinstance(hp, NumericalHyperparameter):
+                if hp.log:
+                    s = np.geomspace(hp.lower, hp.upper, num=8)
                 else:
-                    support.append(np.linspace(h.lower, h.upper, num=10))
+                    s = np.linspace(hp.lower, hp.upper, num=8)
+                support.append(hp._inverse_transform(s))
 
         grid = np.meshgrid(*support)
         dimensions = [np.ravel(a) for a in grid]
@@ -173,22 +183,26 @@ class Hyperopt(BaseConfigGenerator):
 
         with warnings.catch_warnings():
             good = self.kde.good_kde().pdf(points)
+            bad = self.kde.bad_kde().pdf(points)
 
         res = {}
         for hp, d in zip(self.configspace.get_hyperparameters(), dimensions):
             mar_good = []
+            mar_bad = []
+            mar_ei = []
             unique = np.unique(d)
             for v in np.sort(unique):
                 avg_good = np.nanmean(good[d == v])
-                if not np.isnan(avg_good):
-                    mar_good.append((float(v), float(avg_good) if avg_good != math.inf else 1))
-            res[hp.name] = {'good': mar_good}
+                avg_bad = np.nanmean(bad[d == v])
+
+                v_inv = hp._transform(v)
+                mar_good.append((v_inv, float(avg_good)))
+                mar_bad.append((v_inv, float(avg_bad)))
+                mar_ei.append((v_inv, float(avg_good / avg_bad)))
+            res[hp.name] = {'good': mar_good, 'bad': mar_bad, 'ei': mar_ei}
             # If necessary, 'bad' can be recorded accordingly
 
         return res
-
-    def explain(self) -> Dict[str, Any]:
-        return self.explanations
 
     def register_result(self, config: Configuration, loss: float, status: StatusType,
                         update_model: bool = True, **kwargs) -> None:
@@ -205,7 +219,7 @@ class Hyperopt(BaseConfigGenerator):
         # noinspection PyTypeChecker
         self.kde.configs.append(config.get_array())
 
-        min_points_in_model = max(len(self.configspace.get_hyperparameters()) + 1, self.min_points_in_model)
+        min_points_in_model = max(int(1.5 * len(self.configspace.get_hyperparameters())) + 1, self.min_points_in_model)
         # skip model building if not enough points are available
         if len(self.kde.losses) < min_points_in_model:
             return
@@ -213,14 +227,12 @@ class Hyperopt(BaseConfigGenerator):
         train_losses = np.array(self.kde.losses)
 
         n_good = max(min_points_in_model, (self.top_n_percent * train_losses.shape[0]) // 100)
-        # TODO use this??? Is bad trainings data complete set without n_good?
-        # n_bad = max(self.min_points_in_model, train_configs.shape[0] - n_good)
         n_bad = max(min_points_in_model, ((100 - self.top_n_percent) * train_losses.shape[0]) // 100)
 
         idx = np.argsort(train_losses)
         train_configs = np.array(self.kde.configs)
-        train_data_good = np.array(train_configs[idx[:n_good]])
-        train_data_bad = np.array(train_configs[idx[-n_bad:]])
+        train_data_good = self._fix_identical_cat_input(train_configs[idx[:n_good]])
+        train_data_bad = self._fix_identical_cat_input(train_configs[idx[-n_bad:]])
 
         train_data_good = self._impute_conditional_data(train_data_good, self.kde.vartypes)
         train_data_bad = self._impute_conditional_data(train_data_bad, self.kde.vartypes)
@@ -246,8 +258,26 @@ class Hyperopt(BaseConfigGenerator):
 
         self.kde.kde_models = {
             'good': good_kde,
-            'bad': bad_kde
+            'bad': bad_kde,
         }
+
+    def _fix_identical_cat_input(self, train_data: np.ndarray):
+        # KDE can not handle if all categorical values are identical. Add default configuration with adapted categorical
+        # values to prevent division by 0
+
+        cat_idx = self.kde.vartypes > 0
+        identical = np.min(train_data[:, cat_idx], axis=0) == np.max(train_data[:, cat_idx], axis=0)
+
+        if np.any(identical):
+            additional = self.configspace.get_default_configuration().get_array()
+            for idx in np.argwhere(cat_idx)[identical]:
+                idx = idx[0]
+                value = train_data[0, idx]
+                if value == additional[idx]:
+                    additional[idx] = 1 if value == 0 else 0
+            train_data = np.vstack((train_data, additional))
+
+        return train_data
 
     # noinspection PyMethodMayBeStatic
     def _build_kde_wrapper(self, configspace: ConfigurationSpace) -> KdeWrapper:

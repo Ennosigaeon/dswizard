@@ -29,6 +29,8 @@ class BaseConfigGenerator(abc.ABC):
         self.configspace: ConfigurationSpace = configspace
         self.expected_size = self.configspace.get_default_configuration().get_array().size
 
+        self.explanations = {}
+
     @abc.abstractmethod
     def sample_config(self, default: bool = False, **kwargs) -> Configuration:
         pass
@@ -50,4 +52,4 @@ class BaseConfigGenerator(abc.ABC):
         pass
 
     def explain(self) -> Dict[str, Any]:
-        return {}
+        return self.explanations
