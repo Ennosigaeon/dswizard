@@ -13,6 +13,8 @@ valid_metrics = {'accuracy', 'precision', 'recall', 'f1', 'logloss', 'roc_auc'}
 
 
 def setup_logging(log_file: str = None):
+    logging.getLogger('matplotlib').setLevel(logging.WARNING)
+
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     while len(logger.handlers) > 0:

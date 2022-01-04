@@ -37,7 +37,6 @@ args = parser.parse_args()
 
 util.setup_logging(os.path.join(args.log_dir, str(args.task), 'log.txt'))
 logger = logging.getLogger()
-logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 # Load dataset
 # Tasks: 18, 53, 9983, 146822, 168912
