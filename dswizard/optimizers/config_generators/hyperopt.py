@@ -44,7 +44,7 @@ class Hyperopt(BaseConfigGenerator):
                  top_n_percent: int = 15,
                  num_samples: int = 64,
                  random_fraction: float = 1 / 3,
-                 bandwidth_factor: float = 2,
+                 bandwidth_factor: float = 3,
                  min_bandwidth: float = 1e-3,
                  worst_score: float = np.inf,
                  **kwargs):

@@ -5,7 +5,7 @@ from ConfigSpace import CategoricalHyperparameter
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.hyperparameters import NumericalHyperparameter
 
-from core.model import CandidateId, ConfigKey, PartialConfig
+from dswizard.core.model import CandidateId, ConfigKey, PartialConfig
 from dswizard.core.base_config_generator import BaseConfigGenerator
 
 

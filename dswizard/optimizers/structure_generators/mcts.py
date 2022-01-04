@@ -217,7 +217,7 @@ class Tree:
 
 class Policy(ABC):
 
-    def __init__(self, logger: logging.Logger, exploration_weight: float = 2, wallclock_limit: float = None, **kwargs):
+    def __init__(self, logger: logging.Logger, exploration_weight: float = 1, wallclock_limit: float = None, **kwargs):
         self.logger = logger
         self.exploration_weight = exploration_weight
         self._exploration_weight = exploration_weight
@@ -284,7 +284,6 @@ class Policy(ABC):
             log_N_vertex = 0
         else:
             log_N_vertex = math.log(parent.visits)
-        scale = 1.5
 
         if n.failed or n.visits == 0:
             exploitation = worst_score
@@ -294,7 +293,7 @@ class Policy(ABC):
             exploration = -math.sqrt(log_N_vertex / n.visits)
         score = exploitation + self._exploration_weight * exploration
 
-        overfitting = 1 - (scale ** len(n.steps)) / (scale ** 6)
+        overfitting = 1 - (2 ** len(n.steps)) / (2 ** 4)
         adjusted_score = score * overfitting
 
         if decompose:
@@ -587,6 +586,7 @@ class MCTS(BaseStructureGenerator):
 
             ds = node.ds
             config, key = self.cfg_cache.sample_configuration(
+                cid=cid.with_config(0),
                 configspace=component.get_hyperparameter_search_space(),
                 mf=ds.meta_features,
                 default=True)
