@@ -10,7 +10,7 @@ from typing import Optional, TYPE_CHECKING, Tuple, List
 import numpy as np
 from ConfigSpace import Configuration
 
-from dswizard import pynisher
+from dswizard import pynisher2 as pynisher
 from dswizard.components.base import EstimatorComponent
 from dswizard.core.logger import ProcessLogger
 from dswizard.core.model import Result, StatusType, Runtime, Dataset, EvaluationJob
