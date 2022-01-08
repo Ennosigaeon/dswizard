@@ -9,7 +9,7 @@ from dswizard.core.model import CandidateStructure
 
 class PseudoIteration(BaseIteration):
 
-    def __init__(self, iteration: int, budget: int = 10):
+    def __init__(self, iteration: int, budget: int = 5):
         # noinspection PyTypeChecker
         super().__init__(iteration, [math.inf], [budget])
 

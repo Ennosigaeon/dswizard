@@ -44,11 +44,10 @@ class Node:
                  ds: Optional[Dataset],
                  component: Optional[Type[EstimatorComponent]],
                  pipeline_prefix: List[Tuple[str, EstimatorComponent]] = None,
-                 partial_config: PartialConfig = None
                  ):
         self.id = node_id
         self.ds = ds
-        self.partial_config = partial_config
+        self.partial_config = None
         self.runtime: Optional[Runtime] = None
 
         self.failure_message: Optional[str] = None
@@ -126,10 +125,6 @@ class Node:
     def __eq__(self, node2: int) -> bool:
         return self.id == node2
 
-    @staticmethod
-    def dummy(component, perf: float) -> 'Node':
-        return Node(-1, None, component).update(perf)
-
 
 class Tree:
     ROOT: int = 0
@@ -179,7 +174,7 @@ class Tree:
             self.add_node(value, parent_node=node)
         node.expanded = True
 
-    def fully_expanded(self, node: Node, global_max: int = 10):
+    def fully_expanded(self, node: Node, global_max: int = 7):
         # global_max is used as failsafe to prevent massive expansion of single node
 
         possible_children = len(node.available_actions())
@@ -316,14 +311,6 @@ class Policy(ABC):
                 children = terminal_children
             else:
                 children = current_children
-        elif not tree.fully_expanded(node):
-            available_actions = node.available_actions()
-            exhausted_actions = [type(n.component) for n in current_children]
-            actions = [key for key, value in available_actions.items() if value not in exhausted_actions]
-            perf = self.estimate_performance(actions, node.ds)
-
-            possible_children = [Node.dummy(available_actions[c], p) for c, p in zip(actions, perf)]
-            children = current_children + possible_children
         else:
             children = current_children
 
@@ -415,6 +402,8 @@ class MCTS(BaseStructureGenerator):
         self.store_ds = store_ds
         self.lock = threading.Lock()
         self.cid_to_node = {}
+        self.wallclock_limit = wallclock_limit if epsilon_greedy else 1
+        self.start = timeit.default_timer()
 
         if policy is None:
             if model is None:
@@ -484,6 +473,9 @@ class MCTS(BaseStructureGenerator):
         if not path[-1].is_terminal():
             self.logger.warning(f'Current path is not terminal. Trying tree traversal {retries} more times...')
             failed = True
+        if len(path) > 3:
+            self.logger.debug(f'Current path contains is too long. Trying tree traversal {retries} more times...')
+            failed = True
         if failed:
             with self.lock:
                 for node in path:
@@ -499,12 +491,14 @@ class MCTS(BaseStructureGenerator):
 
         cs.configspace = pipeline.configuration_space
         cs.pipeline = pipeline
-        cs.cfg_keys = [n.partial_config.cfg_key for n in path if n.partial_config is not None]
+        cs.cfg_keys = [n.partial_config.cfg_key for n in path[1:]]
 
         # If no simulation was necessary, add the default configuration as first result
         if result is not None and result.structure_loss is not None and \
                 result.structure_loss < util.worst_score(ds.metric)[-1]:
             cs.add_result(result)
+
+        assert len(cs.steps) == len(cs.cfg_keys)
         return cs
 
     def _select(self, cid: CandidateId, force: bool = False) -> Tuple[List[Node], bool]:
@@ -513,6 +507,26 @@ class MCTS(BaseStructureGenerator):
         path: List[Node] = []
         node = self.tree.get_node(Tree.ROOT)
         score = -math.inf
+        epsilon = (timeit.default_timer() - self.start) / self.wallclock_limit
+
+        # Failsafe mechanism to enforce structure selection
+        if force or np.random.random() < epsilon / 2:
+            nodes = [self.tree.get_node(n) for n in nx.dfs_tree(self.tree.G, self.tree.ROOT)]
+            terminal_nodes = [n for n in nodes if n.is_terminal() and not n.failed]
+            probs = np.array([n.reward / n.visits for n in terminal_nodes]) * -1
+            node = np.random.choice(terminal_nodes, 1, p=probs / np.sum(probs))[0]
+
+            path = nx.shortest_path(self.tree.G, source=self.tree.ROOT, target=node.id)
+            # noinspection PyTypeChecker
+            path[0] = self.tree.get_node(path[0])
+            # noinspection PyTypeChecker
+            path[-1] = self.tree.get_node(path[-1])
+
+            with self.lock:
+                for node in path:
+                    node.enter(cid)
+            return path, False
+
         while True:
             self.logger.debug(f'\tSelecting {node.label}')
             if node.failed:
@@ -523,27 +537,23 @@ class MCTS(BaseStructureGenerator):
                 node.enter(cid)
                 path.append(node)
 
-                # Failsafe mechanism to enforce structure selection
-                if force and node.is_terminal():
-                    return path, False
-
                 # We never expand if force is given
-                fully_expanded = self.tree.fully_expanded(node) or force
+                fully_expanded = self.tree.fully_expanded(node)
                 if not fully_expanded:
                     return path, True
 
                 # node is leaf
                 if len(self.tree.get_children(node.id)) == 0:
-                    return path, True
+                    return path, node.is_terminal()
 
-                candidate, candidate_score = self.policy.select(node, self.tree, force=force)  # descend a layer deeper
+                candidate, candidate_score = self.policy.select(node, self.tree)
                 # Current node is better than children or selected node failed
                 if candidate.failed:
                     return path, not node.is_terminal()
                 elif candidate_score >= score and node.is_terminal():
                     return path, False
                 elif candidate_score >= score and not fully_expanded:
-                    return path, True
+                    return path, not node.is_terminal()
                 else:
                     node, score = candidate, candidate_score
 
@@ -587,6 +597,7 @@ class MCTS(BaseStructureGenerator):
             ds = node.ds
             config, key = self.cfg_cache.sample_configuration(
                 cid=cid.with_config(0),
+                name=new_node.steps[-1][0],
                 configspace=component.get_hyperparameter_search_space(),
                 mf=ds.meta_features,
                 default=True)
@@ -645,7 +656,7 @@ class MCTS(BaseStructureGenerator):
                 n_children += 1
                 self._backpropagate(new_node, result.structure_loss)
                 if result.structure_loss < util.worst_score(ds.metric)[-1]:
-                    result.partial_configs = [n.partial_config for n in nodes if n.partial_config is not None]
+                    result.partial_configs = [n.partial_config for n in nodes[1:]]
                     result.partial_configs.append(new_node.partial_config)
                     config = FlexiblePipeline(new_node.steps).configuration_space.get_default_configuration()
                     config.origin = 'Default'
@@ -702,9 +713,6 @@ class MCTS(BaseStructureGenerator):
 
     def explain(self) -> Dict[str, Any]:
         with self.lock:
-            # Create artificial explanation of final search graph
-            self._record_explanations(CandidateId(100, 0))
-
             nodes = {}
             edges = nx.dfs_successors(self.tree.G, source=Tree.ROOT)
 
