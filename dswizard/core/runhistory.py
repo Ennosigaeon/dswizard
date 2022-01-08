@@ -35,12 +35,14 @@ class RunHistory:
             # other AutoML frameworks
             structure['configs'] = [r.as_dict(s.budget, loss_sign=metric_sign(meta_information.metric))
                                     for r in s.results]
-            structure['config_explanations'] = {}
+            del structure['budget']
+            del structure['cfg_keys']
+            structures.append(structure)
 
             # Extract and merge all (partial-) configurations
             explanations_for_steps = [config_xai[key] for key in s.cfg_keys]
-            cids = set.intersection(*[set(e.keys()) for e in explanations_for_steps])
-            for cid in cids:
+
+            for cid in [r.cid.external_name for r in s.results]:
                 try:
                     partial_configs = []
                     loss = []
@@ -58,7 +60,7 @@ class RunHistory:
                             explanations_for_step[cid]['marginalization'].items()
                         }}
 
-                    if len(loss) > 0:
+                    if len(loss) > 0 and len(partial_configs) == len(explanations_for_steps):
                         loss = np.array(loss).T.mean(axis=1)
                         configs = [merge_configurations(pc.tolist(), s.configspace).get_dictionary()
                                    for pc in np.array(partial_configs).T]
@@ -70,12 +72,9 @@ class RunHistory:
                         }
                 except ValueError as ex:
                     logging.error('Failed to reconstruct global config.\n'
-                                  f'Exception: {ex}\nConfigSpace: {structure}')
-
-            del structure['budget']
-            del structure['cfg_keys']
-
-            structures.append(structure)
+                                  f'Exception: {ex}\nStructure: {structure}')
+                except KeyError as ex:
+                    logging.error(f'Failed to find cid {cid} in config explanations')
 
         self.data = data
         self.meta_information = meta_information
@@ -97,48 +96,20 @@ class RunHistory:
                config_xai: Dict[ConfigKey, Any]
                ):
         # Collapse data to merge identical structures
-        reverse: Dict[CandidateStructure, CandidateId] = {}
-        collapsed_data: Dict[CandidateId, CandidateStructure] = {}
-
-        for cid, structure in data.items():
-            if structure not in reverse:
-                reverse[structure] = cid
-                collapsed_data[cid] = structure
-            else:
-                new_structure = collapsed_data[reverse[structure]]
-                offset = len(new_structure.results)
-
-                for idx, res in enumerate(structure.results):
-                    # Change config id and add to new structure
-                    old_cid = res.cid
-                    res.cid = new_structure.cid.with_config(offset + idx)
-                    new_structure.add_result(res)
-
-                    # Rename config_xai entries
-                    for key in structure.cfg_keys:
-                        if key in config_xai and old_cid.external_name in config_xai[key]:
-                            config_xai[key][res.cid.external_name] = config_xai[key][old_cid.external_name]
-                            del config_xai[key][old_cid.external_name]
-
-                    if res.status == StatusType.SUCCESS:
-                        # Rename model files so that they can be found during ensemble construction
-                        os.rename(os.path.join(workdir, model_file(cid.with_config(idx))),
-                                  os.path.join(workdir, model_file(res.cid)))
-
         for s in data.values():
             for res in s.results:
                 res.model_file = os.path.abspath(os.path.join(workdir, model_file(res.cid)))
 
         # Fill in missing meta-information
         meta_information.end_time = time.time()
-        meta_information.n_configs = sum([len(c.results) for c in collapsed_data.values()])
-        meta_information.n_structures = len(collapsed_data)
+        meta_information.n_configs = sum([len(c.results) for c in data.values()])
+        meta_information.n_structures = len(data)
         meta_information.iterations = iterations
         meta_information.incumbent = min(
-            [s.get_incumbent().loss for s in collapsed_data.values() if s.get_incumbent() is not None]
+            [s.get_incumbent().loss for s in data.values() if s.get_incumbent() is not None]
         )
 
-        return RunHistory(collapsed_data, meta_information, structure_xai, config_xai)
+        return RunHistory(data, meta_information, structure_xai, config_xai)
 
     def __getitem__(self, k: CandidateId) -> CandidateStructure:
         return self.data[k]
@@ -162,7 +133,7 @@ class RunHistory:
         if len(tmp_list) > 0:
             structure = self.data[min(tmp_list)[1]]
             # TODO pipeline is not fitted. Maybe store fitted pipeline?
-            pipeline = clone(structure.pipeline)
+            pipeline: FlexiblePipeline = clone(structure.pipeline)
             result = structure.get_incumbent()
             if result is None:
                 raise ValueError('Incumbent structure has no config evaluations')
