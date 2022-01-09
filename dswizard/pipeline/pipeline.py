@@ -37,7 +37,11 @@ class FlexiblePipeline(ConfigurablePipeline):
 
     def get_step(self, name: str):
         step_name = name.split(':')[0]
-        return self.steps_[step_name]
+        try:
+            return self.steps_[step_name]
+        except KeyError:
+            # Not sure why this happens but try again with full name
+            return self.steps_[name]
 
     def all_names(self, prefix: str = None) -> List[str]:
         res = []

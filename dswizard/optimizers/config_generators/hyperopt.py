@@ -79,24 +79,22 @@ class Hyperopt(BaseConfigGenerator):
 
     def sample_config(self, cid: Optional[CandidateId] = None, cfg_key: Optional[ConfigKey] = None,
                       name: Optional[str] = None, default: bool = False) -> Configuration:
-        candidates = []
-        candidates_ei = []
         try:
-            config = None
             if len(self.kde.losses) == 0 or default:
                 config = self.configspace.get_default_configuration()
                 config.origin = 'Default'
+                candidates = [config] * self.num_samples
+                candidates_ei = [1] * self.num_samples
             elif self.kde.is_trained():
                 candidates, candidates_ei = self._sample_candidates()
-
-                if len(candidates) > 0:
-                    config = candidates[np.argmax(candidates_ei)]
-            if config is None:
-                config = self.configspace.sample_configuration()
-                config.origin = 'Random Search'
+                config = candidates[np.argmax(candidates_ei)]
+            else:
+                raise ValueError('Not fitted yet')
         except Exception:
             config = self.configspace.sample_configuration()
             config.origin = 'Random Search'
+            candidates = [config] * self.num_samples
+            candidates_ei = [1] * self.num_samples
 
         self._record_explanation(cid, cfg_key, name, candidates, candidates_ei)
         return config

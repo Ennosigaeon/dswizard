@@ -66,13 +66,14 @@ class RunHistory:
                                    for pc in np.array(partial_configs).T]
 
                         config_explanations[cid] = {
-                            'loss': np.clip(loss, -1000, 100).tolist(),
+                            'loss': np.clip(loss, -100, 100).tolist(),
                             'candidates': configs,
                             'marginalization': marginalization
                         }
                 except ValueError as ex:
                     logging.error('Failed to reconstruct global config.\n'
-                                  f'Exception: {ex}\nStructure: {structure}')
+                                  f'Exception: {ex}\nStructure: {structure["pipeline"]}\n'
+                                  f'ConfigSpace: {structure["configspace"]}\nConfig: {partial_configs}')
                 except KeyError as ex:
                     logging.error(f'Failed to find cid {cid} in config explanations')
 

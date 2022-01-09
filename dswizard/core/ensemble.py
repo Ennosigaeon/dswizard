@@ -164,8 +164,9 @@ class EnsembleBuilder:
         n_models = float(n_models)
         new_probs = candidate[3]
         new_probs = (probs * n_models + new_probs) / (n_models + 1.0)
+        y_pred = candidate[2]._final_estimator.classes_[np.argmax(new_probs, axis=1)]
 
-        score = util.score(y, new_probs, np.argmax(new_probs, axis=1), metric=metric)
+        score = util.score(y, new_probs, y_pred, metric=metric)
         return score, new_probs
 
     def predict(self, X):
