@@ -64,7 +64,7 @@ class Node:
             pipeline_prefix = []
         else:
             pipeline_prefix = deepcopy(pipeline_prefix)
-            pipeline_prefix.append((f'{len(pipeline_prefix)}_{self.label}', self.component))
+            pipeline_prefix.append((f'{len(pipeline_prefix)}:{self.label}', self.component))
         self.steps: List[Tuple[str, EstimatorComponent]] = pipeline_prefix
 
         self.visits = 0
@@ -697,7 +697,7 @@ class MCTS(BaseStructureGenerator):
         try:
             node = self.cid_to_node[candidate.cid]
             self._backpropagate(node, reward, exit=True)
-        except (IndexError, ValueError, AttributeError) as ex:
+        except (IndexError, ValueError, AttributeError, KeyError) as ex:
             self.logger.warning(f'Unable to backpropagate results: {ex}')
 
     # noinspection PyMethodMayBeStatic

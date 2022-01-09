@@ -6,6 +6,7 @@ import multiprocessing_logging
 from ConfigSpace import Configuration, ConfigurationSpace
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, log_loss
 from sklearn.utils.multiclass import type_of_target
+from slugify import slugify
 
 from dswizard.components.util import prefixed_name
 
@@ -100,7 +101,7 @@ def openml_mapping(task: int = None, ds: int = None, name: str = None):
 # No typehint due to circular import with model.py
 def model_file(cid) -> str:
     if isinstance(cid.config, str):
-        return f'step_{cid.config}.pkl'
+        return f'step_{slugify(cid.config)}.pkl'
     else:
         return 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())
 
