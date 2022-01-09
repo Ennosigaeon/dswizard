@@ -43,7 +43,7 @@ class Hyperopt(BaseConfigGenerator):
                  min_points_in_model: int = 0,
                  top_n_percent: int = 15,
                  num_samples: int = 64,
-                 random_fraction: float = 1 / 3,
+                 random_fraction: float = 0.2,
                  bandwidth_factor: float = 3,
                  min_bandwidth: float = 1e-3,
                  worst_score: float = np.inf,
@@ -85,7 +85,7 @@ class Hyperopt(BaseConfigGenerator):
                 config.origin = 'Default'
                 candidates = [config] * self.num_samples
                 candidates_ei = [1] * self.num_samples
-            elif self.kde.is_trained():
+            elif self.kde.is_trained() and np.random.random() > self.random_fraction:
                 candidates, candidates_ei = self._sample_candidates()
                 config = candidates[np.argmax(candidates_ei)]
             else:
