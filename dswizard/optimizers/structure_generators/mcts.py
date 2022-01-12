@@ -297,7 +297,7 @@ class Policy(ABC):
                 'explore': exploration,
                 'visits': n.visits - 1,  # node visits is always off by 1 to prevent division by 0
                 'overfit': overfitting,
-                'explore_weight': self._exploration_weight
+                'weight': self._exploration_weight
             }
         else:
             return adjusted_score
@@ -472,9 +472,6 @@ class MCTS(BaseStructureGenerator):
             failed = True
         if not path[-1].is_terminal():
             self.logger.warning(f'Current path is not terminal. Trying tree traversal {retries} more times...')
-            failed = True
-        if len(path) > 3:
-            self.logger.debug(f'Current path contains is too long. Trying tree traversal {retries} more times...')
             failed = True
         if failed:
             with self.lock:
