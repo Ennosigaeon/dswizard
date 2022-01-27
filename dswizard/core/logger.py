@@ -24,7 +24,10 @@ from dswizard.util import util
 class ResultLogger:
     def __init__(self, directory: str, tmp_dir: str):
         # Remove old results
-        shutil.rmtree(directory)
+        try:
+            shutil.rmtree(directory)
+        except FileNotFoundError:
+            pass
 
         os.makedirs(directory, exist_ok=True)
         os.makedirs(os.path.join(directory, MODEL_DIR), exist_ok=True)
