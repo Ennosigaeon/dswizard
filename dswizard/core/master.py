@@ -55,13 +55,13 @@ class Master:
                  worker_class: Type[Worker] = SklearnWorker,
 
                  config_generator_class: Type[BaseConfigGenerator] = Hyperopt,
-                 config_generator_kwargs: dict = None,
+                 config_generator_kwargs: Dict = None,
 
                  structure_generator_class: Type[BaseStructureGenerator] = MCTS,
-                 structure_generator_kwargs: dict = None,
+                 structure_generator_kwargs: Dict = None,
 
                  bandit_learner_class: Type[BanditLearner] = PseudoBandit,
-                 bandit_learner_kwargs: dict = None
+                 bandit_learner_kwargs: Dict = None
                  ):
         """
         The Master class is responsible for the book keeping and to decide what to run next. Optimizers are

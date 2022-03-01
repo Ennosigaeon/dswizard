@@ -28,7 +28,7 @@ def load_tpot(base_dir: str):
             return type(step).__name__
 
     # noinspection PyUnresolvedReferences
-    def load_model(input: str):
+    def load_model(input_: str):
         from sklearn.ensemble import AdaBoostClassifier
         from sklearn.naive_bayes import BernoulliNB
         from sklearn.tree import DecisionTreeClassifier
@@ -71,10 +71,10 @@ def load_tpot(base_dir: str):
         import numpy as np
 
         try:
-            pipeline: Pipeline = eval(input)['pipeline']
-        except Exception as ex:
+            pipeline: Pipeline = eval(input_)['pipeline']
+        except Exception:
             print(file)
-            print(input)
+            print(input_)
             pipeline = None
         return pipeline
 
@@ -123,7 +123,7 @@ def load_autosklearn(base_dir: str):
 
     def resolve_type(step):
         if isinstance(step, AutoSklearnChoice):
-            name = type(step.estimator_).__name__
+            name = type(step.choice).__name__
             return rename[name] if name in rename else name
         elif isinstance(step, DataPreprocessor):
             ls = []
@@ -140,10 +140,10 @@ def load_autosklearn(base_dir: str):
             return rename[name] if name in rename else name
 
     # noinspection PyUnresolvedReferences
-    def load_model(input: str):
+    def load_model(input_: str):
         from autosklearn.pipeline.classification import SimpleClassificationPipeline
         try:
-            raw = [p.steps for _, p in eval(input)]
+            raw = [p.steps for _, p in eval(input_)]
             models = []
             for pipeline in raw:
                 steps = ['LabelEncoder']
@@ -156,7 +156,7 @@ def load_autosklearn(base_dir: str):
                 models.append(steps)
             return models
         except Exception as ex:
-            print(ex, input)
+            print(ex, input_)
             return []
 
     with open('fig/configspace.pkl', 'rb') as f:

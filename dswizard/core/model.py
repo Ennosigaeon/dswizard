@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections import namedtuple
 from enum import Enum
-from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Any
+from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Any, Dict
 
 import joblib
 import numpy as np
@@ -48,7 +48,7 @@ class MetaInformation:
                  openml_task: int,
                  openml_fold: int,
                  data_file: str,
-                 config: dict[str, Any]
+                 config: Dict[str, Any]
                  ):
         # Information available before optimization
         self.start_time = start_time
@@ -63,7 +63,7 @@ class MetaInformation:
         self.end_time: Optional[float] = None
         self.n_structures: Optional[int] = None
         self.n_configs: Optional[int] = None
-        self.iterations: Optional[dict] = None
+        self.iterations: Optional[Dict] = None
         self.incumbent: Optional[float] = None
 
     def as_dict(self):
@@ -164,7 +164,7 @@ class Runtime:
         }
 
     @staticmethod
-    def from_dict(raw: dict) -> 'Optional[Runtime]':
+    def from_dict(raw: Dict) -> 'Optional[Runtime]':
         if raw is None:
             return None
         return Runtime(**raw)
@@ -216,7 +216,7 @@ class Result:
         return d
 
     @staticmethod
-    def from_dict(raw: dict, cs: ConfigurationSpace) -> 'Result':
+    def from_dict(raw: Dict, cs: ConfigurationSpace) -> 'Result':
         config = Configuration(cs, raw['config'])
         config.origin = raw['origin']
         return Result(CandidateId.parse(raw['id']), StatusType[raw['status']], config,
@@ -274,7 +274,7 @@ class CandidateStructure:
         return self.configspace is None and self.pipeline is None and self.cfg_keys is None
 
     @staticmethod
-    def from_dict(raw: dict) -> 'CandidateStructure':
+    def from_dict(raw: Dict) -> 'CandidateStructure':
         # noinspection PyTypeChecker
         cs = CandidateStructure(config_json.read(raw['configspace']), None, raw['cfg_keys'], raw['budget'])
         cs.cid = CandidateId.parse(raw['cid'])
@@ -340,7 +340,7 @@ class Dataset:
                  cutoff: int = 120,
                  task: int = None,
                  fold: int = None,
-                 feature_names: list[str] = None):
+                 feature_names: List[str] = None):
         self.X = X
         self.y = y
 
@@ -407,7 +407,7 @@ class PartialConfig:
         }
 
     @staticmethod
-    def from_dict(raw: dict, origin: str) -> 'PartialConfig':
+    def from_dict(raw: Dict, origin: str) -> 'PartialConfig':
         # meta data are deserialized via pickle
         config = Configuration(config_json.read(raw['configspace']), vector=np.array(raw['config']))
         config.origin = origin

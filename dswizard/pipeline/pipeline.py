@@ -25,7 +25,7 @@ class FlexiblePipeline(ConfigurablePipeline):
 
     def __init__(self,
                  steps: List[Tuple[str, EstimatorComponent]],
-                 configuration: Optional[dict] = None,
+                 configuration: Optional[Dict] = None,
                  cfg_cache: Optional[ConfigCache] = None,
                  cfg_keys: Optional[List[ConfigKey]] = None):
         self.cfg_keys = cfg_keys
@@ -54,7 +54,7 @@ class FlexiblePipeline(ConfigurablePipeline):
              y: np.ndarray = None,
              logger: ProcessLogger = None,
              prefix: str = None,
-             **fit_params_steps: dict):
+             **fit_params_steps: Dict):
         # shallow copy of steps - this should really be steps_
         self.steps = list(self.steps)
         self._validate_steps()
@@ -97,7 +97,7 @@ class FlexiblePipeline(ConfigurablePipeline):
             y: np.ndarray = None,
             logger: ProcessLogger = None,
             prefix: str = None,
-            **fit_params: dict):
+            **fit_params: Dict):
         if self.configuration is None and self.cfg_cache is None:
             raise ValueError(
                 'Pipeline is not configured yet. Either call set_hyperparameters or provide a ConfigGenerator')

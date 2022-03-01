@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, List
 from typing import Type, Tuple
 
 import joblib
@@ -27,7 +27,7 @@ class ConfigCache:
 
         def __init__(self, model: Pipeline):
             self.store = SimilarityStore(model)
-            self.generators: list[BaseConfigGenerator] = []
+            self.generators: List[BaseConfigGenerator] = []
 
         def add(self, mf, cg):
             self.store.add(mf)
@@ -37,7 +37,7 @@ class ConfigCache:
     def __init__(self,
                  clazz: Type[BaseConfigGenerator],
                  model: str = None,
-                 init_kwargs: dict = None,
+                 init_kwargs: Dict = None,
                  logger: logging.Logger = None):
         self.clazz = clazz
 

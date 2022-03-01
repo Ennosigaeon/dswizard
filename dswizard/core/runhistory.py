@@ -71,10 +71,11 @@ class RunHistory:
                             'marginalization': marginalization
                         }
                 except ValueError as ex:
+                    # noinspection PyUnboundLocalVariable
                     logging.error('Failed to reconstruct global config.\n'
                                   f'Exception: {ex}\nStructure: {structure["pipeline"]}\n'
                                   f'ConfigSpace: {structure["configspace"]}\nConfig: {partial_configs}')
-                except KeyError as ex:
+                except KeyError:
                     logging.error(f'Failed to find cid {cid} in config explanations')
 
         self.data = data

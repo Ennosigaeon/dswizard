@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 
 from dswizard.core.base_bandit_learner import BanditLearner
@@ -39,7 +41,7 @@ class HyperbandLearner(BanditLearner):
 
     def _get_next_iteration(self,
                             iteration: int,
-                            iteration_kwargs: dict = None) -> SuccessiveHalving:
+                            iteration_kwargs: Dict = None) -> SuccessiveHalving:
         """
         Returns a SH iteration with only evaluations on the biggest budget
         :param iteration: the index of the iteration to be instantiated

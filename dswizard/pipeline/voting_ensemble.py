@@ -7,6 +7,7 @@ from sklearn.utils.multiclass import check_classification_targets
 
 class PrefitVotingClassifier(VotingClassifier):
 
+    # noinspection PyAttributeOutsideInit
     def fit(self, X, y, sample_weight=None) -> 'PrefitVotingClassifier':
         """Fit the estimators.
 
@@ -42,7 +43,6 @@ class PrefitVotingClassifier(VotingClassifier):
 
         self.le_ = LabelEncoder().fit(y)
         self.classes_ = self.le_.classes_
-        transformed_y = self.le_.transform(y)
 
         """Get common fit operations."""
         names, clfs = self._validate_estimators()

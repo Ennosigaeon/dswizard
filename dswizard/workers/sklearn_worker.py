@@ -36,14 +36,16 @@ class SklearnWorker(Worker):
                 process_logger: ProcessLogger) -> List[float]:
         if config is None:
             # Derive configuration on complete data set. Test performance via CV
-            cloned_pipeline = clone(pipeline)
+            # noinspection PyTypeChecker
+            cloned_pipeline: FlexiblePipeline = clone(pipeline)
             cloned_pipeline.cid = cid
             cloned_pipeline.cfg_cache = cfg_cache
             cloned_pipeline.cfg_keys = cfg_keys
             cloned_pipeline.fit(ds.X, ds.y, logger=process_logger)
             config = process_logger.get_config(cloned_pipeline)
 
-        cloned_pipeline = clone(pipeline)
+        # noinspection PyTypeChecker
+        cloned_pipeline: FlexiblePipeline = clone(pipeline)
         cloned_pipeline.set_hyperparameters(config.get_dictionary())
         score, _, _, models = self._score(ds, cloned_pipeline)
         self._store_models(cid, models)

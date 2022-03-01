@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import Counter
+from typing import Tuple, List
 
 import multiprocessing_logging
 from ConfigSpace import Configuration, ConfigurationSpace
@@ -65,7 +66,7 @@ def metric_sign(metric: str) -> int:
     return -1
 
 
-def worst_score(metric: str) -> tuple[float, float]:
+def worst_score(metric: str) -> Tuple[float, float]:
     if metric in ('accuracy', 'precision', 'recall', 'f1', 'roc_auc'):
         return 0, 0
     else:
@@ -106,7 +107,7 @@ def model_file(cid) -> str:
         return 'models_{}-{}-{}.pkl'.format(*cid.as_tuple())
 
 
-def merge_configurations(partial_configs,  # type: list[PartialConfig]
+def merge_configurations(partial_configs,  # type: List[PartialConfig]
                          cs: ConfigurationSpace) -> Configuration:
     complete = {}
     for partial_config in partial_configs:

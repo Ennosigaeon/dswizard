@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
     from dswizard.core.base_iteration import BaseIteration
@@ -24,7 +24,7 @@ class BanditLearner(abc.ABC):
         self.max_iterations = 0
 
     @abc.abstractmethod
-    def _get_next_iteration(self, iteration: int, iteration_kwargs: dict) -> BaseIteration:
+    def _get_next_iteration(self, iteration: int, iteration_kwargs: Dict) -> BaseIteration:
         """
         instantiates the next iteration
 
@@ -35,7 +35,7 @@ class BanditLearner(abc.ABC):
         """
         pass
 
-    def next_candidate(self, iteration_kwargs: dict = None) -> List[CandidateStructure]:
+    def next_candidate(self, iteration_kwargs: Dict = None) -> List[CandidateStructure]:
         """
         Returns the next CandidateStructure with an according budget.
         :param iteration_kwargs:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import ConfigSpace
 import ConfigSpace.hyperparameters
@@ -99,7 +99,7 @@ class Hyperopt(BaseConfigGenerator):
         self._record_explanation(cid, cfg_key, name, candidates, candidates_ei)
         return config
 
-    def _sample_candidates(self) -> tuple[list[Configuration], list[float]]:
+    def _sample_candidates(self) -> Tuple[List[Configuration], List[float]]:
         candidates_ei = []
         candidates = []
 
@@ -152,7 +152,7 @@ class Hyperopt(BaseConfigGenerator):
         return candidates, candidates_ei
 
     def _record_explanation(self, cid: CandidateId, cfg_key: ConfigKey, name: str,
-                            candidates: list[Configuration], loss: list[float]):
+                            candidates: List[Configuration], loss: List[float]):
         self.explanations[cid.external_name] = {
             'candidates': [PartialConfig(cfg_key, c, name, None) for c in candidates],
             'loss': loss,

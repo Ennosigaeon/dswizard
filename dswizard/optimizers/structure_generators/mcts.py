@@ -693,19 +693,19 @@ class MCTS(BaseStructureGenerator):
 
         try:
             node = self.cid_to_node[candidate.cid]
-            self._backpropagate(node, reward, exit=True)
+            self._backpropagate(node, reward, exit_=True)
         except (IndexError, ValueError, AttributeError, KeyError) as ex:
             self.logger.warning(f'Unable to backpropagate results: {ex}')
 
     # noinspection PyMethodMayBeStatic
-    def _backpropagate(self, node: Node, reward: float, exit: bool = False) -> None:
+    def _backpropagate(self, node: Node, reward: float, exit_: bool = False) -> None:
         """Send the reward back up to the ancestors of the leaf"""
         with self.lock:
             nodes = [node] + list(self.tree.predecessors(node)) + [self.tree.get_node(self.tree.ROOT)]
 
             for pred in nodes:
                 pred.update(reward)
-                if exit:
+                if exit_:
                     pred.exit()
 
     def explain(self) -> Dict[str, Any]:
