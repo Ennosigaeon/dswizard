@@ -22,7 +22,7 @@ README = (pathlib.Path(__file__).parent / 'README.md').read_text()
 if __name__ == '__main__':
     setup(
         name='dswizard',
-        version='0.2.1',
+        version='0.2.2',
         description='DataScience Wizard for automatic assembly of machine learning pipelines',
         long_description=README,
         long_description_content_type='text/markdown',
@@ -35,8 +35,8 @@ if __name__ == '__main__':
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 3.8'
         ],
-        packages=find_namespace_packages(include=['dswizard.*']),
-        python_requires='>=3.5',
+        packages=find_namespace_packages(include=['dswizard.*', 'automl.*']),
+        python_requires='>=3.7',
         include_package_data=True,
         install_requires=requirements,
         extras_require={

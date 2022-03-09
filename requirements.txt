@@ -11,3 +11,4 @@ statsmodels~=0.13.1
 openml~=0.12.2
 multiprocessing_logging~=0.3.1
 python-slugify~=5.0.2
+dswizard-components~=0.2.1

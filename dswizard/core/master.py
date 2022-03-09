@@ -109,7 +109,7 @@ class Master:
 
         # condition to synchronize the job_callback and the queue
         self.thread_cond = threading.Condition()
-        self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = {}
+        self.incomplete_structures: Dict[CandidateId, Tuple[CandidateStructure, int, int]] = dict()
 
         if n_workers < 1:
             raise ValueError(f'Expected at least 1 worker, given {n_workers}')
