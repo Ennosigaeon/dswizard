@@ -33,15 +33,17 @@ if __name__ == '__main__':
         classifiers=[
             'License :: OSI Approved :: MIT License',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.8'
+            'Programming Language :: Python :: 3.7',
+            'Programming Language :: Python :: 3.8',
+            'Programming Language :: Python :: 3.9'
         ],
         packages=find_namespace_packages(include=['dswizard.*', 'automl.*']),
         python_requires='>=3.7',
         include_package_data=True,
         install_requires=requirements,
         extras_require={
-            'visualization': ['pygraphviz~=1.7'],
-            'smac': ['smac~=1.1.1']
+            'visualization': ['pygraphviz~=1.9'],
+            'smac': ['smac~=1.2']
         },
         keywords=['automl', 'machine learning', 'pipeline synthesis']
     )
