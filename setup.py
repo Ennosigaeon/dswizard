@@ -22,7 +22,7 @@ README = (pathlib.Path(__file__).parent / 'README.md').read_text()
 if __name__ == '__main__':
     setup(
         name='dswizard',
-        version='0.2.3',
+        version='0.2.4',
         description='DataScience Wizard for automatic assembly of machine learning pipelines',
         long_description=README,
         long_description_content_type='text/markdown',

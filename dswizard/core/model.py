@@ -7,11 +7,9 @@ from typing import Optional, List, TYPE_CHECKING, Tuple, Union, Any, Dict
 
 import joblib
 import numpy as np
-import openml
 from ConfigSpace import ConfigurationSpace
 from ConfigSpace.configuration_space import Configuration
 from ConfigSpace.read_and_write import json as config_json
-from openml import OpenMLClassificationTask
 from sklearn.base import BaseEstimator
 
 import dswizard.components.util as comp_util
@@ -361,8 +359,9 @@ class Dataset:
 
     @staticmethod
     def from_openml(task: int, fold: int, metric: str):
+        import openml
         # noinspection PyTypeChecker
-        task: OpenMLClassificationTask = openml.tasks.get_task(task)
+        task: openml.tasks.OpenMLClassificationTask = openml.tasks.get_task(task)
         train_indices, test_indices = task.get_train_test_split_indices(fold=fold)
 
         X, y = task.get_X_and_y(dataset_format='dataframe')

@@ -132,3 +132,9 @@ from the raw data.
 This repository only contains the optimization logic. The actual basic ML components to be optimized are available in
 [_dswizard-components_](https://github.com/Ennosigaeon/dswizard-components). Currently, only _sklearn_ components are
 supported.
+
+
+## Release New Version
+
+Increase the version number in `setup.py` and build a new release with `python setup.py sdist`. Finally, upload the
+new version using `twine upload dist/dswizard-<VERSION>.tar.gz`.
