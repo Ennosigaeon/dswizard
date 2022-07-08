@@ -20,7 +20,7 @@ class SimilarityStore:
         else:
             self.model = None
             self.weight = np.ones(SimilarityStore.N_MF)
-        self.neighbours = NearestNeighbors(metric='wminkowski', p=2, metric_params={'w': self.weight})
+        self.neighbours = NearestNeighbors(metric='minkowski', p=2, metric_params={'w': self.weight})
         self.data = []
 
     def add(self, mf: MetaFeatures, data=None):

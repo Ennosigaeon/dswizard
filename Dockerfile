@@ -1,8 +1,13 @@
-FROM jupyter/minimal-notebook:e28c630dfc4f
+FROM jupyter/scipy-notebook:2022-05-09
 
-# Make sure the contents of our repo are in ${HOME}
-COPY . ${HOME}
+ENV VERSION=0.2.5
+
+COPY dist/dswizard-$VERSION.tar.gz /tmp/
+COPY dswizard/assets/ /home/jovyan/dswizard/assets/
+COPY scripts/ /home/jovyan/dswizard/examples/
+
 USER root
 RUN chown -R ${NB_UID} ${HOME}
 USER ${NB_USER}
-RUN pip install -e .
+
+RUN pip install /tmp/dswizard-$VERSION.tar.gz
