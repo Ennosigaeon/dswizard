@@ -10,9 +10,9 @@ import os
 from dswizard.core.master import Master
 from dswizard.core.model import Dataset
 from dswizard.optimizers.bandit_learners.pseudo import PseudoBandit
+from dswizard.optimizers.config_generators import Hyperopt
+from dswizard.optimizers.structure_generators.mcts import MCTS, TransferLearning
 from dswizard.util import util
-from optimizers.config_generators import Hyperopt
-from optimizers.structure_generators.mcts import MCTS, TransferLearning
 
 parser = argparse.ArgumentParser(description='Example 1 - dswizard optimization.')
 parser.add_argument('--wallclock_limit', type=float, help='Maximum optimization time for in seconds', default=60)
